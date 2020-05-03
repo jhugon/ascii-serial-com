@@ -11,19 +11,24 @@ CFLAGS_DEBUG=-g -Og -fsanitize=address -fsanitize=leak -fsanitize=undefined -fsa
 
 CFLAGS_OPT=-O2 -flto -Wstrict-aliasing -fstrict-aliasing
 
-all: test_debug test_opt cppcheck
+all: test.o
 
-test_debug: test.c
-	$(CC) $(CFLAGS) $(CFLAGS_DEBUG) test.c -o test_debug
+test.o: test.c
 
-test_opt: test.c
-	$(CC) $(CFLAGS) $(CFLAGS_OPT) test.c -o test_opt
+test: test.o
 
-test_opt_clang: test.c
-	clang test.c -o test_opt_clang
+#test_debug: test.c
+#	$(CC) $(CFLAGS) $(CFLAGS_DEBUG) test.c -o test_debug
+#
+#test_opt: test.c
+#	$(CC) $(CFLAGS) $(CFLAGS_OPT) test.c -o test_opt
+#
+#test_opt_clang: test.c
+#	clang test.c -o test_opt_clang
 
 cppcheck:
 	cppcheck .
 
+.PHONY: clean
 clean:
 	rm test_opt test_debug
