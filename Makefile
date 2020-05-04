@@ -1,9 +1,12 @@
 
-.PHONY: all clean
+.PHONY: all clean cppcheck
 
 all:
-	cd build; make
+	$(MAKE) -C build
 
 clean:
-	cd build; make clean
+	$(MAKE) -C build clean
 
+cppcheck:
+	$(MAKE) -C src cppcheck
+	
