@@ -22,11 +22,13 @@ ifneq (,$(findstring gcc,$(CC)))
   else
 endif
 
+objs=test.o functest.o
+
 all: test
 
-test: test.o
+test: $(objs)
 
-test.o: test.c
+$(objs): %.o: %.c
 
 cppcheck:
 	cppcheck .

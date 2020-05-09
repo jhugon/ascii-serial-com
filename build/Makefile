@@ -3,6 +3,10 @@ allcfiles_src=$(wildcard ../src/*.c)
 allcfiles=$(notdir $(allcfiles_src))
 allcfiles_configdirs=$(foreach dir,$(allconfigs),$(foreach f,$(allcfiles),$(dir)/$(f)))
 
+allhfiles_src=$(wildcard ../src/*.h)
+allhfiles=$(notdir $(allhfiles_src))
+allhfiles_configdirs=$(foreach dir,$(allconfigs),$(foreach f,$(allhfiles),$(dir)/$(f)))
+
 #$(info $$allconfigs is [${allconfigs}])
 #$(info $$allcfiles is [${allcfiles}])
 #$(info $$allcfiles_configdirs is [${allcfiles_configdirs}])
@@ -17,16 +21,16 @@ $(allcfiles_configdirs): $(allcfiles_src)
 
 $(makefiles_configdirs): ../src/Makefile
 
-native_gcc_opt: $(patsubst %,native_gcc_opt/%,$(allcfiles)) native_gcc_opt/Makefile
+native_gcc_opt: $(patsubst %,native_gcc_opt/%,$(allcfiles)) $(patsubst %,native_gcc_opt/%,$(allhfiles)) native_gcc_opt/Makefile
 	$(MAKE) -C native_gcc_opt CC=gcc build_type=opt
 
-native_gcc_debug: $(patsubst %,native_gcc_debug/%,$(allcfiles)) native_gcc_debug/Makefile
+native_gcc_debug: $(patsubst %,native_gcc_debug/%,$(allcfiles)) $(patsubst %,native_gcc_debug/%,$(allhfiles)) native_gcc_debug/Makefile
 	$(MAKE) -C native_gcc_debug CC=gcc build_type=debug
 
-avr_gcc_opt: $(patsubst %,avr_gcc_opt/%,$(allcfiles)) avr_gcc_opt/Makefile
+avr_gcc_opt: $(patsubst %,avr_gcc_opt/%,$(allcfiles)) $(patsubst %,avr_gcc_opt/%,$(allhfiles)) avr_gcc_opt/Makefile
 	$(MAKE) -C avr_gcc_opt CC=avr-gcc build_type=opt
 
-avr_gcc_debug: $(patsubst %,avr_gcc_debug/%,$(allcfiles)) avr_gcc_debug/Makefile
+avr_gcc_debug: $(patsubst %,avr_gcc_debug/%,$(allcfiles)) $(patsubst %,avr_gcc_debug/%,$(allhfiles)) avr_gcc_debug/Makefile
 	$(MAKE) -C avr_gcc_debug CC=avr-gcc build_type=debug
 
 native_gcc_opt/%.c: ../src/%.c
@@ -42,6 +46,22 @@ avr_gcc_opt/%.c: ../src/%.c
 	cp $< $@
 
 avr_gcc_debug/%.c: ../src/%.c
+	mkdir -p avr_gcc_debug
+	cp $< $@
+
+native_gcc_opt/%.h: ../src/%.h
+	mkdir -p native_gcc_opt
+	cp $< $@
+
+native_gcc_debug/%.h: ../src/%.h
+	mkdir -p native_gcc_debug
+	cp $< $@
+
+avr_gcc_opt/%.h: ../src/%.h
+	mkdir -p avr_gcc_opt
+	cp $< $@
+
+avr_gcc_debug/%.h: ../src/%.h
 	mkdir -p avr_gcc_debug
 	cp $< $@
 
