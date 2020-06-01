@@ -2,7 +2,7 @@ outfiles=dataformat.pdf
 
 all: $(outfiles)
 
-$(outfiles): %.pdf: %.tex
+$(outfiles): %.pdf: %.tex customdocclass.cls
 	mkdir -p build
 	lualatex -interaction=batchmode --output-directory=build $<
 	cp build/$@ .

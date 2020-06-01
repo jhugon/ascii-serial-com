@@ -5,10 +5,10 @@
 \ProvidesClass{customdocclass}[2020/05/31 version 1.0 Custom class for data format and API documentation]
 \NeedsTeXFormat{LaTeX2e}
 
-\LoadClass[letterpaper,12pt]{article}
+\LoadClass[letterpaper,11pt]{article}
 
 \RequirePackage{expl3}
-%\RequirePackage[letterpaper,hmargin=1in,vmargin=1in]{geometry}
+\RequirePackage[letterpaper,hmargin=1.5in,vmargin=1.5in]{geometry}
 
 \RequirePackage[utf8]{inputenc}
 \RequirePackage[T1]{fontenc}
