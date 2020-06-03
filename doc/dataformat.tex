@@ -6,13 +6,15 @@
 
 \maketitle
 
+\section{Version 0}
+
 This is the format for a serial communication protocol based on ASCII. The
 protocol is not meant to be efficient, but to be easily human readable.
 
 \textbf{This protocol defines a host and a device (like USB). Command types
 have different meanings depending on if they are sent from a host or device}
 
-\section{Data Frame}
+\subsection{Data Frame}
 
 Data frames are made up of 8-bit bytes. Only the following symbols are present in frames:
 
@@ -26,24 +28,32 @@ All of the characters are 8-bit ASCII (with the MSB set to 0).
 
 The maximum frame size is 64 bytes to reduce buffer size in microcontrollers.
 
-\subsection{Data Frame Format}
+\subsubsection{Data Frame Format}
 
 The data frame consists of the following:
 
 \begin{itemize}
   \item The start of frame character `>'
-  \item Two bytes of version and format information represented in the characters a-zA-Z0-9
+  \item One byte of version information for ASCII Serial Com; must be ASCII 0
+  \item One byte of application version and format information represented in the characters a-zA-Z0-9
   \item One byte of command and/or message type as lower case letters a-z
   \item Data is then sent as 0-9A-F (the letters must be capital)
   \begin{itemize}
     \item The space character may be used to group data
   \end{itemize}
   \item The end of data character `.'
-  \item A CRC code represented as ASCII hex 0-9A-F (capitals)
+  \item A CRC code represented as ASCII hex 0-9A-F (capitals). The CRC should be run from the start of frame character to the end of data character (inclusive). Use CRC-16-DNP (\url{http://reveng.sourceforge.net/crc-catalogue/16.htm\#crc.cat-bits.16})
   \item The end of frame character `\textbackslash n'
 \end{itemize}
 
-\section{Command and/or Message Types}
+Examples:
+
+\begin{lstlisting}
+>00r0F.9AD2\n
+>02w0F 003FFF92.EA89\n
+\end{lstlisting}
+
+\subsection{Command and/or Message Types}
 
 \begin{center}
 \small
