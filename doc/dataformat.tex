@@ -1,6 +1,8 @@
 \documentclass{customdocclass}
 
 \title{ASCII-Serial-Com Data Format}
+\author{Justin Hugon}
+\date{2020-06-05}
 
 \begin{document}
 
@@ -35,11 +37,12 @@ The data frame consists of the following:
 \begin{itemize}
   \item The start of frame character `>'
   \item One byte of version information for ASCII Serial Com; must be ASCII 0
-  \item One byte of application version and format information represented in the characters a-zA-Z0-9
+  \item One byte of application version and format information represented in the characters A-Z0-9
   \item One byte of command and/or message type as lower case letters a-z
-  \item Data is then sent as 0-9A-F (the letters must be capital)
+  \item Data is then sent as hex 0-9A-F (the letters must be capital)
   \begin{itemize}
-    \item The space character may be used to group data
+    \item The protocol may use the comma character `,' to separate fields
+    \item Applications may use the space character to group data
   \end{itemize}
   \item The end of data character `.'
   \item A CRC code represented as ASCII hex 0-9A-F (capitals). The CRC should be run from the start of frame character to the end of data character (inclusive). Use CRC-16-DNP (\url{http://reveng.sourceforge.net/crc-catalogue/16.htm\#crc.cat-bits.16})
@@ -61,10 +64,10 @@ Command/Message Type Summary Table
 \begin{tabularx}{\textwidth}{|X|l|X|X|} \hline
 \multicolumn{2}{|c|}{Command/Type} & & \\ \hline
 Description & Code & Host Sent Data & Dev Sent Data \\ \hline
-Read register & r & Reg num & Reg num space reg content \\ \hline
-Write register & w & Reg num space reg content & Reg num (for success) \\ \hline
-Dump device registers & d & no data, just req's dump & Dump all reg content into a frame delimited by spaces (if too big for a frame, then all that fit) \\ \hline
-Configure device registers & c & Register content space separated & reply with no data if success \\ \hline
+Read register & r & Reg num & Reg num comma (`,') reg content \\ \hline
+Write register & w & Reg num comma (`,') reg content & Reg num (for success) \\ \hline
+Dump device registers & d & no data, just req's dump & Dump all reg content into a frame delimited by commas (`,') (if too big for a frame, then all that fit) \\ \hline
+Configure device registers & c & Register content comma (`,') separated & reply with no data if success \\ \hline
 Data stream frame & s & frame number comma (`,') data &  frame number comma (`,') data \\ \hline
 Device stream on & n & & \\ \hline
 Device stream off & f & & \\ \hline
@@ -72,9 +75,9 @@ Device stream off & f & & \\ \hline
 \end{center}
 
 \begin{itemize}
-  \item r: Read register: The host sends this command with a register number as data (in capital hex). The device will respond with an `r' message with data register number then space then register value, both in capital hex.
-  \item w: Write register: The host sends this command with data: register number then space then register value, both in capital hex. On success, the device will respond with a `w' message with the register number as data (in capital hex).
-  \item d: Dump device registers: The host sends this command with no data. The device replies with a `d' message. The reply data is each consecutive device register content, in ASCII capital hex, appended one after another, each separated by spaces. If the number (and bit width) of registers is larger than the maximum frame size, then the device should only send the first N registers that fit (although the device can send fewer for simplicity). Note that the register numbers aren't sent, just their content.
+  \item r: Read register: The host sends this command with a register number as data (in capital hex). The device will respond with an `r' message with data register number then comma (`,') then register value, both in capital hex.
+  \item w: Write register: The host sends this command with data: register number then comma (`,') then register value, both in capital hex. On success, the device will respond with a `w' message with the register number as data (in capital hex).
+  \item d: Dump device registers: The host sends this command with no data. The device replies with a `d' message. The reply data is each consecutive device register content, in ASCII capital hex, appended one after another, each separated by commas (`,'). If the number (and bit width) of registers is larger than the maximum frame size, then the device should only send the first N registers that fit (although the device can send fewer for simplicity). Note that the register numbers aren't sent, just their content.
   \item c: Configure device registers: The host sends this command. The sent data is the same as described in the reply of the `d' command. Care should be taken that the host sends the correct bit-width of registers. On success, the device should reply with a `c' message with no data.
   \item s: Data stream frame: The same format is sent from the host to the device or the device to the host. For streaming from the host, the host just starts streaming. For streaming to the host, the host must send the `n' and `f' commands to start and stop streaming. The data consists of a stream frame number (1 to 8 bytes) a `,' character, and the data. The stream frame number and data must be in ASCII capital hex. Spaces may be put into the data to act as e.g. field separators. The stream frame number must increment by one with each frame sent.
   \item n: Device stream on: The host sends this with no data to tell the device to start streaming data.

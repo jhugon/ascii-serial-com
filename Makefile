@@ -1,5 +1,5 @@
 
-.PHONY: cppcheck default
+.PHONY: cppcheck default doc
 
 ## Default rule
 
@@ -8,6 +8,9 @@ default:
 
 cppcheck:
 	$(MAKE) -C src cppcheck
+
+doc:
+	$(MAKE) -C doc
 
 ## If none of above pass goal on to build dir goals:
 .DEFAULT:
