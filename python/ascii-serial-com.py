@@ -16,9 +16,15 @@ class Ascii_Serial_Com(object):
         self,
         registerBitWidth,
         crcFailBehavior="throw",
-        appVersion=u"0",
-        asciiSerialComVersion=u"0",
+        appVersion=b"0",
+        asciiSerialComVersion=b"0",
     ):
+        """
+        registerBitWidth: an int, probably 8 or 32
+        crcFailBehavior: a str: "throw", "warn", "pass"
+        appVersion: a len 1 byte
+        asciiSerialComVersion: a len 1 byte
+        """
         self.registerBitWidth = registerBitWidth
         self.registerByteWidth = int(math.ceil(registerBitWidth / 8))
         self.crcFailBehavior = crcFailBehavior
@@ -74,9 +80,43 @@ class Ascii_Serial_Com(object):
     def __str__(self):
         pass
 
+    def _pack_message(self, command, data):
+        """
+        Packs command and data into a frame with checksum
+
+        command: length 1 bytes
+
+        data: data as bytes
+
+        returns data frame as bytes
+        """
+        pass
+
+    def _unpack_message(self, frame):
+        """
+        Unpacks a data frame into command and data while verifying checksum
+
+        frame: bytes or bytearray
+
+        returns (command, data) both as bytes
+        """
+        pass
+
+    def _frame_from_stream(self, f):
+        """
+        Reads bytes from f and attempts to identify a message frame.
+
+        f: file-like object
+
+        returns: frame as bytes
+        """
+        pass
+
     def _check_command(self, command):
         """
         Checks command meets format specification
+
+        command: length 1 byte or bytearray
 
         returns properly formatted command byte
 
@@ -92,11 +132,25 @@ class Ascii_Serial_Com(object):
             raise Exception("command argument must be an ASCII letter not: ", command)
         return command.lower()
 
+    def _check_data(self, command, data):
+        """
+        Checks data payload meets format specification for given command
+
+        command: length 1 byte or bytearray
+
+        data: bytes or bytearray data payload of message
+
+        returns None
+
+        raises Exception if not fomatted correctly
+        """
+        pass
+
     def _check_register_content(self, content):
         """
-        Checks register content matches format specification and register width
+        Checks register content passed to write_register matches format specification and register width
 
-        returns properly content
+        returns properly formatted content
 
         raises Exception if not fomatted correctly or incorrect bit width
         """
@@ -132,3 +186,13 @@ class Ascii_Serial_Com(object):
                 "content argument must be convertible to hexadecimal number"
             )
         return content.lower()
+
+    def _compute_checksum(self, frame):
+        """
+        Computes the checksum for the given data frame from the `>' through the `.'
+
+        frame: bytes representing the frame
+        
+        returns checksum as hexadecimal (capitals) bytes
+        """
+        pass

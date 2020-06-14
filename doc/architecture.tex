@@ -11,6 +11,28 @@
 This document describes the high-level architecture for a serial communication
 protocol based on ASCII.
 
+\section{Overview}
+
+Assuming UART receives data into a buffer and data in another buffer is
+transmitted. ASCII-Serial-Com is part of a data processing loop (likely low
+priority) on a microcontroller.
+
+For just the basic register control interface (not streaming), the device could
+just have a function in it's event loop like:
+
+\begin{lstlisting}[language=C]
+void pollAsciiSerialCom(uint8_t* inBuffer, uint8_t inBufSize, uint8_t* outBuffer, uint8_t outBufSize, void* registers, uint16_t regSize);
+\end{lstlisting}
+
+That would then call functions below to read from inbuffer, frame, check,
+unpack, and dispatch functions to the appropriate function for action. The
+outBuffer is there for responses, and registers are there for reads and writes.
+
+A macro would define the bit-width of each register.
+
+May want to have an argument that is the register to store the number of
+checksum errors in.
+
 \section{Receiver}
 
 \begin{itemize}
