@@ -1,0 +1,62 @@
+\documentclass{customdocclass}
+
+\title{ASCII-Serial-Com Software Architecture}
+\author{Justin Hugon}
+\date{2020-06-13}
+
+\begin{document}
+
+\maketitle
+
+This document describes the high-level architecture for a serial communication
+protocol based on ASCII.
+
+\section{Receiver}
+
+\begin{itemize}
+  \item Framer: identifies and returns frames out of the incoming serial byte stream
+  \begin{itemize}
+    \item Inputs: byte stream
+    \item Outputs: data frame
+  \end{itemize}
+  \item Checker: computes and verifies the checksum of the frame
+  \begin{itemize}
+    \item Inputs: data frame
+    \item Outputs: valid flag
+  \end{itemize}
+  \item Unpacker: unpacks the message type (command) and data from the frame
+  \begin{itemize}
+    \item Inputs: data frame
+    \item Outputs: message type, data
+  \end{itemize}
+  \item Dispatcher (optional): sends different message types to different functions or threads
+  \begin{itemize}
+    \item Inputs: message type, data
+  \end{itemize}
+\end{itemize}
+
+\section{Transmitter}
+
+\begin{itemize}
+  \item Packer: packs the message type (command) and data into a frame
+  \begin{itemize}
+    \item Inputs: command, data
+    \item Outputs: data frame without checksum or end of frame
+  \end{itemize}
+  \item Checker: computes and verifies the checksum of the frame (can be part of packer)
+  \begin{itemize}
+    \item Inputs: data frame without checksum or end of frame
+    \item Outputs: data frame
+  \end{itemize}
+  \item Streamer: puts the frame into the message stream
+\end{itemize}
+
+\section{Shared Components}
+
+\begin{itemize}
+  \item Checksum calculator
+  \item Message type validation
+  \item Data validation for message type (for python implementation)
+\end{itemize}
+
+\end{document}

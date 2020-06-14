@@ -1,4 +1,4 @@
-outfiles=dataformat.pdf
+outfiles=dataformat.pdf architecture.pdf
 
 all: $(outfiles)
 
