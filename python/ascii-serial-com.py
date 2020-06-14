@@ -39,7 +39,17 @@ class Ascii_Serial_Com(object):
 
         returns register content as bytes
         """
-        pass
+        regnum_hex = self._convert_to_hex(regnum)
+        self.send_message(b'r',regnum_hex,self.f)
+        command, data = self.receive_message(self.f)
+        if command == b'r':
+          rec_regnum, rec_value = data.split(b',')
+          if int(rec_regnum,16) = int(regnum_hex,16):
+            return rec_value
+          else:
+              raise Exception("Received 'r' message was for register ", rec_regnum, " not requested ", regnum_hex)
+        else:
+            raise Exception("Received message wasn't type 'r', was type: ", command)
 
     def write_register(self, regnum, content):
         """
@@ -51,9 +61,20 @@ class Ascii_Serial_Com(object):
             The integer is converted to little-endian bytes, 
             and negative integers aren't allowed.
 
-        returns register content as bytes
+        returns None
+
+        raises exception if not success
         """
-        pass
+        regnum_hex = self._convert_to_hex(regnum)
+        content_hex = self._check_register_content(content)
+        data = regnum_hex + b',' + content_hex        
+        self.send_message(b'w',data,self.f)
+        rec_command, rec_data = self.receive_message(self.f)
+        if rec_command == b'w':
+          if not (int(rec_data,16) == int(regnum_hex,16)):
+              raise Exception("Received 'w' message was for register ", rec_data, " not requested ", regnum_hex)
+        else:
+            raise Exception("Received message wasn't type 'w', was type: ", rec_command)
 
     def send_message(self, command, data, f):
         """
@@ -144,7 +165,9 @@ class Ascii_Serial_Com(object):
 
         raises Exception if not fomatted correctly
         """
-        pass
+        if command == b'w':
+            
+            
 
     def _check_register_content(self, content):
         """
@@ -163,7 +186,7 @@ class Ascii_Serial_Com(object):
                     content,
                     "requires more bits than registerBitWidth",
                 )
-            b"{:0X}" % content
+            content = b"{:0X}" % content
         if not (isinstance(content, bytes) or isinstance(content, bytearray)):
             raise Exception(
                 "content argument", command, "isn't bytes or bytearray type or int"
@@ -185,7 +208,13 @@ class Ascii_Serial_Com(object):
             raise Exception(
                 "content argument must be convertible to hexadecimal number"
             )
-        return content.lower()
+        if (
+            int(content, 16).bit_length() > self.registerBitWidth
+        ):  # in case content is bytes so missed earlier check
+            raise Exception(
+                "content argument", content, "requires more bits than registerBitWidth"
+            )
+        return content.upper()
 
     def _compute_checksum(self, frame):
         """
@@ -196,3 +225,16 @@ class Ascii_Serial_Com(object):
         returns checksum as hexadecimal (capitals) bytes
         """
         pass
+
+    def _convert_to_hex(self, num, N=2):
+        if isinstance(content, bytes) or isinstance(content, bytearray):
+            return num
+        else:
+            return b"{:0"+str(N)+"X}" % num
+
+    def _convert_from_hex(self, num):
+        if isinstance(int):
+            return result
+        else:
+            return int(num,16)
+
