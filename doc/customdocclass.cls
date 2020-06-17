@@ -1,4 +1,4 @@
-% 2020/05/31 Justin Hugon 
+% 2020/05/31 Justin Hugon
 
 % --- Class structure: identification part
 % ---
@@ -53,7 +53,7 @@
 \definecolor{mygray}{rgb}{0.5,0.5,0.5}
 \definecolor{mymauve}{rgb}{0.58,0,0.82}
 
-\lstset{ 
+\lstset{
   backgroundcolor=\color{white},   % choose the background color; you must add \usepackage{color} or \usepackage{xcolor}; should come as last argument
   basicstyle=\footnotesize\tt,        % the size of the fonts that are used for the code
   breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace

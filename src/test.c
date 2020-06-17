@@ -1,20 +1,19 @@
-#include <stdio.h>
 #include "functest.h"
+#include <stdio.h>
 
-int main()
-{
+int main() {
   printf("Hello world\n");
-  functest1(5,false);
+  functest1(5, false);
   printf("Hello world\n");
-  functest1(7,true);
+  functest1(7, true);
   printf("Hello world\n");
-  functest1(9,true);
+  functest1(9, true);
   printf("Hello world\n");
-  functest1(1,true);
+  functest1(1, true);
   printf("Hello world\n");
-  functest1(3,true);
+  functest1(3, true);
   printf("Hello world\n");
-  functest1(9,true);
+  functest1(9, true);
   printf("Hello world\n");
-  functest1(2,true);
+  functest1(2, true);
 }

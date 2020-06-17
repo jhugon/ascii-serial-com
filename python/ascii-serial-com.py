@@ -65,7 +65,7 @@ class Ascii_Serial_Com(object):
         regnum: an integer register number
 
         content: bytes to write to the regnum or an integer.
-            The integer is converted to little-endian bytes, 
+            The integer is converted to little-endian bytes,
             and negative integers aren't allowed.
 
         timeout: time to wait for a reply in seconds. defaults to 1
@@ -241,7 +241,7 @@ class Ascii_Serial_Com(object):
         Computes the checksum for the given data frame from the `>' through the `.'
 
         frame: bytes representing the frame
-        
+
         returns checksum as hexadecimal (capitals) bytes
         """
         pass

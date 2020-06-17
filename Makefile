@@ -15,4 +15,3 @@ doc:
 ## If none of above pass goal on to build dir goals:
 .DEFAULT:
 	$(MAKE) -C build $(MAKECMDGOALS)
-

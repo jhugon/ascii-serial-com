@@ -86,4 +86,3 @@ clean:
 	-rm -fr native_gcc_debug
 	-rm -fr avr_gcc_opt
 	-rm -fr avr_gcc_debug
-
