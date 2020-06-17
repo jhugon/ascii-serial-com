@@ -5,6 +5,7 @@
 
 default:
 	$(MAKE) -C build native_gcc_debug
+	$(MAKE) -C build native_clang_debug
 
 cppcheck:
 	$(MAKE) -C src cppcheck

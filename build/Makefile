@@ -1,4 +1,4 @@
-allconfigs=native_gcc_opt native_gcc_debug avr_gcc_opt avr_gcc_debug
+allconfigs=native_gcc_opt native_gcc_debug avr_gcc_opt avr_gcc_debug native_clang_debug
 allcfiles_src=$(wildcard ../src/*.c)
 allcfiles=$(notdir $(allcfiles_src))
 allcfiles_configdirs=$(foreach dir,$(allconfigs),$(foreach f,$(allcfiles),$(dir)/$(f)))
@@ -13,9 +13,9 @@ allhfiles_configdirs=$(foreach dir,$(allconfigs),$(foreach f,$(allhfiles),$(dir)
 
 makefiles_configdirs=$(foreach dir,$(allconfigs),$(dir)/Makefile)
 
-.PHONY: all clean copy_files native_gcc_debug native_gcc_opt avr_gcc_debug avr_gcc_opt
+.PHONY: all clean copy_files native_gcc_debug native_gcc_opt avr_gcc_debug avr_gcc_opt native_clang_debug
 
-all: native_gcc_debug native_gcc_opt avr_gcc_debug avr_gcc_opt
+all: native_gcc_debug native_gcc_opt avr_gcc_debug avr_gcc_opt native_clang_debug
 
 $(allcfiles_configdirs): $(allcfiles_src)
 
@@ -33,6 +33,9 @@ avr_gcc_opt: $(patsubst %,avr_gcc_opt/%,$(allcfiles)) $(patsubst %,avr_gcc_opt/%
 avr_gcc_debug: $(patsubst %,avr_gcc_debug/%,$(allcfiles)) $(patsubst %,avr_gcc_debug/%,$(allhfiles)) avr_gcc_debug/Makefile
 	$(MAKE) -C avr_gcc_debug CC=avr-gcc build_type=debug
 
+native_clang_debug: $(patsubst %,native_clang_debug/%,$(allcfiles)) $(patsubst %,native_clang_debug/%,$(allhfiles)) native_clang_debug/Makefile
+	$(MAKE) -C native_clang_debug CC=clang build_type=debug
+
 native_gcc_opt/%.c: ../src/%.c
 	mkdir -p native_gcc_opt
 	cp $< $@
@@ -47,6 +50,10 @@ avr_gcc_opt/%.c: ../src/%.c
 
 avr_gcc_debug/%.c: ../src/%.c
 	mkdir -p avr_gcc_debug
+	cp $< $@
+
+native_clang_debug/%.c: ../src/%.c
+	mkdir -p native_clang_debug
 	cp $< $@
 
 native_gcc_opt/%.h: ../src/%.h
@@ -65,6 +72,10 @@ avr_gcc_debug/%.h: ../src/%.h
 	mkdir -p avr_gcc_debug
 	cp $< $@
 
+native_clang_debug/%.h: ../src/%.h
+	mkdir -p native_clang_debug
+	cp $< $@
+
 native_gcc_opt/Makefile: ../src/Makefile
 	mkdir -p native_gcc_opt
 	cp $< $@
@@ -81,8 +92,13 @@ avr_gcc_debug/Makefile: ../src/Makefile
 	mkdir -p avr_gcc_debug
 	cp $< $@
 
+native_clang_debug/Makefile: ../src/Makefile
+	mkdir -p native_clang_debug
+	cp $< $@
+
 clean:
 	-rm -fr native_gcc_opt
 	-rm -fr native_gcc_debug
 	-rm -fr avr_gcc_opt
 	-rm -fr avr_gcc_debug
+	-rm -fr native_clang_debug
