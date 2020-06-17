@@ -3,6 +3,7 @@ ASCII Serial Com Python Interface
 """
 
 import math
+import datetime
 
 
 class Ascii_Serial_Com(object):
@@ -30,28 +31,34 @@ class Ascii_Serial_Com(object):
         self.crcFailBehavior = crcFailBehavior
         self.appVersion = appVersion
         self.asciiSerialComVersion = asciiSerialComVersion
+        self.nBytesT = 0
+        self.nBytesR = 0
+        self.nCrcErrors = 0
 
-    def read_register(self, regnum):
+    def read_register(self, regnum, timeout=None):
         """
         Read register on device
 
         regnum: an integer register number
 
+        timeout: time to wait for a reply in seconds. defaults to 1
+
         returns register content as bytes
         """
+        if timeout is None:
+            timeout = 1.0
         regnum_hex = self._convert_to_hex(regnum)
-        self.send_message(b'r',regnum_hex,self.f)
-        command, data = self.receive_message(self.f)
-        if command == b'r':
-          rec_regnum, rec_value = data.split(b',')
-          if int(rec_regnum,16) = int(regnum_hex,16):
-            return rec_value
-          else:
-              raise Exception("Received 'r' message was for register ", rec_regnum, " not requested ", regnum_hex)
-        else:
-            raise Exception("Received message wasn't type 'r', was type: ", command)
+        self.send_message(b"r", regnum_hex, self.f)
+        timeout_time = datetime.now() + datetime.timedelta(seconds=timeout)
+        while datetime.now() < timeout_time:
+            command, data = self.receive_message(self.f)
+            if command == b"r":
+                rec_regnum, rec_value = data.split(b",")
+                if int(rec_regnum, 16) == int(regnum_hex, 16):
+                    return rec_value
+        raise Exception("Timout while waiting for response")
 
-    def write_register(self, regnum, content):
+    def write_register(self, regnum, content, timeout=None):
         """
         write register on device
 
@@ -61,20 +68,25 @@ class Ascii_Serial_Com(object):
             The integer is converted to little-endian bytes, 
             and negative integers aren't allowed.
 
+        timeout: time to wait for a reply in seconds. defaults to 1
+
         returns None
 
         raises exception if not success
         """
+        if timeout is None:
+            timeout = 1.0
         regnum_hex = self._convert_to_hex(regnum)
         content_hex = self._check_register_content(content)
-        data = regnum_hex + b',' + content_hex        
-        self.send_message(b'w',data,self.f)
-        rec_command, rec_data = self.receive_message(self.f)
-        if rec_command == b'w':
-          if not (int(rec_data,16) == int(regnum_hex,16)):
-              raise Exception("Received 'w' message was for register ", rec_data, " not requested ", regnum_hex)
-        else:
-            raise Exception("Received message wasn't type 'w', was type: ", rec_command)
+        data = regnum_hex + b"," + content_hex
+        self.send_message(b"w", data, self.f)
+        timeout_time = datetime.now() + datetime.timedelta(seconds=timeout)
+        while datetime.now() < timeout_time:
+            rec_command, rec_data = self.receive_message(self.f)
+            if rec_command == b"w":
+                if int(rec_data, 16) == int(regnum_hex, 16):
+                    return
+        raise Exception("Timout while waiting for response")
 
     def send_message(self, command, data, f):
         """
@@ -87,7 +99,8 @@ class Ascii_Serial_Com(object):
 
         returns None
         """
-        pass
+        message = self._pack_message(command, data)
+        f.write(message)
 
     def receive_message(self, f):
         """
@@ -96,10 +109,17 @@ class Ascii_Serial_Com(object):
         returns (command, data)
 
         """
-        pass
+        frame = self._frame_from_stream(f)
+        command, data = self._unpack_message(frame)
 
     def __str__(self):
-        pass
+        result = """Ascii_Serial_Com Object:
+  Register width: {0.registerBitWidth:} bits, {0.registerByteWidth} bytes
+  N CRC Errors: {0.nCrcErrors:6}, CRC fail behavior: {0.crcFailBehavior}
+  N Bytes transmit: {0.nBytesT:8}, receive: {0.nBytesR:8}""".format(
+            self
+        )
+        return result
 
     def _pack_message(self, command, data):
         """
@@ -111,7 +131,8 @@ class Ascii_Serial_Com(object):
 
         returns data frame as bytes
         """
-        pass
+        command = self._check_command(command)
+        data = self._check_data(command, data)
 
     def _unpack_message(self, frame):
         """
@@ -165,9 +186,8 @@ class Ascii_Serial_Com(object):
 
         raises Exception if not fomatted correctly
         """
-        if command == b'w':
-            
-            
+        pass
+        # if command == b'w':
 
     def _check_register_content(self, content):
         """
@@ -230,11 +250,15 @@ class Ascii_Serial_Com(object):
         if isinstance(content, bytes) or isinstance(content, bytearray):
             return num
         else:
-            return b"{:0"+str(N)+"X}" % num
+            return b"{:0" + str(N) + "X}" % num
 
     def _convert_from_hex(self, num):
         if isinstance(int):
             return result
         else:
-            return int(num,16)
+            return int(num, 16)
 
+
+if __name__ == "__main__":
+    asc = Ascii_Serial_Com(32)
+    print(asc)
