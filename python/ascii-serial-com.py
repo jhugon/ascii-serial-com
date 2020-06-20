@@ -4,6 +4,7 @@ ASCII Serial Com Python Interface
 
 import math
 import datetime
+import crcmod
 
 
 class Ascii_Serial_Com(object):
@@ -19,18 +20,28 @@ class Ascii_Serial_Com(object):
         crcFailBehavior="throw",
         appVersion=b"0",
         asciiSerialComVersion=b"0",
+        ascVersionMismatchThrow=True,
+        appVersionMismatchThrow=False,
     ):
         """
         registerBitWidth: an int, probably 8 or 32
         crcFailBehavior: a str: "throw", "warn", "pass"
         appVersion: a len 1 byte
         asciiSerialComVersion: a len 1 byte
+        ascVersionMismatchThrow: bool, if True, throws an
+            error if message asciiSerialComVersion doesn't
+            match one given to __init__
+        appVersionMismatchThrow: bool, if True, throws an
+            error if message appVersion doesn't
+            match one given to __init__
         """
         self.registerBitWidth = registerBitWidth
         self.registerByteWidth = int(math.ceil(registerBitWidth / 8))
         self.crcFailBehavior = crcFailBehavior
         self.appVersion = appVersion
         self.asciiSerialComVersion = asciiSerialComVersion
+        self.ascVersionMismatchThrow = ascVersionMismatchThrow
+        self.appVersionMismatchThrow = appVersionMismatchThrow
         self.nBytesT = 0
         self.nBytesR = 0
         self.nCrcErrors = 0
@@ -51,7 +62,7 @@ class Ascii_Serial_Com(object):
         self.send_message(b"r", regnum_hex, self.f)
         timeout_time = datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.now() < timeout_time:
-            command, data = self.receive_message(self.f)
+            _, _, command, data = self.receive_message(self.f)
             if command == b"r":
                 rec_regnum, rec_value = data.split(b",")
                 if int(rec_regnum, 16) == int(regnum_hex, 16):
@@ -82,7 +93,7 @@ class Ascii_Serial_Com(object):
         self.send_message(b"w", data, self.f)
         timeout_time = datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.now() < timeout_time:
-            rec_command, rec_data = self.receive_message(self.f)
+            _, _, rec_command, rec_data = self.receive_message(self.f)
             if rec_command == b"w":
                 if int(rec_data, 16) == int(regnum_hex, 16):
                     return
@@ -106,11 +117,26 @@ class Ascii_Serial_Com(object):
         """
         f: file-like object to write the message to
 
-        returns (command, data)
+        returns (ascVersion, appVersion, command, data) all as bytes
+            ascVersion is the ASCII-Serial-Com format version
+            appVersion is a user supplied application version
 
         """
         frame = self._frame_from_stream(f)
-        command, data = self._unpack_message(frame)
+        ascVersion, appVersion, command, data = self._unpack_message(frame)
+        if ascVersion != self.asciiSerialComVersion and self.ascVersionMismatchThrow:
+            raise Exception(
+                "Message ASCII-Serial-Com version mismatch. Message version: {} Expected version: {}".format(
+                    ascVersion, self.asciiSerialComVersion
+                )
+            )
+        if appVersion != self.appVersion and self.appVersionMismatchThrow:
+            raise Exception(
+                "Message ASCII-Serial-Com application version mismatch. Message version: {} Expected version: {}".format(
+                    appVersion, self.appVersion
+                )
+            )
+        return ascVersion, appVersion, command, data
 
     def __str__(self):
         result = """Ascii_Serial_Com Object:
@@ -133,6 +159,15 @@ class Ascii_Serial_Com(object):
         """
         command = self._check_command(command)
         data = self._check_data(command, data)
+        message = b">%c%c%c%b." % (
+            self.asciiSerialComVersion,
+            self.appVersion,
+            command,
+            data,
+        )
+        checksum = self._compute_checksum(message)
+        message += checksum + b"\n"
+        return message
 
     def _unpack_message(self, frame):
         """
@@ -140,9 +175,40 @@ class Ascii_Serial_Com(object):
 
         frame: bytes or bytearray
 
-        returns (command, data) both as bytes
+        returns (ascVersion, appVersion, command, data) all as bytes
+            ascVersion is the ASCII-Serial-Com format version
+            appVersion is a user supplied application version
         """
-        pass
+        original_frame = frame
+        comp_checksum = self._compute_checksum(frame)
+        frame, checksum = frame.split(b".")
+        checksum = checksum.rstrip(b"\n")
+        if checksum != comp_checksum:
+            self.nCrcErrors += 1
+            if self.crcFailBehavior != "pass":
+                print(
+                    "Checksum mismatch, computed: {} received: {}".format(
+                        comp_checksum, checksum
+                    )
+                )
+                if self.crcFailBehavior == "throw":
+                    raise ValueError("Message checksums don't match")
+                elif self.crcFailBehavior == "warn":
+                    pass
+                else:
+                    raise ValueError(
+                        "crcFailBehavior value not understood: ", self.crcFailBehavior
+                    )
+        frame = frame.lstrip(b">")
+        try:
+            ascVersion = frame[0]
+            appVersion = frame[1]
+            command = frame[3]
+            data = frame[4, -1]
+        except IndexError:
+            raise Exception("Malformed frame: ", original_frame)
+        else:
+            return ascVersion, appVersion, command, data
 
     def _frame_from_stream(self, f):
         """
