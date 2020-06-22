@@ -7,6 +7,132 @@ import datetime
 import crcmod
 
 
+class Circular_Buffer_Bytes(object):
+    """
+    Implements a circular buffer as a bytearray object
+    """
+
+    def __init__(self, N):
+        self.capacity = N
+        self.data = bytearray(N)
+        self.iStart = 0
+        self.iStop = 0
+        self.size = 0
+
+    def push_back(self, b):
+        """
+        Add bytes to the end of the circular buffer
+
+        Does so by overwriting earlier contents if necessary
+        """
+        for x in b:
+            self.data[self.iStop] = x
+            self.iStop = (self.iStop + 1) % self.capacity
+            if self.size == self.capacity:
+                self.iStart = (self.iStart + 1) % self.capacity
+            else:
+                self.size += 1
+
+    def push_front(self, b):
+        """
+        Add bytes to the start of the circular buffer
+
+        Does so by overwriting later contents if necessary
+        """
+        for x in reversed(b):
+            self.iStart = (self.iStart - 1) % self.capacity
+            self.data[self.iStart] = x
+            if self.size == self.capacity:
+                self.iStop = (self.iStop - 1) % self.capacity
+            else:
+                self.size += 1
+
+    def pop_front(self, N):
+        """
+        Pop the first N bytes off of start of the circular buffer and return them
+        """
+        if N > self.capacity:
+            raise ValueError(
+                "N is greater than capacity of buffer: ", N, " > ", self.capacity
+            )
+        N = min(N, self.size)
+        result = bytearray(N)
+        for i in range(min(N, self.size)):
+            result[i] = self.data[self.iStart]
+            self.iStart = (self.iStart + 1) & self.capacity
+            self.size -= 1
+        return result
+
+    def pop_back(self, N):
+        """
+        Pop the last N bytes off of the end of the circular buffer and return them
+        """
+        if N > self.capacity:
+            raise ValueError(
+                "N is greater than capacity of buffer: ", N, " > ", self.capacity
+            )
+        N = min(N, self.size)
+        result = bytearray(N)
+        for i in range(N):
+            j = (self.iStop - N) % self.capacity
+            result[i] = self.data[j]
+        self.iStop = (self.iStop - N) % self.capacity
+        self.size -= N
+        return result
+
+    def removeFrontTo(self, val, inclusive=False):
+        """
+        Remove front elements up to given val
+
+        if inclusive, then remove the given val, otherwise all before the given val
+
+        returns None
+        """
+        while True:
+            if self.isEmpty():
+                return
+            elif self.data[self.iStart] == val:
+                if inclusive:
+                    self.iStart = (self.iStart + 1) % self.capacity
+                    self.size -= 1
+                return
+            else:
+                self.iStart = (self.iStart + 1) % self.capacity
+                self.size -= 1
+
+    def removeBackTo(self, val, inclusive=False):
+        """
+        Remove back elements to given val
+
+        if inclusive, then remove the given val, otherwise all after the given val
+
+        returns None
+        """
+        while True:
+            if self.isEmpty():
+                return
+            elif self.data[self.iStop] == val:
+                if inclusive:
+                    self.iStop = (self.iStop - 1) % self.capacity
+                    self.size -= 1
+                return
+            else:
+                self.iStop = (self.iStop - 1) % self.capacity
+                self.size -= 1
+
+    def find(self):
+        pass
+
+    def __len__(self):
+        return self.size
+
+    def isFull(self):
+        return len(self) == self.capacity
+
+    def isEmpty(self):
+        return len(self) == 0
+
+
 class Ascii_Serial_Com(object):
     """
     ASCII Serial Com Python Interface Class
@@ -16,6 +142,7 @@ class Ascii_Serial_Com(object):
 
     def __init__(
         self,
+        f,
         registerBitWidth,
         crcFailBehavior="throw",
         appVersion=b"0",
@@ -24,6 +151,8 @@ class Ascii_Serial_Com(object):
         appVersionMismatchThrow=False,
     ):
         """
+        f: binary file object used for reading and
+            writing to device
         registerBitWidth: an int, probably 8 or 32
         crcFailBehavior: a str: "throw", "warn", "pass"
         appVersion: a len 1 byte
@@ -35,6 +164,7 @@ class Ascii_Serial_Com(object):
             error if message appVersion doesn't
             match one given to __init__
         """
+        self.f = f
         self.registerBitWidth = registerBitWidth
         self.registerByteWidth = int(math.ceil(registerBitWidth / 8))
         self.crcFailBehavior = crcFailBehavior
@@ -45,6 +175,8 @@ class Ascii_Serial_Com(object):
         self.nBytesT = 0
         self.nBytesR = 0
         self.nCrcErrors = 0
+
+        self.buffer = Circular_Buffer_Bytes(128)
 
     def read_register(self, regnum, timeout=None):
         """
@@ -63,6 +195,8 @@ class Ascii_Serial_Com(object):
         timeout_time = datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.now() < timeout_time:
             _, _, command, data = self.receive_message(self.f)
+            if command is None:
+                continue
             if command == b"r":
                 rec_regnum, rec_value = data.split(b",")
                 if int(rec_regnum, 16) == int(regnum_hex, 16):
@@ -94,6 +228,8 @@ class Ascii_Serial_Com(object):
         timeout_time = datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.now() < timeout_time:
             _, _, rec_command, rec_data = self.receive_message(self.f)
+            if rec_command is None:
+                continue
             if rec_command == b"w":
                 if int(rec_data, 16) == int(regnum_hex, 16):
                     return
@@ -110,19 +246,30 @@ class Ascii_Serial_Com(object):
 
         returns None
         """
+        if issubclass(f, io.TextIOBase):
+            raise TypeError(
+                "File objects passed to Ascii_Serial_Com should be opened in binary not text mode"
+            )
         message = self._pack_message(command, data)
         f.write(message)
+        f.flush()
 
-    def receive_message(self, f):
+    def receive_message(self, f, timeout=None):
         """
         f: file-like object to write the message to
+
+        timeout: time to wait for a reply in seconds. defaults to 100 ms
 
         returns (ascVersion, appVersion, command, data) all as bytes
             ascVersion is the ASCII-Serial-Com format version
             appVersion is a user supplied application version
 
+        if no frame is received, all members of return tuple will be None
+
         """
-        frame = self._frame_from_stream(f)
+        frame = self._frame_from_stream(f, timeout=timeout)
+        if frame is None:
+            return None, None, None, None
         ascVersion, appVersion, command, data = self._unpack_message(frame)
         if ascVersion != self.asciiSerialComVersion and self.ascVersionMismatchThrow:
             raise Exception(
@@ -210,15 +357,31 @@ class Ascii_Serial_Com(object):
         else:
             return ascVersion, appVersion, command, data
 
-    def _frame_from_stream(self, f):
+    def _frame_from_stream(self, f, timeout):
         """
         Reads bytes from f and attempts to identify a message frame.
 
         f: file-like object
 
-        returns: frame as bytes
+        timeout: float in seconds to wait for bytes on stream
+
+        returns: frame as bytes; None if no frame found in stream
         """
-        pass
+        if issubclass(f, io.TextIOBase):
+            raise TypeError(
+                "File objects passed to Ascii_Serial_Com should be opened in binary not text mode"
+            )
+        timeout_time = datetime.now() + datetime.timedelta(seconds=timeout)
+        while datetime.now() < timeout_time:
+            b = f.read(16)
+            self.buffer.push_back(b)
+            self.buffer.removeFrontTo(b">", inclusive=False)
+            if len(self.buffer) == 0:
+                continue
+            iNewline = self.buffer.find(b"\n")
+            if iNewline is None:
+                continue
+            return self.pop_front(iNewline)
 
     def _check_command(self, command):
         """
@@ -326,5 +489,6 @@ class Ascii_Serial_Com(object):
 
 
 if __name__ == "__main__":
-    asc = Ascii_Serial_Com(32)
+    f = None
+    asc = Ascii_Serial_Com(f, 32)
     print(asc)
