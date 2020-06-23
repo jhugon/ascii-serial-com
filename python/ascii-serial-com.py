@@ -4,6 +4,7 @@ ASCII Serial Com Python Interface
 
 import math
 import datetime
+import io
 import crcmod
 
 
@@ -120,8 +121,28 @@ class Circular_Buffer_Bytes(object):
                 self.iStop = (self.iStop - 1) % self.capacity
                 self.size -= 1
 
-    def find(self):
-        pass
+    def count(self, x):
+        """
+        Returns number of elements equal to x in buffer
+        """
+        result = 0
+        for i in range(self.size):
+            j = (self.iStart + i) % self.capacity
+            if self.data[j] == x:
+                result += 1
+        return result
+
+    def findFirst(self, x):
+        """
+        Returns the index (from iStart) of the first occurance of x
+
+        Returns None if no x found
+        """
+        for i in range(self.size):
+            j = (self.iStart + i) % self.capacity
+            if self.data[j] == x:
+                return i
+        return None
 
     def __len__(self):
         return self.size
@@ -177,6 +198,7 @@ class Ascii_Serial_Com(object):
         self.nCrcErrors = 0
 
         self.buffer = Circular_Buffer_Bytes(128)
+        self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
 
     def read_register(self, regnum, timeout=None):
         """
@@ -378,10 +400,10 @@ class Ascii_Serial_Com(object):
             self.buffer.removeFrontTo(b">", inclusive=False)
             if len(self.buffer) == 0:
                 continue
-            iNewline = self.buffer.find(b"\n")
+            iNewline = self.buffer.findFirst(b"\n")
             if iNewline is None:
                 continue
-            return self.pop_front(iNewline)
+            return self.buffer.pop_front(iNewline + 1)
 
     def _check_command(self, command):
         """
@@ -415,8 +437,12 @@ class Ascii_Serial_Com(object):
 
         raises Exception if not fomatted correctly
         """
-        pass
-        # if command == b'w':
+
+        ## since max frame length is 64, and other parts of frame are 8 bytes
+        ## data must be length <= 56
+        MAXDATALEN = 56
+        if len(data) > MAXDATALEN:
+            raise ValueError("Data can only be <= len", MAXDATALEN, "is", len(data))
 
     def _check_register_content(self, content):
         """
@@ -473,7 +499,17 @@ class Ascii_Serial_Com(object):
 
         returns checksum as hexadecimal (capitals) bytes
         """
-        pass
+        if frame[0] != b">" or frame[-1] != b"\n":
+            raise Exception(
+                "Inproperly formatted frame: incorrect start and end chars: ", frame
+            )
+        if frame.count(b".") != 1:
+            raise Exception(
+                "Inproperly formatted frame: no end of data character '.': ", frame
+            )
+        frame = frame.split(b".")[0] + b"."
+        result = hex(self.crcFunc(frame)).upper()
+        return result
 
     def _convert_to_hex(self, num, N=2):
         if isinstance(content, bytes) or isinstance(content, bytearray):
