@@ -6,6 +6,7 @@ import math
 import datetime
 import io
 import crcmod
+from ascErrors import *
 from circularBuffer import Circular_Buffer_Bytes
 
 
@@ -40,6 +41,10 @@ class Ascii_Serial_Com(object):
             error if message appVersion doesn't
             match one given to __init__
         """
+        if issubclass(f, io.TextIOBase):
+            raise TextFileNotAllowedError(
+                "File objects passed to Ascii_Serial_Com should be opened in binary not text mode"
+            )
         self.f = f
         self.registerBitWidth = registerBitWidth
         self.registerByteWidth = int(math.ceil(registerBitWidth / 8))
@@ -78,7 +83,7 @@ class Ascii_Serial_Com(object):
                 rec_regnum, rec_value = data.split(b",")
                 if int(rec_regnum, 16) == int(regnum_hex, 16):
                     return rec_value
-        raise Exception("Timout while waiting for response")
+        raise ResponseTimeoutError("Timout while waiting for response")
 
     def write_register(self, regnum, content, timeout=None):
         """
@@ -110,7 +115,7 @@ class Ascii_Serial_Com(object):
             if rec_command == b"w":
                 if int(rec_data, 16) == int(regnum_hex, 16):
                     return
-        raise Exception("Timout while waiting for response")
+        raise ResponseTimeoutError("Timout while waiting for response")
 
     def send_message(self, command, data, f):
         """
@@ -124,7 +129,7 @@ class Ascii_Serial_Com(object):
         returns None
         """
         if issubclass(f, io.TextIOBase):
-            raise TypeError(
+            raise TextFileNotAllowedError(
                 "File objects passed to Ascii_Serial_Com should be opened in binary not text mode"
             )
         message = self._pack_message(command, data)
@@ -149,14 +154,14 @@ class Ascii_Serial_Com(object):
             return None, None, None, None
         ascVersion, appVersion, command, data = self._unpack_message(frame)
         if ascVersion != self.asciiSerialComVersion and self.ascVersionMismatchThrow:
-            raise Exception(
-                "Message ASCII-Serial-Com version mismatch. Message version: {} Expected version: {}".format(
+            raise AsciiSerialComVersionMismatchError(
+                "Message version: {} Expected version: {}".format(
                     ascVersion, self.asciiSerialComVersion
                 )
             )
         if appVersion != self.appVersion and self.appVersionMismatchThrow:
-            raise Exception(
-                "Message ASCII-Serial-Com application version mismatch. Message version: {} Expected version: {}".format(
+            raise ApplicationVersionMismatchError(
+                "Message version: {} Expected version: {}".format(
                     appVersion, self.appVersion
                 )
             )
@@ -216,11 +221,11 @@ class Ascii_Serial_Com(object):
                     )
                 )
                 if self.crcFailBehavior == "throw":
-                    raise ValueError("Message checksums don't match")
+                    raise MessageIntegrityError("Message checksums don't match")
                 elif self.crcFailBehavior == "warn":
                     pass
                 else:
-                    raise ValueError(
+                    raise ConfigurationError(
                         "crcFailBehavior value not understood: ", self.crcFailBehavior
                     )
         frame = frame.lstrip(b">")
@@ -230,7 +235,7 @@ class Ascii_Serial_Com(object):
             command = frame[3]
             data = frame[4, -1]
         except IndexError:
-            raise Exception("Malformed frame: ", original_frame)
+            raise MalformedFrameError(original_frame)
         else:
             return ascVersion, appVersion, command, data
 
@@ -245,7 +250,7 @@ class Ascii_Serial_Com(object):
         returns: frame as bytes; None if no frame found in stream
         """
         if issubclass(f, io.TextIOBase):
-            raise TypeError(
+            raise TextFileNotAllowedError(
                 "File objects passed to Ascii_Serial_Com should be opened in binary not text mode"
             )
         timeout_time = datetime.now() + datetime.timedelta(seconds=timeout)
@@ -268,16 +273,20 @@ class Ascii_Serial_Com(object):
 
         returns properly formatted command byte
 
-        raises Exception if not fomatted correctly
+        raises BadCommandError if not fomatted correctly
         """
         if not (isinstance(command, bytes) or isinstance(command, bytearray)):
-            raise Exception(
+            raise BadCommandError(
                 "command argument", command, "isn't bytes or bytearray type"
             )
         if len(command) != 1:
-            raise Exception("command argument should be len 1, is len ", len(command))
+            raise BadCommandError(
+                "command argument should be len 1, is len ", len(command)
+            )
         if not command.isalpha():
-            raise Exception("command argument must be an ASCII letter not: ", command)
+            raise BadCommandError(
+                "command argument must be an ASCII letter not: ", command
+            )
         return command.lower()
 
     def _check_data(self, command, data):
@@ -290,14 +299,14 @@ class Ascii_Serial_Com(object):
 
         returns None
 
-        raises Exception if not fomatted correctly
+        raises BadDataError if not fomatted correctly
         """
 
         ## since max frame length is 64, and other parts of frame are 8 bytes
         ## data must be length <= 56
         MAXDATALEN = 56
         if len(data) > MAXDATALEN:
-            raise ValueError("Data can only be <= len", MAXDATALEN, "is", len(data))
+            raise BadDataError("Data can only be <= len", MAXDATALEN, "is", len(data))
 
     def _check_register_content(self, content):
         """
@@ -305,43 +314,45 @@ class Ascii_Serial_Com(object):
 
         returns properly formatted content
 
-        raises Exception if not fomatted correctly or incorrect bit width
+        raises BadRegisterContentError if not fomatted correctly or incorrect bit width
         """
         if isinstance(content, int):
             if content < 0:
-                raise Exception("content argument", content, "must be positive")
+                raise BadRegisterContentError(
+                    "content argument", content, "must be positive"
+                )
             if content.bit_length() > self.registerBitWidth:
-                raise Exception(
+                raise BadRegisterContentError(
                     "content argument",
                     content,
                     "requires more bits than registerBitWidth",
                 )
             content = b"{:0X}" % content
         if not (isinstance(content, bytes) or isinstance(content, bytearray)):
-            raise Exception(
+            raise BadRegisterContentError(
                 "content argument", command, "isn't bytes or bytearray type or int"
             )
         if len(content) != self.registerByteWidth:
-            raise Exception(
+            raise BadRegisterContentError(
                 "content argument should be len ",
                 self.registerByteWidth,
                 ", is len ",
                 len(content),
             )
         if not content.isalnum():
-            raise Exception(
+            raise BadRegisterContentError(
                 "content argument must be ASCII letters and numbers not: ", content
             )
         try:
             int(content, 16)
         except:
-            raise Exception(
+            raise BadRegisterContentError(
                 "content argument must be convertible to hexadecimal number"
             )
         if (
             int(content, 16).bit_length() > self.registerBitWidth
         ):  # in case content is bytes so missed earlier check
-            raise Exception(
+            raise BadRegisterContentError(
                 "content argument", content, "requires more bits than registerBitWidth"
             )
         return content.upper()
@@ -355,11 +366,9 @@ class Ascii_Serial_Com(object):
         returns checksum as hexadecimal (capitals) bytes
         """
         if frame[0] != b">" or frame[-1] != b"\n":
-            raise Exception(
-                "Inproperly formatted frame: incorrect start and end chars: ", frame
-            )
+            raise MalformedFrameError("Incorrect start and/or end chars: ", frame)
         if frame.count(b".") != 1:
-            raise Exception(
+            raise MalformedFrameError(
                 "Inproperly formatted frame: no end of data character '.': ", frame
             )
         frame = frame.split(b".")[0] + b"."
