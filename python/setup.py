@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 long_description = "Python interface to ASCII-Serial-Com, a human readable serial communication protocol."
-requires = []
+requires = ["crcmod"]
 
 setup(
     name="asciiserialcom",

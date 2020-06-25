@@ -69,7 +69,7 @@ class Circular_Buffer(object):
         result = self.collInitFunc(N)
         for i in range(min(N, self.size)):
             result[i] = self.data[self.iStart]
-            self.iStart = (self.iStart + 1) & self.capacity
+            self.iStart = (self.iStart + 1) % self.capacity
             self.size -= 1
         return result
 
@@ -84,7 +84,7 @@ class Circular_Buffer(object):
         N = min(N, self.size)
         result = self.collInitFunc(N)
         for i in range(N):
-            j = (self.iStop - N) % self.capacity
+            j = (self.iStop - N + i) % self.capacity
             result[i] = self.data[j]
         self.iStop = (self.iStop - N) % self.capacity
         self.size -= N
@@ -121,7 +121,7 @@ class Circular_Buffer(object):
         while True:
             if self.isEmpty():
                 return
-            elif self.data[self.iStop] == val:
+            elif self.data[self.iStop - 1] == val:
                 if inclusive:
                     self.iStop = (self.iStop - 1) % self.capacity
                     self.size -= 1
@@ -161,6 +161,16 @@ class Circular_Buffer(object):
 
     def isEmpty(self):
         return len(self) == 0
+
+    def __str__(self):
+        return "{}: capacity: {} size: {} iStart: {} iStop: {}\n    {}".format(
+            self.__class__.__name__,
+            self.capacity,
+            self.size,
+            self.iStart,
+            self.iStop,
+            self.data,
+        )
 
 
 class Circular_Buffer_Bytes(Circular_Buffer):

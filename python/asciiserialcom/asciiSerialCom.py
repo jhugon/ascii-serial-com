@@ -6,8 +6,8 @@ import math
 import datetime
 import io
 import crcmod
-from ascErrors import *
-from circularBuffer import Circular_Buffer_Bytes
+from .ascErrors import *
+from .circularBuffer import Circular_Buffer_Bytes
 
 
 class Ascii_Serial_Com(object):
