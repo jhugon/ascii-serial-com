@@ -203,6 +203,86 @@ class TestCircularBufferList(unittest.TestCase):
         self.assertEqual(len(buf), 1)
         self.assertEqual(popped, [3, 4, 1111, 2222, 3333])
 
+    def test_removeFrontTo(self):
+        buf = self.buf
+
+        buf.push_front(range(8))
+        buf.removeFrontTo(4, inclusive=True)
+        self.assertEqual(len(buf), 3)
+
+        buf.push_back([55] * 3)
+        buf.removeFrontTo(6, inclusive=False)
+        self.assertEqual(len(buf), 5)
+
+        self.assertEqual(buf.pop_back(len(buf)), [6, 7] + [55] * 3)
+        self.assertTrue(buf.isEmpty())
+        buf.removeFrontTo(6, inclusive=True)
+        self.assertTrue(buf.isEmpty())
+
+        buf.push_back(range(20))
+        buf.removeFrontTo(19, inclusive=True)
+        self.assertTrue(buf.isEmpty())
+
+    def test_removeBackTo(self):
+        buf = self.buf
+
+        buf.push_front(range(8))
+        buf.removeBackTo(4, inclusive=True)
+        self.assertEqual(len(buf), 4)
+
+        buf.push_back([55] * 3)
+        buf.removeBackTo(2, inclusive=False)
+        self.assertEqual(len(buf), 3)
+
+        self.assertEqual(buf.pop_back(len(buf)), [0, 1, 2])
+        self.assertTrue(buf.isEmpty())
+        buf.removeBackTo(6, inclusive=True)
+        self.assertTrue(buf.isEmpty())
+
+        buf.push_back(range(20))
+        buf.removeBackTo(0, inclusive=True)
+        self.assertTrue(buf.isEmpty())
+
+    def test_count(self):
+        buf = self.buf
+
+        self.assertEqual(buf.count(3), 0)
+
+        buf.push_back(range(4))
+        self.assertEqual(buf.count(3), 1)
+        buf.push_back([2] * 3)
+        self.assertEqual(buf.count(2), 4)
+        buf.push_back([99] * 20)
+        self.assertEqual(buf.count(99), buf.capacity)
+
+    def test_findFirst(self):
+        buf = self.buf
+
+        self.assertIsNone(buf.findFirst(3))
+
+        buf.push_back(range(5))
+        self.assertIsNone(buf.findFirst(8))
+        self.assertEqual(buf.findFirst(3), 3)
+        buf.push_front(range(2))
+        self.assertEqual(buf.findFirst(3), 5)
+        buf.push_back(range(50))
+        self.assertEqual(buf.findFirst(45), 5)
+
+    def test_getitem(self):
+        buf = self.buf
+        with self.assertRaises(IndexError):
+            buf[0]
+        with self.assertRaises(IndexError):
+            buf[5]
+        buf.push_back(range(5))
+        with self.assertRaises(IndexError):
+            buf[5]
+        self.assertEqual(buf[0], 0)
+        self.assertEqual(buf[4], 4)
+        buf.push_back(range(20))
+        self.assertEqual(buf[0], 10)
+        self.assertEqual(buf[9], 19)
+
 
 class TestCircularBufferBytes(unittest.TestCase):
     def setUp(self):
@@ -234,6 +314,35 @@ class TestCircularBufferBytes(unittest.TestCase):
         self.assertFalse(buf.isEmpty())
         self.assertEqual(len(buf), 1)
         self.assertEqual(popped, bytes([3, 4, 111, 222, 255]))
+
+    def test_count(self):
+        buf = self.buf
+
+        self.assertEqual(buf.count(3), 0)
+        self.assertEqual(buf.count(b"3"), 0)
+
+        buf.push_back(b"01234")
+        self.assertEqual(buf.count(b"3"), 1)
+        buf.push_back(b"2" * 3)
+        self.assertEqual(buf.count(b"2"), 4)
+        self.assertEqual(buf.count(b"2"[0]), 4)
+        buf.push_back(b"\xFF" * 20)
+        self.assertEqual(buf.count(b"\xFF"), buf.capacity)
+
+    def test_findFirst(self):
+        buf = self.buf
+
+        self.assertIsNone(buf.findFirst(b"3"))
+        self.assertIsNone(buf.findFirst(b"3"[0]))
+
+        buf.push_back(b"012345")
+        self.assertIsNone(buf.findFirst(b"8"))
+        self.assertEqual(buf.findFirst(b"3"), 3)
+        self.assertEqual(buf.findFirst(b"3"[0]), 3)
+        buf.push_front(b"01")
+        self.assertEqual(buf.findFirst(b"3"), 5)
+        buf.push_back(bytes(range(256)))
+        self.assertEqual(buf.findFirst(b"\xFB"), 5)
 
 
 if __name__ == "__main__":

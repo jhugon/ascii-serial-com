@@ -94,6 +94,8 @@ class Circular_Buffer(object):
         """
         Remove front elements up to given val
 
+        If there is a long string of the value, then inclusive only removes the first
+
         if inclusive, then remove the given val, otherwise all before the given val
 
         returns None
@@ -156,6 +158,14 @@ class Circular_Buffer(object):
     def __len__(self):
         return self.size
 
+    def __getitem__(self, i):
+        """
+        Access the circular buffer like a collection
+        """
+        if i >= len(self):
+            raise IndexError("index", i, " >= len: ", len(self))
+        return self.data[(self.iStart + i) % self.capacity]
+
     def isFull(self):
         return len(self) == self.capacity
 
@@ -180,6 +190,32 @@ class Circular_Buffer_Bytes(Circular_Buffer):
 
     def __init__(self, N):
         super().__init__(N, lambda n: bytearray(n))
+
+    def count(self, x):
+        """
+        Returns number of elements equal to x in buffer
+        """
+        if isinstance(x, bytes):
+            if len(x) != 1:
+                raise ValueError("x must be int or length 1 bytes, not:", x)
+            else:
+                x = x[0]
+
+        return super().count(x)
+
+    def findFirst(self, x):
+        """
+        Returns the index (from iStart) of the first occurance of x
+
+        Returns None if no x found
+        """
+        if isinstance(x, bytes):
+            if len(x) != 1:
+                raise ValueError("x must be int or length 1 bytes, not:", x)
+            else:
+                x = x[0]
+
+        return super().findFirst(x)
 
 
 if __name__ == "__main__":
