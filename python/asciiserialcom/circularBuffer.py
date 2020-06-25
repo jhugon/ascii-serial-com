@@ -191,6 +191,38 @@ class Circular_Buffer_Bytes(Circular_Buffer):
     def __init__(self, N):
         super().__init__(N, lambda n: bytearray(n))
 
+    def removeFrontTo(self, val, inclusive=False):
+        """
+        Remove front elements up to given val
+
+        If there is a long string of the value, then inclusive only removes the first
+
+        if inclusive, then remove the given val, otherwise all before the given val
+
+        returns None
+        """
+        if isinstance(val, bytes):
+            if len(val) != 1:
+                raise ValueError("val must be int or length 1 bytes, not:", val)
+            else:
+                val = val[0]
+        super().removeFrontTo(val, inclusive=inclusive)
+
+    def removeBackTo(self, val, inclusive=False):
+        """
+        Remove back elements to given val
+
+        if inclusive, then remove the given val, otherwise all after the given val
+
+        returns None
+        """
+        if isinstance(val, bytes):
+            if len(val) != 1:
+                raise ValueError("val must be int or length 1 bytes, not:", val)
+            else:
+                val = val[0]
+        super().removeBackTo(val, inclusive=inclusive)
+
     def count(self, x):
         """
         Returns number of elements equal to x in buffer

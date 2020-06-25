@@ -344,6 +344,14 @@ class TestCircularBufferBytes(unittest.TestCase):
         buf.push_back(bytes(range(256)))
         self.assertEqual(buf.findFirst(b"\xFB"), 5)
 
+    def test_removeFrontTo(self):
+        buf = self.buf
+
+        buf.push_back(b"0123456")
+        buf.removeFrontTo(b"0", inclusive=False)
+        self.assertEqual(len(buf), 7)
+        self.assertEqual(buf.pop_back(len(buf)), b"0123456")
+
 
 if __name__ == "__main__":
     unittest.main()

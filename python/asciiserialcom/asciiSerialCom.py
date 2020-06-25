@@ -41,7 +41,7 @@ class Ascii_Serial_Com(object):
             error if message appVersion doesn't
             match one given to __init__
         """
-        if issubclass(f, io.TextIOBase):
+        if isinstance(f, io.TextIOBase):
             raise TextFileNotAllowedError(
                 "File objects passed to Ascii_Serial_Com should be opened in binary not text mode"
             )
@@ -74,8 +74,8 @@ class Ascii_Serial_Com(object):
             timeout = 1.0
         regnum_hex = self._convert_to_hex(regnum)
         self.send_message(b"r", regnum_hex, self.f)
-        timeout_time = datetime.now() + datetime.timedelta(seconds=timeout)
-        while datetime.now() < timeout_time:
+        timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
+        while datetime.datetime.now() < timeout_time:
             _, _, command, data = self.receive_message(self.f)
             if command is None:
                 continue
@@ -107,8 +107,8 @@ class Ascii_Serial_Com(object):
         content_hex = self._check_register_content(content)
         data = regnum_hex + b"," + content_hex
         self.send_message(b"w", data, self.f)
-        timeout_time = datetime.now() + datetime.timedelta(seconds=timeout)
-        while datetime.now() < timeout_time:
+        timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
+        while datetime.datetime.now() < timeout_time:
             _, _, rec_command, rec_data = self.receive_message(self.f)
             if rec_command is None:
                 continue
@@ -128,7 +128,7 @@ class Ascii_Serial_Com(object):
 
         returns None
         """
-        if issubclass(f, io.TextIOBase):
+        if isinstance(f, io.TextIOBase):
             raise TextFileNotAllowedError(
                 "File objects passed to Ascii_Serial_Com should be opened in binary not text mode"
             )
@@ -149,6 +149,8 @@ class Ascii_Serial_Com(object):
         if no frame is received, all members of return tuple will be None
 
         """
+        if timeout is None:
+            timeout = 1.0
         frame = self._frame_from_stream(f, timeout=timeout)
         if frame is None:
             return None, None, None, None
@@ -232,11 +234,14 @@ class Ascii_Serial_Com(object):
         try:
             ascVersion = frame[0]
             appVersion = frame[1]
-            command = frame[3]
-            data = frame[4, -1]
+            command = frame[2]
+            data = frame[3:]
         except IndexError:
             raise MalformedFrameError(original_frame)
         else:
+            ascVersion = chr(ascVersion).encode("ascii")
+            appVersion = chr(appVersion).encode("ascii")
+            command = chr(command).encode("ascii")
             return ascVersion, appVersion, command, data
 
     def _frame_from_stream(self, f, timeout):
@@ -249,12 +254,12 @@ class Ascii_Serial_Com(object):
 
         returns: frame as bytes; None if no frame found in stream
         """
-        if issubclass(f, io.TextIOBase):
+        if isinstance(f, io.TextIOBase):
             raise TextFileNotAllowedError(
                 "File objects passed to Ascii_Serial_Com should be opened in binary not text mode"
             )
-        timeout_time = datetime.now() + datetime.timedelta(seconds=timeout)
-        while datetime.now() < timeout_time:
+        timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
+        while datetime.datetime.now() < timeout_time:
             b = f.read(16)
             self.buffer.push_back(b)
             self.buffer.removeFrontTo(b">", inclusive=False)
@@ -304,9 +309,12 @@ class Ascii_Serial_Com(object):
 
         ## since max frame length is 64, and other parts of frame are 8 bytes
         ## data must be length <= 56
+        if not isinstance(data, bytes):
+            raise BadDataError("Data must be bytes or bytearray")
         MAXDATALEN = 56
         if len(data) > MAXDATALEN:
             raise BadDataError("Data can only be <= len", MAXDATALEN, "is", len(data))
+        return data
 
     def _check_register_content(self, content):
         """
@@ -365,21 +373,23 @@ class Ascii_Serial_Com(object):
 
         returns checksum as hexadecimal (capitals) bytes
         """
-        if frame[0] != b">" or frame[-1] != b"\n":
+        if frame[0] != b">"[0] or ((frame[-1] != b"\n"[0]) and (frame[-1] != b"."[0])):
             raise MalformedFrameError("Incorrect start and/or end chars: ", frame)
         if frame.count(b".") != 1:
             raise MalformedFrameError(
                 "Inproperly formatted frame: no end of data character '.': ", frame
             )
         frame = frame.split(b".")[0] + b"."
-        result = hex(self.crcFunc(frame)).upper()
+        result = hex(self.crcFunc(frame)).upper().encode("ascii")
         return result
 
     def _convert_to_hex(self, num, N=2):
-        if isinstance(content, bytes) or isinstance(content, bytearray):
+        if isinstance(num, bytes) or isinstance(num, bytearray):
             return num
         else:
-            return b"{:0" + str(N) + "X}" % num
+            formatstr = b"%0" + str(N).encode("ascii") + b"X"
+            result = formatstr % (num)
+            return result
 
     def _convert_from_hex(self, num):
         if isinstance(int):
