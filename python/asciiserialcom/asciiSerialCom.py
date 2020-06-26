@@ -384,17 +384,39 @@ class Ascii_Serial_Com(object):
         return result
 
     def _convert_to_hex(self, num, N=2):
-        if isinstance(num, bytes) or isinstance(num, bytearray):
-            return num
+        """
+        Converts integer to hexadecimal number as bytes
+
+        num: integer. If str, bytes, or bytearray just converts to bytes
+        N: (optional) amount to zero pad (but will use more if necessary). Default: 2
+
+        returns bytes
+        """
+
+        result = None
+        if isinstance(num, bytearray):
+            result = bytes(num)
+        elif isinstance(num, str):
+            result = num.encode("ascii")
+        elif isinstance(num, bytes):
+            result = num
         else:
             formatstr = b"%0" + str(N).encode("ascii") + b"X"
             result = formatstr % (num)
-            return result
+        result = result.upper()
+        if len(result) == 0:
+            raise ValueError("num is a zero length bytes, not valid hex")
+        lendiff = N - len(result)
+        if lendiff > 0:
+            result = b"0" * lendiff + result
+        return result
 
     def _convert_from_hex(self, num):
-        if isinstance(int):
+        if isinstance(num, int):
             return result
         else:
+            if len(num) == 0:
+                raise ValueError("num is a zero length bytes, can't convert to int")
             return int(num, 16)
 
 
