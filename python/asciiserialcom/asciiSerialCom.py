@@ -280,9 +280,13 @@ class Ascii_Serial_Com(object):
 
         raises BadCommandError if not fomatted correctly
         """
-        if not (isinstance(command, bytes) or isinstance(command, bytearray)):
+        if isinstance(command, str):
+            command = command.encode("ascii")
+        if isinstance(command, bytearray):
+            command = bytes(command)
+        if not isinstance(command, bytes):
             raise BadCommandError(
-                "command argument", command, "isn't bytes or bytearray type"
+                "command argument", command, "isn't bytes, str, or bytearray type"
             )
         if len(command) != 1:
             raise BadCommandError(
@@ -300,7 +304,7 @@ class Ascii_Serial_Com(object):
 
         command: length 1 byte or bytearray
 
-        data: bytes or bytearray data payload of message
+        data: bytes, bytearray, or str data payload of message
 
         returns None
 
@@ -309,6 +313,10 @@ class Ascii_Serial_Com(object):
 
         ## since max frame length is 64, and other parts of frame are 8 bytes
         ## data must be length <= 56
+        if isinstance(data, str):
+            data = data.encode("ascii")
+        if isinstance(data, bytearray):
+            data = bytes(data)
         if not isinstance(data, bytes):
             raise BadDataError("Data must be bytes or bytearray")
         MAXDATALEN = 56
@@ -335,14 +343,20 @@ class Ascii_Serial_Com(object):
                     content,
                     "requires more bits than registerBitWidth",
                 )
-            content = b"{:0X}" % content
+            content = b"%0X" % content
+        if isinstance(content, str):
+            content = content.encode("ascii")
         if not (isinstance(content, bytes) or isinstance(content, bytearray)):
             raise BadRegisterContentError(
-                "content argument", command, "isn't bytes or bytearray type or int"
+                "content argument", content, "isn't bytes or bytearray type or int"
             )
-        if len(content) != self.registerByteWidth:
+        if len(content) < self.registerByteWidth * 2:
+            content = b"0" * (self.registerByteWidth * 2 - len(content)) + content
+        if len(content) != self.registerByteWidth * 2:
             raise BadRegisterContentError(
-                "content argument should be len ",
+                "content argument ",
+                content,
+                "should be len ",
                 self.registerByteWidth,
                 ", is len ",
                 len(content),
@@ -373,6 +387,8 @@ class Ascii_Serial_Com(object):
 
         returns checksum as hexadecimal (capitals) bytes
         """
+        if len(frame) == 0:
+            raise MalformedFrameError("Zero length frame")
         if frame[0] != b">"[0] or ((frame[-1] != b"\n"[0]) and (frame[-1] != b"."[0])):
             raise MalformedFrameError("Incorrect start and/or end chars: ", frame)
         if frame.count(b".") != 1:
