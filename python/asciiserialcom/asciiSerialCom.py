@@ -73,10 +73,10 @@ class Ascii_Serial_Com(object):
         if timeout is None:
             timeout = 1.0
         regnum_hex = self._convert_to_hex(regnum)
-        self.send_message(b"r", regnum_hex, self.f)
+        self.send_message(b"r", regnum_hex)
         timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.datetime.now() < timeout_time:
-            _, _, command, data = self.receive_message(self.f)
+            _, _, command, data = self.receive_message()
             if command is None:
                 continue
             if command == b"r":
@@ -109,7 +109,7 @@ class Ascii_Serial_Com(object):
         self.send_message(b"w", data, self.f)
         timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.datetime.now() < timeout_time:
-            _, _, rec_command, rec_data = self.receive_message(self.f)
+            _, _, rec_command, rec_data = self.receive_message()
             if rec_command is None:
                 continue
             if rec_command == b"w":
@@ -117,30 +117,23 @@ class Ascii_Serial_Com(object):
                     return
         raise ResponseTimeoutError("Timout while waiting for response")
 
-    def send_message(self, command, data, f):
+    def send_message(self, command, data):
         """
         Low-level message send command
         Does not check if command is defined command
 
         command: single byte lower-case letter command/message type
         data: bytes or None
-        f: file-like object to write the message to
 
         returns None
         """
-        if isinstance(f, io.TextIOBase):
-            raise TextFileNotAllowedError(
-                "File objects passed to Ascii_Serial_Com should be opened in binary not text mode"
-            )
         message = self._pack_message(command, data)
-        f.write(message)
-        f.flush()
+        self.f.write(message)
+        self.f.flush()
 
-    def receive_message(self, f, timeout=None):
+    def receive_message(self, timeout=None):
         """
-        f: file-like object to write the message to
-
-        timeout: time to wait for a reply in seconds. defaults to 100 ms
+        timeout: (optional) time to wait for a reply in seconds. defaults to 100 ms
 
         returns (ascVersion, appVersion, command, data) all as bytes
             ascVersion is the ASCII-Serial-Com format version
@@ -150,8 +143,8 @@ class Ascii_Serial_Com(object):
 
         """
         if timeout is None:
-            timeout = 1.0
-        frame = self._frame_from_stream(f, timeout=timeout)
+            timeout = 0.1
+        frame = self._frame_from_stream(timeout)
         if frame is None:
             return None, None, None, None
         ascVersion, appVersion, command, data = self._unpack_message(frame)
@@ -244,23 +237,21 @@ class Ascii_Serial_Com(object):
             command = chr(command).encode("ascii")
             return ascVersion, appVersion, command, data
 
-    def _frame_from_stream(self, f, timeout):
+    def _frame_from_stream(self, timeout):
         """
-        Reads bytes from f and attempts to identify a message frame.
-
-        f: file-like object
+        Reads bytes from file-like object and attempts to identify a message frame.
 
         timeout: float in seconds to wait for bytes on stream
 
         returns: frame as bytes; None if no frame found in stream
         """
-        if isinstance(f, io.TextIOBase):
+        if isinstance(self.f, io.TextIOBase):
             raise TextFileNotAllowedError(
                 "File objects passed to Ascii_Serial_Com should be opened in binary not text mode"
             )
         timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.datetime.now() < timeout_time:
-            b = f.read(16)
+            b = self.f.read(16)
             self.buffer.push_back(b)
             self.buffer.removeFrontTo(b">", inclusive=False)
             if len(self.buffer) == 0:

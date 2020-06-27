@@ -1,8 +1,10 @@
 import unittest
 import unittest.mock
+from unittest.mock import patch
 from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
 from asciiserialcom.ascErrors import *
 import crcmod
+import datetime
 
 
 class TestConvert(unittest.TestCase):
@@ -147,16 +149,100 @@ class TestChecks(unittest.TestCase):
 class TestFramingAndStreaming(unittest.TestCase):
     def setUp(self):
         self.fileMock = unittest.mock.MagicMock()
-        self.asc = Ascii_Serial_Com(self.fileMock, 32)
+        self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
+        now = datetime.datetime.now()
+        self.times10ms = [
+            now + datetime.timedelta(seconds=i / 100.0) for i in range(100)
+        ]
+        self.times100ms = [
+            now + datetime.timedelta(seconds=i / 10.0) for i in range(100)
+        ]
+        self.times1s = [now + datetime.timedelta(seconds=i) for i in range(100)]
 
     def test_pack_message(self):
-        pass
+        asc = Ascii_Serial_Com(self.fileMock, 32)
+
+        for args, returnval in [
+            ((b"w", b""), b">00w."),
+            ((b"w", b"0"), b">00w0."),
+            ((b"w", b"00000000"), b">00w00000000."),
+        ]:
+            with self.subTest(i="args={}, returnval={}".format(args, returnval)):
+                returnval += (
+                    hex(self.crcFunc(returnval)).upper().encode("ascii") + b"\n"
+                )
+                self.assertEqual(asc._pack_message(*args), returnval)
 
     def test_unpack_message(self):
-        pass
+        asc = Ascii_Serial_Com(self.fileMock, 32)
 
-    def test_frame_from_message(self):
-        pass
+        for frame, returnval in [
+            (b">00w.", (b"0", b"0", b"w", b"")),
+            (b">09x.", (b"0", b"9", b"x", b"")),
+            (b">00w0123456789ABCDEF.", (b"0", b"0", b"w", b"0123456789ABCDEF")),
+            (b">0Fw" + b"A" * 59 + b".", (b"0", b"F", b"w", b"A" * 59)),
+        ]:
+            with self.subTest(i="frame={}, returnval={}".format(frame, returnval)):
+                frame += hex(self.crcFunc(frame)).upper().encode("ascii") + b"\n"
+                self.assertEqual(asc._unpack_message(frame), returnval)
+
+        frame = b">\n"
+        with self.assertRaises(MalformedFrameError):
+            asc._unpack_message(frame)
+        frame = b">.\n"
+        with self.assertRaises(MessageIntegrityError):
+            asc._unpack_message(frame)
+        frame = b">."
+        frame += hex(self.crcFunc(frame) + 1).upper().encode("ascii") + b"\n"
+        with self.assertRaises(MessageIntegrityError):
+            asc._unpack_message(frame)
+
+        for frame in [b">.", b">00.", b">0w.", b">w.", b""]:
+            with self.subTest(i="frame: {}".format(frame)):
+                frame += hex(self.crcFunc(frame)).upper().encode("ascii") + b"\n"
+                with self.assertRaises(MalformedFrameError):
+                    asc._unpack_message(frame)
+
+    def test_frame_from_stream(self):
+        fileMock = self.fileMock
+
+        with unittest.mock.patch("datetime.datetime") as datetimeMock:
+            datetimeMock.now.side_effect = self.times10ms
+
+            for filedata, returnval in [
+                (b">\n", b">\n"),
+                (b">" + b"0" * 10 + b"\n", b">" + b"0" * 10 + b"\n"),
+                (b">" + b"0" * 62 + b"\n", b">" + b"0" * 62 + b"\n"),
+                (b"0" * 20 + b">" + b"0" * 20 + b"\n", b">" + b"0" * 20 + b"\n"),
+                (b">" + b"0" * 20 + b"\n" + b"0" * 20, b">" + b"0" * 20 + b"\n"),
+                (
+                    b"0" * 20 + b">" + b"0" * 20 + b"\n" + b"0" * 10,
+                    b">" + b"0" * 20 + b"\n",
+                ),
+            ]:
+                with self.subTest(
+                    i="filedata={}, returnval={}".format(filedata, returnval)
+                ):
+                    fileMock.read.return_value = filedata
+                    asc = Ascii_Serial_Com(fileMock, 32)
+                    self.assertEqual(asc._frame_from_stream(0.1), returnval)
+                    fileMock.reset_mock()
+                    datetimeMock.now.reset_mock()
+
+            for filedata in [
+                b"0" * 10,
+                b">" + b"0" * 10,
+                b"0" * 10 + b"\n",
+                b">" * 10,
+                b"\n" * 10,
+                # b">" + b"0" * 63 + b"\n",
+            ]:
+                with self.subTest(i="filedata={}".format(filedata)):
+                    fileMock.read.return_value = filedata
+                    asc = Ascii_Serial_Com(fileMock, 32)
+                    self.assertIsNone(asc._frame_from_stream(0.1))
+                    fileMock.reset_mock()
+                    datetimeMock.now.reset_mock()
 
 
 class TestMessaging(unittest.TestCase):
