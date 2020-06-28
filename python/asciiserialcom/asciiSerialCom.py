@@ -106,7 +106,7 @@ class Ascii_Serial_Com(object):
         regnum_hex = self._convert_to_hex(regnum)
         content_hex = self._check_register_content(content)
         data = regnum_hex + b"," + content_hex
-        self.send_message(b"w", data, self.f)
+        self.send_message(b"w", data)
         timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.datetime.now() < timeout_time:
             _, _, rec_command, rec_data = self.receive_message()
