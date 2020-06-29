@@ -289,15 +289,36 @@ class TestMessaging(unittest.TestCase):
     def test_read_reg(self):
         fileMock = unittest.mock.MagicMock()
         asc = Ascii_Serial_Com(fileMock, 32)
-        reg_num = 2
-        reg_val = 0x1234567A
-        reply_message = b">00r%02X,%08X." % (reg_num, reg_val)
-        reply_message += (
-            hex(self.crcFunc(reply_message)).upper().encode("ascii") + b"\n"
-        )
-        fileMock.read.return_value = reply_message
-        result = asc.read_register(2)
-        self.assertEqual(result, b"%08X" % reg_val)
+        for reg_num, reg_val in [(2, 0x1234567A), (0xFF, 0)]:
+            with self.subTest(i="reg_num={}, reg_val={}".format(reg_num, reg_val)):
+                reply_message = b">00r%02X,%08X." % (reg_num, reg_val)
+                reply_message += (
+                    hex(self.crcFunc(reply_message)).upper().encode("ascii") + b"\n"
+                )
+                fileMock.read.return_value = reply_message
+                result = asc.read_register(reg_num)
+                self.assertEqual(result, b"%08X" % reg_val)
+                write_message = b">00r%02X." % (reg_num)
+                write_message += (
+                    hex(self.crcFunc(write_message)).upper().encode("ascii") + b"\n"
+                )
+                fileMock.write.assert_called_once_with(write_message)
+                fileMock.write.reset_mock()
+
+                # reply with wrong reg number
+                reply_message = b">00r%02X,%08X." % (reg_num + 1, reg_val)
+                reply_message += (
+                    hex(self.crcFunc(reply_message)).upper().encode("ascii") + b"\n"
+                )
+                fileMock.read.return_value = reply_message
+                with self.assertRaises(ResponseTimeoutError):
+                    asc.read_register(reg_num, timeout=0.01)
+                fileMock.write.assert_called_once_with(write_message)
+                fileMock.write.reset_mock()
+
+        fileMock.read.return_value = b""
+        with self.assertRaises(ResponseTimeoutError):
+            asc.read_register(2, timeout=0.01)
 
     def test_write_reg(self):
         fileMock = unittest.mock.MagicMock()
@@ -314,5 +335,17 @@ class TestMessaging(unittest.TestCase):
                 read += hex(self.crcFunc(read)).upper().encode("ascii") + b"\n"
                 fileMock.read.return_value = read
                 asc.write_register(*args)
+                fileMock.write.assert_called_once_with(written)
+                fileMock.write.reset_mock()
+
+        for args, written in [
+            ((b"0", b"00"), b">00w00,00."),
+            ((b"FF", b"E3"), b">00wFF,E3."),
+        ]:
+            with self.subTest(i="args={}, written={}".format(args, written)):
+                written += hex(self.crcFunc(written)).upper().encode("ascii") + b"\n"
+                fileMock.read.return_value = b""
+                with self.assertRaises(ResponseTimeoutError):
+                    asc.write_register(*args, timeout=0.01)
                 fileMock.write.assert_called_once_with(written)
                 fileMock.write.reset_mock()
