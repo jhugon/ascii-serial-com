@@ -21,4 +21,9 @@ setup(
     provides=["asciiserialcom"],
     setup_requires=requires,
     install_requires=requires,
+    entry_points={
+        "console_scripts": [
+            "asciiSerialComShell=asciiserialcom.asciiSerialComShell:main"
+        ]
+    },
 )

@@ -73,3 +73,9 @@ class MessageIntegrityError(ASCErrorBase):
     """
     Corrupted message data
     """
+
+
+class ShellArgumentError(ASCErrorBase):
+    """
+    Incorrect argument(s) to shell command
+    """

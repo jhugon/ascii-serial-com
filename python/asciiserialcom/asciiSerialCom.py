@@ -162,6 +162,12 @@ class Ascii_Serial_Com(object):
             )
         return ascVersion, appVersion, command, data
 
+    def getRegisterBitWidth(self):
+        return self.registerBitWidth
+
+    def getRegisterByteWidth(self):
+        return self.registerByteWidth
+
     def __str__(self):
         result = """Ascii_Serial_Com Object:
   Register width: {0.registerBitWidth:} bits, {0.registerByteWidth} bytes
