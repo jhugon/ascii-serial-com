@@ -8,7 +8,6 @@ device.
 import sys
 import argparse
 import datetime
-import selectors
 from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
 from asciiserialcom.ascErrors import *
 

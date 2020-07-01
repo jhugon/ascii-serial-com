@@ -6,6 +6,7 @@ import math
 import datetime
 import time
 import io
+import selectors
 import crcmod
 from .ascErrors import *
 from .circularBuffer import Circular_Buffer_Bytes
@@ -65,6 +66,9 @@ class Ascii_Serial_Com(object):
 
         self.buffer = Circular_Buffer_Bytes(128)
         self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
+
+        self.selector = selectors.DefaultSelector()
+        self.selector.register(self.f, selectors.EVENT_READ)
 
     def read_register(self, regnum, timeout=None):
         """
@@ -263,20 +267,22 @@ class Ascii_Serial_Com(object):
             )
         timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.datetime.now() < timeout_time:
-            b = self.f.read(16)
-            print(b)
-            if len(b) == 0:
-                time.sleep(self.sleepIfNothingReadTime)
-                continue
-            else:
-                self.buffer.push_back(b)
-                self.buffer.removeFrontTo(b">", inclusive=False)
-                if len(self.buffer) == 0:
+            readyfiles = self.selector.select(self.sleepIfNothingReadTime)
+            if len(readyfiles) > 0:
+                b = self.f.read(16)
+                print(b)
+                if len(b) == 0:
+                    time.sleep(self.sleepIfNothingReadTime)
                     continue
-                iNewline = self.buffer.findFirst(b"\n")
-                if iNewline is None:
-                    continue
-            return self.buffer.pop_front(iNewline + 1)
+                else:
+                    self.buffer.push_back(b)
+                    self.buffer.removeFrontTo(b">", inclusive=False)
+                    if len(self.buffer) == 0:
+                        continue
+                    iNewline = self.buffer.findFirst(b"\n")
+                    if iNewline is None:
+                        continue
+                return self.buffer.pop_front(iNewline + 1)
 
     def _check_command(self, command):
         """

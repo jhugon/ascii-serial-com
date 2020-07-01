@@ -106,6 +106,10 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
             print(e.args)
             return
 
+    def do_EOF(self, arg):
+        print("")  # for newline
+        sys.exit(0)
+
     def do_exit(self, arg):
         sys.exit(0)
 
@@ -128,5 +132,5 @@ def main():
 
     args = parser.parse_args()
 
-    with open(args.tty, "r+b") as tty:
+    with open(args.tty, "r+b", buffering=0) as tty:
         Ascii_Serial_Com_Shell(tty, args.registerBitWidth).cmdloop()
