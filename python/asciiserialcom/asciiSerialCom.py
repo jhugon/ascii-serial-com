@@ -4,6 +4,7 @@ ASCII Serial Com Python Interface
 
 import math
 import datetime
+import time
 import io
 import crcmod
 from .ascErrors import *
@@ -26,6 +27,7 @@ class Ascii_Serial_Com(object):
         asciiSerialComVersion=b"0",
         ascVersionMismatchThrow=True,
         appVersionMismatchThrow=False,
+        sleepIfNothingReadTime=0.1,
     ):
         """
         f: binary file object used for reading and
@@ -40,6 +42,9 @@ class Ascii_Serial_Com(object):
         appVersionMismatchThrow: bool, if True, throws an
             error if message appVersion doesn't
             match one given to __init__
+        sleepIfNothingReadTime: float in seconds, how long
+            to sleep before trying to read from stream
+            again
         """
         if isinstance(f, io.TextIOBase):
             raise TextFileNotAllowedError(
@@ -53,6 +58,7 @@ class Ascii_Serial_Com(object):
         self.asciiSerialComVersion = asciiSerialComVersion
         self.ascVersionMismatchThrow = ascVersionMismatchThrow
         self.appVersionMismatchThrow = appVersionMismatchThrow
+        self.sleepIfNothingReadTime = sleepIfNothingReadTime
         self.nBytesT = 0
         self.nBytesR = 0
         self.nCrcErrors = 0
@@ -258,13 +264,18 @@ class Ascii_Serial_Com(object):
         timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.datetime.now() < timeout_time:
             b = self.f.read(16)
-            self.buffer.push_back(b)
-            self.buffer.removeFrontTo(b">", inclusive=False)
-            if len(self.buffer) == 0:
+            print(b)
+            if len(b) == 0:
+                time.sleep(self.sleepIfNothingReadTime)
                 continue
-            iNewline = self.buffer.findFirst(b"\n")
-            if iNewline is None:
-                continue
+            else:
+                self.buffer.push_back(b)
+                self.buffer.removeFrontTo(b">", inclusive=False)
+                if len(self.buffer) == 0:
+                    continue
+                iNewline = self.buffer.findFirst(b"\n")
+                if iNewline is None:
+                    continue
             return self.buffer.pop_front(iNewline + 1)
 
     def _check_command(self, command):

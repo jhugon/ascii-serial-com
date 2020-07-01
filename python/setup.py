@@ -23,7 +23,8 @@ setup(
     install_requires=requires,
     entry_points={
         "console_scripts": [
-            "asciiSerialComShell=asciiserialcom.asciiSerialComShell:main"
+            "asciiSerialComShell=asciiserialcom.asciiSerialComShell:main",
+            "asciiSerialComDevice=asciiserialcom.device:main",
         ]
     },
 )
