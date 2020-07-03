@@ -66,7 +66,7 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
         try:
             self.asc.write_register(reg_num, reg_val)
         except ASCErrorBase as e:
-            print(e.args)
+            printError(e)
             return
 
     def do_r(self, arg):
@@ -85,7 +85,7 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
         try:
             result = self.asc.read_register(reg_num)
         except ASCErrorBase as e:
-            print(e.args)
+            printError(e)
             return
         else:
             bitWidth = self.asc.getRegisterBitWidth()
@@ -119,7 +119,7 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
         try:
             self.asc.send_message(args.command, args.data)
         except ASCErrorBase as e:
-            print(e.args)
+            printError(e)
             return
 
     def do_EOF(self, arg):

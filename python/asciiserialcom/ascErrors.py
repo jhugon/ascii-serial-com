@@ -3,6 +3,13 @@ Errors and Exceptions for ASCII Serial Com Python Interface
 """
 
 
+def printError(error):
+    args = error.args
+    if type(args) == tuple:
+        args = " ".join([str(x) for x in args])
+    print(f"{type(error).__name__}: {args}")
+
+
 class ASCErrorBase(Exception):
     """
     Abstract base class for Ascii-Serial-Com Errors
@@ -48,6 +55,12 @@ class BadCommandError(ASCErrorBase):
 class BadDataError(ASCErrorBase):
     """
     Frame data section is not valid
+    """
+
+
+class BadRegisterNumberError(ASCErrorBase):
+    """
+    Register number is not valid
     """
 
 

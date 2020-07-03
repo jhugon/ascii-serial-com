@@ -10,7 +10,7 @@ import datetime
 class TestConvert(unittest.TestCase):
     def setUp(self):
         self.fileMock = unittest.mock.MagicMock()
-        self.asc = Ascii_Serial_Com(self.fileMock, 32)
+        self.asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
 
     def test_to_hex(self):
         asc = self.asc
@@ -68,7 +68,7 @@ class TestConvert(unittest.TestCase):
 class TestCRC(unittest.TestCase):
     def setUp(self):
         self.fileMock = unittest.mock.MagicMock()
-        self.asc = Ascii_Serial_Com(self.fileMock, 32)
+        self.asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
         self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
 
     def test_crc(self):
@@ -93,7 +93,7 @@ class TestChecks(unittest.TestCase):
         self.fileMock = unittest.mock.MagicMock()
 
     def test_check_command(self):
-        asc = Ascii_Serial_Com(self.fileMock, 32)
+        asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
 
         for i in [b"w", b"W", bytearray(b"W"), "W"]:
             with self.subTest(i=i):
@@ -105,7 +105,7 @@ class TestChecks(unittest.TestCase):
                     asc._check_command(i)
 
     def test_check_data(self):
-        asc = Ascii_Serial_Com(self.fileMock, 32)
+        asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
 
         for i in [
             (b"12345", b"12345"),
@@ -125,7 +125,7 @@ class TestChecks(unittest.TestCase):
     def test_check_register_content(self):
 
         for nBits in [8, 16, 32, 64]:
-            asc = Ascii_Serial_Com(self.fileMock, nBits)
+            asc = Ascii_Serial_Com(self.fileMock, self.fileMock, nBits)
             for arg, comp in [
                 (b"0", b"0"),
                 (b"FF", b"FF"),
@@ -133,6 +133,7 @@ class TestChecks(unittest.TestCase):
                 ("ff", b"FF"),
                 (0xFF, b"FF"),
                 (0x3A, b"3A"),
+                (3, b"3"),
             ]:
                 lencomp = nBits // 4 - len(comp)
                 if lencomp > 0:
@@ -144,6 +145,26 @@ class TestChecks(unittest.TestCase):
                 with self.subTest(i="nBits={}, arg={}".format(nBits, arg)):
                     with self.assertRaises(BadRegisterContentError):
                         asc._check_register_content(arg)
+
+    def test_check_register_number(self):
+
+        asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
+        for arg, comp in [
+            (b"0", b"0000"),
+            (b"FF", b"00FF"),
+            (bytearray(b"ff"), b"00FF"),
+            ("ff", b"00FF"),
+            (0xFF, b"00FF"),
+            (0x3A, b"003A"),
+            (3, b"0003"),
+        ]:
+            with self.subTest(i="arg={}".format(arg)):
+                self.assertEqual(asc._check_register_number(arg), comp)
+
+        for arg in [-3, 2.4, 0x1FFFF, b"0" * 5, b"0" * 200]:
+            with self.subTest(i="arg={}".format(arg)):
+                with self.assertRaises(BadRegisterNumberError):
+                    asc._check_register_number(arg)
 
 
 class TestFramingAndStreaming(unittest.TestCase):
@@ -160,7 +181,7 @@ class TestFramingAndStreaming(unittest.TestCase):
         self.times1s = [now + datetime.timedelta(seconds=i) for i in range(100)]
 
     def test_pack_message(self):
-        asc = Ascii_Serial_Com(self.fileMock, 32)
+        asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
 
         for args, returnval in [
             ((b"w", b""), b">00w."),
@@ -174,7 +195,7 @@ class TestFramingAndStreaming(unittest.TestCase):
                 self.assertEqual(asc._pack_message(*args), returnval)
 
     def test_unpack_message(self):
-        asc = Ascii_Serial_Com(self.fileMock, 32)
+        asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
 
         for frame, returnval in [
             (b">00w.", (b"0", b"0", b"w", b"")),
@@ -224,7 +245,9 @@ class TestFramingAndStreaming(unittest.TestCase):
                     i="filedata={}, returnval={}".format(filedata, returnval)
                 ):
                     fileMock.read.return_value = filedata
-                    asc = Ascii_Serial_Com(fileMock, 32)
+                    asc = Ascii_Serial_Com(fileMock, fileMock, 32)
+                    asc.selectorIn = unittest.mock.MagicMock()
+                    asc.selectorIn.select.return_value = [0]
                     self.assertEqual(asc._frame_from_stream(0.1), returnval)
                     fileMock.reset_mock()
                     datetimeMock.now.reset_mock()
@@ -239,7 +262,9 @@ class TestFramingAndStreaming(unittest.TestCase):
             ]:
                 with self.subTest(i="filedata={}".format(filedata)):
                     fileMock.read.return_value = filedata
-                    asc = Ascii_Serial_Com(fileMock, 32)
+                    asc = Ascii_Serial_Com(fileMock, fileMock, 32)
+                    asc.selectorIn = unittest.mock.MagicMock()
+                    asc.selectorIn.select.return_value = [0]
                     self.assertIsNone(asc._frame_from_stream(0.1))
                     fileMock.reset_mock()
                     datetimeMock.now.reset_mock()
@@ -251,7 +276,9 @@ class TestMessaging(unittest.TestCase):
 
     def test_receive_message(self):
         fileMock = unittest.mock.MagicMock()
-        asc = Ascii_Serial_Com(fileMock, 32)
+        asc = Ascii_Serial_Com(fileMock, fileMock, 32)
+        asc.selectorIn = unittest.mock.MagicMock()
+        asc.selectorIn.select.return_value = [0]
 
         for frame, returnval in [
             (b">00w.", (b"0", b"0", b"w", b"")),
@@ -273,7 +300,7 @@ class TestMessaging(unittest.TestCase):
 
     def test_send_message(self):
         fileMock = unittest.mock.MagicMock()
-        asc = Ascii_Serial_Com(fileMock, 32)
+        asc = Ascii_Serial_Com(fileMock, fileMock, 32)
 
         for frame, args in [
             (b">00w.", (b"w", b"")),
@@ -288,17 +315,19 @@ class TestMessaging(unittest.TestCase):
 
     def test_read_reg(self):
         fileMock = unittest.mock.MagicMock()
-        asc = Ascii_Serial_Com(fileMock, 32)
+        asc = Ascii_Serial_Com(fileMock, fileMock, 32)
+        asc.selectorIn = unittest.mock.MagicMock()
+        asc.selectorIn.select.return_value = [0]
         for reg_num, reg_val in [(2, 0x1234567A), (0xFF, 0)]:
             with self.subTest(i="reg_num={}, reg_val={}".format(reg_num, reg_val)):
-                reply_message = b">00r%02X,%08X." % (reg_num, reg_val)
+                reply_message = b">00r%04X,%08X." % (reg_num, reg_val)
                 reply_message += (
                     hex(self.crcFunc(reply_message)).upper().encode("ascii") + b"\n"
                 )
                 fileMock.read.return_value = reply_message
                 result = asc.read_register(reg_num)
                 self.assertEqual(result, b"%08X" % reg_val)
-                write_message = b">00r%02X." % (reg_num)
+                write_message = b">00r%04X." % (reg_num)
                 write_message += (
                     hex(self.crcFunc(write_message)).upper().encode("ascii") + b"\n"
                 )
@@ -306,7 +335,7 @@ class TestMessaging(unittest.TestCase):
                 fileMock.write.reset_mock()
 
                 # reply with wrong reg number
-                reply_message = b">00r%02X,%08X." % (reg_num + 1, reg_val)
+                reply_message = b">00r%04X,%08X." % (reg_num + 1, reg_val)
                 reply_message += (
                     hex(self.crcFunc(reply_message)).upper().encode("ascii") + b"\n"
                 )
@@ -322,11 +351,17 @@ class TestMessaging(unittest.TestCase):
 
     def test_write_reg(self):
         fileMock = unittest.mock.MagicMock()
-        asc = Ascii_Serial_Com(fileMock, 8)
+        asc = Ascii_Serial_Com(fileMock, fileMock, 8)
+        asc.selectorIn = unittest.mock.MagicMock()
+        asc.selectorIn.select.return_value = [0]
 
         for args, written, read in [
-            ((b"0", b"00"), b">00w00,00.", b">00w00."),
-            ((b"FF", b"E3"), b">00wFF,E3.", b">00wFF."),
+            ((b"0", b"00"), b">00w0000,00.", b">00w0000."),
+            ((b"FF", b"E3"), b">00w00FF,E3.", b">00w00FF."),
+            ((b"FFFF", b"E3"), b">00wFFFF,E3.", b">00wFFFF."),
+            ((0, 0), b">00w0000,00.", b">00w0000."),
+            ((0xFF, 0xE3), b">00w00FF,E3.", b">00w00FF."),
+            ((0xFFFF, 0xE3), b">00wFFFF,E3.", b">00wFFFF."),
         ]:
             with self.subTest(
                 i="args={}, written={}, read={}".format(args, written, read)
@@ -339,8 +374,12 @@ class TestMessaging(unittest.TestCase):
                 fileMock.write.reset_mock()
 
         for args, written in [
-            ((b"0", b"00"), b">00w00,00."),
-            ((b"FF", b"E3"), b">00wFF,E3."),
+            ((b"0", b"00"), b">00w0000,00."),
+            ((b"FF", b"E3"), b">00w00FF,E3."),
+            ((b"FFFF", b"E3"), b">00wFFFF,E3."),
+            ((0, 0), b">00w0000,00."),
+            ((0xFF, 0xE3), b">00w00FF,E3."),
+            ((0xFFFF, 0xE3), b">00wFFFF,E3."),
         ]:
             with self.subTest(i="args={}, written={}".format(args, written)):
                 written += hex(self.crcFunc(written)).upper().encode("ascii") + b"\n"

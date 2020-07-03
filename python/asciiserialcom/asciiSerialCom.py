@@ -80,7 +80,7 @@ class Ascii_Serial_Com(object):
         """
         Read register on device
 
-        regnum: an integer register number
+        regnum: an integer register number from 0 to 0xFFFF
 
         timeout: time to wait for a reply in seconds. defaults to 1
 
@@ -88,7 +88,8 @@ class Ascii_Serial_Com(object):
         """
         if timeout is None:
             timeout = 1.0
-        regnum_hex = self._convert_to_hex(regnum)
+
+        regnum_hex = self._check_register_number(regnum)
         self.send_message(b"r", regnum_hex)
         timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.datetime.now() < timeout_time:
@@ -125,7 +126,7 @@ class Ascii_Serial_Com(object):
         """
         if timeout is None:
             timeout = 1.0
-        regnum_hex = self._convert_to_hex(regnum)
+        regnum_hex = self._check_register_number(regnum)
         content_hex = self._check_register_content(content)
         data = regnum_hex + b"," + content_hex
         self.send_message(b"w", data)
@@ -150,7 +151,6 @@ class Ascii_Serial_Com(object):
         returns None
         """
         message = self._pack_message(command, data)
-        print(f"Sending message {message!r}")
         self.fout.write(message)
         self.fout.flush()
 
@@ -170,7 +170,6 @@ class Ascii_Serial_Com(object):
         frame = self._frame_from_stream(timeout)
         if frame is None:
             return None, None, None, None
-        print(f"Received message {frame!r}")
         ascVersion, appVersion, command, data = self._unpack_message(frame)
         ascVersion = bytes(ascVersion)
         appVersion = bytes(appVersion)
@@ -351,6 +350,54 @@ class Ascii_Serial_Com(object):
             raise BadDataError("Data can only be <= len", MAXDATALEN, "is", len(data))
         return data
 
+    def _check_register_number(self, num):
+        """
+        Checks register number passed to read_register/write_register matches format specification
+
+        returns properly formatted content
+
+        raises BadRegisterNumberError if not fomatted correctly or incorrect bit width
+        """
+        if isinstance(num, int):
+            if num < 0:
+                raise BadRegisterNumberError(
+                    f"register number, {num}, must be positive"
+                )
+            if num.bit_length() > 16:
+                raise BadRegisterNumberError(
+                    f"register number {num} = 0x{num:X} requires {num.bit_length()} bits which is > 16"
+                )
+            num = b"%04X" % num
+        if isinstance(num, str):
+            num = num.encode("ascii")
+        if not (isinstance(num, bytes) or isinstance(num, bytearray)):
+            raise BadRegisterNumberError(
+                f"register number {num} isn't bytes or bytearray type or int is {type(num)}"
+            )
+        if len(num) < 4:
+            num = b"0" * (4 - len(num)) + num
+        if len(num) != 4:
+            raise BadRegisterNumberError(
+                f"register number {num} should be 4 bytes, but is {len(num)} bytes"
+            )
+        if not num.isalnum():
+            raise BadRegisterNumberError(
+                f"register number must be ASCII letters and numbers not: {num}"
+            )
+        try:
+            int(num, 16)
+        except:
+            raise BadRegisterNumberError(
+                f"register number, {num},must be convertible to hexadecimal number"
+            )
+        if (
+            int(num, 16).bit_length() > 16
+        ):  # in case num is bytes so missed earlier check
+            raise BadRegisterNumberError(
+                f"register number, {num}, requires more than 16 bits"
+            )
+        return num.upper()
+
     def _check_register_content(self, content):
         """
         Checks register content passed to write_register matches format specification and register width
@@ -366,9 +413,7 @@ class Ascii_Serial_Com(object):
                 )
             if content.bit_length() > self.registerBitWidth:
                 raise BadRegisterContentError(
-                    "content argument",
-                    content,
-                    "requires more bits than registerBitWidth",
+                    f"content argument {content} = 0x{content:X} requires {content.bit_length()} bits which is > registerBitWidth = {self.registerBitWidth}"
                 )
             content = b"%0X" % content
         if isinstance(content, str):

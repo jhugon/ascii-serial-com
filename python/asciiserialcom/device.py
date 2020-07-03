@@ -51,10 +51,18 @@ class Ascii_Serial_Com_Device(object):
             )
         elif command == b"r":
             regNum = self.asc._convert_from_hex(data)
+            if regNum > 0xFFFF:
+                raise BadRegisterNumberError(
+                    f"register number, {regNum} = 0x{regNum:04X}, larger than 0xFFFF"
+                )
+            if regNum >= self.nRegisters:
+                raise BadRegisterNumberError(
+                    f"Only {self.nRegisters} registers; regNum, {regNum} = 0x{regNum:04X}, too big"
+                )
             regVal = self.registers[regNum]
             response = data + b"," + self.asc._convert_to_hex(regVal)
             self.asc.send_message(command, response)
-            print(f"Read message received: {regNum} is {regVal}")
+            print(f"Read message received: {regNum} = 0x{regNum:04X} is {regVal}")
         else:
             print(f"Warning: received command '{command}', which is not implemented")
 
@@ -124,6 +132,6 @@ def main():
                 try:
                     dev.poll()
                 except ASCErrorBase as e:
-                    print("Error:", e.args)
+                    printError(e)
                 if timer.hasBeen(args.timeBetweenPrint):
                     dev.printRegisters()
