@@ -34,7 +34,7 @@ ifneq (,$(findstring clang,$(CC)))
   endif
 endif
 
-objs=test.o functest.o
+objs=test.o functest.o circular_buffer.o
 
 all: test
 
