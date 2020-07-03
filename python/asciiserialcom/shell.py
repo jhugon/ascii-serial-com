@@ -3,6 +3,7 @@ Shell for interacting through ASCII Serial Com
 """
 
 import sys
+import os.path
 import math
 import cmd
 import argparse
@@ -31,9 +32,21 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
     prompt = "(ASCII Serial Com) "
     file = None
 
-    def __init__(self, f, registerBitWidth):
-        self.asc = Ascii_Serial_Com(f, registerBitWidth, crcFailBehavior="warn")
+    def __init__(self, fin, fout, registerBitWidth):
+        self.asc = Ascii_Serial_Com(fin, fout, registerBitWidth, crcFailBehavior="warn")
         super().__init__()
+
+    def _to_int(self, s):
+        """
+        Converts string to int
+        """
+
+        if s[:2].lower() == "0x":
+            return int(s[2:], 16)
+        elif s[:2].lower() == "0b":
+            return int(s[2:], 2)
+        else:
+            return int(s, 10)
 
     # ----- commands -----
     def do_w(self, arg):
@@ -48,8 +61,10 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
             args = parser.parse_args(arg.split())
         except ShellArgumentError:
             return
+        reg_num = self._to_int(args.reg_num)
+        reg_val = self._to_int(args.reg_val)
         try:
-            self.asc.write_register(args.reg_num, args.reg_val)
+            self.asc.write_register(reg_num, reg_val)
         except ASCErrorBase as e:
             print(e.args)
             return
@@ -66,8 +81,9 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
             args = parser.parse_args(arg.split())
         except ShellArgumentError:
             return
+        reg_num = self._to_int(args.reg_num)
         try:
-            result = self.asc.read_register(args.reg_num)
+            result = self.asc.read_register(reg_num)
         except ASCErrorBase as e:
             print(e.args)
             return
@@ -77,7 +93,7 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
             decWidth = str(int(math.ceil(bitWidth * math.log10(2))))
             bitWidth = str(bitWidth)
             formatstr = (
-                "{0:0"
+                "{0:"
                 + decWidth
                 + "d} = 0x{0:0"
                 + hexWidth
@@ -85,7 +101,7 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
                 + bitWidth
                 + "b}"
             )
-            print(formatstr.format(result))
+            print(formatstr.format(int(result, 16)))
 
     def do_send(self, arg):
         "send <command> <data>\n\nSends message to device. Command should be a single letter. Data is directly sent as ASCII bytes."
@@ -121,7 +137,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="ASCII Serial Com Shell. Useful for debugging ASCII Serial Com connections."
     )
-    parser.add_argument("tty", help="Path to tty device file")
+    parser.add_argument("fin", help="Path to tty device file")
+    parser.add_argument("fout", help="Path to tty device file")
     parser.add_argument(
         "--registerBitWidth",
         "-r",
@@ -132,5 +149,12 @@ def main():
 
     args = parser.parse_args()
 
-    with open(args.tty, "r+b", buffering=0) as tty:
-        Ascii_Serial_Com_Shell(tty, args.registerBitWidth).cmdloop()
+    inFname = os.path.abspath(args.fin)
+    outFname = os.path.abspath(args.fout)
+    print(f"Input file name: {inFname}")
+    print(f"outFname file name: {outFname}")
+    print(f"Register bits: {args.registerBitWidth}")
+
+    with open(outFname, "wb", buffering=0) as fout:
+        with open(inFname, "rb", buffering=0) as fin:
+            Ascii_Serial_Com_Shell(fin, fout, args.registerBitWidth).cmdloop()

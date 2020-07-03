@@ -6,6 +6,7 @@ device.
 """
 
 import sys
+import os.path
 import argparse
 import datetime
 from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
@@ -26,11 +27,12 @@ class SimpleTimer(object):
 
 
 class Ascii_Serial_Com_Device(object):
-    def __init__(self, f, registerBitWidth, nRegisters):
-        self.f = f
+    def __init__(self, fin, fout, registerBitWidth, nRegisters):
+        self.fin = fin
+        self.fout = fout
         self.registerBitWidth = registerBitWidth
         self.nRegisters = nRegisters
-        self.asc = Ascii_Serial_Com(f, registerBitWidth)
+        self.asc = Ascii_Serial_Com(fin, fout, registerBitWidth)
         self.registers = [0] * self.nRegisters
 
     def poll(self, timeout=1.0):
@@ -50,7 +52,7 @@ class Ascii_Serial_Com_Device(object):
         elif command == b"r":
             regNum = self.asc._convert_from_hex(data)
             regVal = self.registers[regNum]
-            response = self.asc._convert_to_hex(regVal)
+            response = data + b"," + self.asc._convert_to_hex(regVal)
             self.asc.send_message(command, response)
             print(f"Read message received: {regNum} is {regVal}")
         else:
@@ -78,7 +80,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="ASCII Serial Com Device. Useful as a test device."
     )
-    parser.add_argument("tty", help="Path to tty device file or pipe")
+    parser.add_argument("fin", help="Path to tty device file")
+    parser.add_argument("fout", help="Path to tty device file")
     parser.add_argument(
         "--registerBitWidth",
         "-r",
@@ -103,14 +106,24 @@ def main():
 
     args = parser.parse_args()
 
-    with open(args.tty, "r+b", buffering=0) as tty:
-        dev = Ascii_Serial_Com_Device(tty, args.registerBitWidth, args.nRegisters)
-        dev.printRegisters()
-        timer = SimpleTimer()
-        while True:
-            try:
-                dev.poll()
-            except ASCErrorBase as e:
-                print("Error:", e.args)
-            if timer.hasBeen(args.timeBetweenPrint):
-                dev.printRegisters()
+    inFname = os.path.abspath(args.fin)
+    outFname = os.path.abspath(args.fout)
+    print(f"Input file name: {inFname}")
+    print(f"outFname file name: {outFname}")
+    print(f"N registers: {args.nRegisters}")
+    print(f"Time between prints: {args.timeBetweenPrint}")
+
+    with open(outFname, "wb", buffering=0) as fout:
+        with open(inFname, "rb", buffering=0) as fin:
+            dev = Ascii_Serial_Com_Device(
+                fin, fout, args.registerBitWidth, args.nRegisters
+            )
+            dev.printRegisters()
+            timer = SimpleTimer()
+            while True:
+                try:
+                    dev.poll()
+                except ASCErrorBase as e:
+                    print("Error:", e.args)
+                if timer.hasBeen(args.timeBetweenPrint):
+                    dev.printRegisters()

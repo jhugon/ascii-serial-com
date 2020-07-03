@@ -21,7 +21,8 @@ class Ascii_Serial_Com(object):
 
     def __init__(
         self,
-        f,
+        fin,
+        fout,
         registerBitWidth,
         crcFailBehavior="throw",
         appVersion=b"0",
@@ -31,8 +32,8 @@ class Ascii_Serial_Com(object):
         sleepIfNothingReadTime=0.1,
     ):
         """
-        f: binary file object used for reading and
-            writing to device
+        fin: binary file object streaming from the device
+        fout: binary file object streaming to the device
         registerBitWidth: an int, probably 8 or 32
         crcFailBehavior: a str: "throw", "warn", "pass"
         appVersion: a len 1 byte
@@ -47,11 +48,16 @@ class Ascii_Serial_Com(object):
             to sleep before trying to read from stream
             again
         """
-        if isinstance(f, io.TextIOBase):
+        if isinstance(fin, io.TextIOBase):
             raise TextFileNotAllowedError(
-                "File objects passed to Ascii_Serial_Com should be opened in binary not text mode"
+                f"fin, {fin},file object passed to Ascii_Serial_Com should be opened in binary not text mode"
             )
-        self.f = f
+        if isinstance(fout, io.TextIOBase):
+            raise TextFileNotAllowedError(
+                f"fout, {fout},file object passed to Ascii_Serial_Com should be opened in binary not text mode"
+            )
+        self.fin = fin
+        self.fout = fout
         self.registerBitWidth = registerBitWidth
         self.registerByteWidth = int(math.ceil(registerBitWidth / 8))
         self.crcFailBehavior = crcFailBehavior
@@ -67,8 +73,8 @@ class Ascii_Serial_Com(object):
         self.buffer = Circular_Buffer_Bytes(128)
         self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
 
-        self.selector = selectors.DefaultSelector()
-        self.selector.register(self.f, selectors.EVENT_READ)
+        self.selectorIn = selectors.DefaultSelector()
+        self.selectorIn.register(self.fin, selectors.EVENT_READ)
 
     def read_register(self, regnum, timeout=None):
         """
@@ -90,7 +96,13 @@ class Ascii_Serial_Com(object):
             if command is None:
                 continue
             if command == b"r":
-                rec_regnum, rec_value = data.split(b",")
+                splitdata = data.split(b",")
+                try:
+                    rec_regnum, rec_value = splitdata
+                except ValueError:
+                    raise BadDataError(
+                        f"read response data, {data!r}, can't be split into a reg num and reg val (no comma!)"
+                    )
                 if int(rec_regnum, 16) == int(regnum_hex, 16):
                     return rec_value
         raise ResponseTimeoutError("Timout while waiting for response")
@@ -138,8 +150,9 @@ class Ascii_Serial_Com(object):
         returns None
         """
         message = self._pack_message(command, data)
-        self.f.write(message)
-        self.f.flush()
+        print(f"Sending message {message!r}")
+        self.fout.write(message)
+        self.fout.flush()
 
     def receive_message(self, timeout=None):
         """
@@ -157,7 +170,12 @@ class Ascii_Serial_Com(object):
         frame = self._frame_from_stream(timeout)
         if frame is None:
             return None, None, None, None
+        print(f"Received message {frame!r}")
         ascVersion, appVersion, command, data = self._unpack_message(frame)
+        ascVersion = bytes(ascVersion)
+        appVersion = bytes(appVersion)
+        command = bytes(command)
+        data = bytes(data)
         if ascVersion != self.asciiSerialComVersion and self.ascVersionMismatchThrow:
             raise AsciiSerialComVersionMismatchError(
                 "Message version: {} Expected version: {}".format(
@@ -261,16 +279,11 @@ class Ascii_Serial_Com(object):
 
         returns: frame as bytes; None if no frame found in stream
         """
-        if isinstance(self.f, io.TextIOBase):
-            raise TextFileNotAllowedError(
-                "File objects passed to Ascii_Serial_Com should be opened in binary not text mode"
-            )
         timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.datetime.now() < timeout_time:
-            readyfiles = self.selector.select(self.sleepIfNothingReadTime)
+            readyfiles = self.selectorIn.select(self.sleepIfNothingReadTime)
             if len(readyfiles) > 0:
-                b = self.f.read(16)
-                print(b)
+                b = self.fin.read(16)
                 if len(b) == 0:
                     time.sleep(self.sleepIfNothingReadTime)
                     continue
@@ -371,7 +384,7 @@ class Ascii_Serial_Com(object):
                 "content argument ",
                 content,
                 "should be len ",
-                self.registerByteWidth,
+                self.registerByteWidth * 2,
                 ", is len ",
                 len(content),
             )
