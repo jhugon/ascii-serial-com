@@ -38,9 +38,13 @@ objs=test.o functest.o circular_buffer.o
 
 all: test
 
-test: $(objs)
+test: $(objs) libthrowtheswitch.a
 
 $(objs): %.o: %.c
+
+%: force
+	$(MAKE) -f externals/Makefile $@
+force: ;
 
 cppcheck:
 	cppcheck .
