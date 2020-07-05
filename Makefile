@@ -1,3 +1,5 @@
+include flags.mk
+
 #####----- Begin Boilerplate for Advanced VPATH
 ####ifeq (,$(filter build_%,$(notdir $(CURDIR))))
 ####include target.mk
