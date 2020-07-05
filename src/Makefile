@@ -38,13 +38,12 @@ objs=test.o functest.o circular_buffer.o
 
 all: test
 
-test: $(objs) libthrowtheswitch.a
+test: $(objs) externals/libthrowtheswitch.a
 
 $(objs): %.o: %.c
 
-%: force
-	$(MAKE) -f externals/Makefile $@
-force: ;
+externals/libthrowtheswitch.a:
+	$(MAKE) -C externals
 
 cppcheck:
 	cppcheck .
@@ -52,3 +51,4 @@ cppcheck:
 .PHONY: clean
 clean:
 	rm -rf test *.o
+	$(MAKE) -C externals clean
