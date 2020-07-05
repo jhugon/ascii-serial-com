@@ -1,10 +1,3 @@
-#----- Begin Boilerplate for Advanced VPATH
-ifeq (,$(filter build_%,$(notdir $(CURDIR))))
-include target.mk
-else
-VPATH=$(SRCDIR) $(SRCDIR)/externals
-$(info $$VPATH is [${VPATH}])
-#----- End Boilerplate
 
 LDFLAGS=$(CFLAGS)
 
@@ -41,29 +34,15 @@ ifneq (,$(findstring clang,$(CC)))
   endif
 endif
 
-objs=test.o functest.o circular_buffer.o
+srcobjs := src/test.o src/functest.o src/circular_buffer.o
+allobjs := $(allojbs) $(srcobjs)
+allexes := $(allexes) src/test
 
-all: test
+all: src/test
 
-test: $(objs) externals/libthrowtheswitch.a
-
-$(objs): %.o: %.c
-
-externals/libthrowtheswitch.a: | externals
-	$(MAKE) -C externals
-
-.PHONY: externals
-externals:
-	mkdir -p externals
-	cp $(SRCDIR)/externals/Makefile externals/Makefile
+src/test: $(srcobjs) src/externals/libthrowtheswitch.a
 
 cppcheck:
 	cppcheck .
 
-.PHONY: clean
-clean:
-	rm -rf test *.o
-	$(MAKE) -C externals clean
-
-#----- Begin Boilerplate
-endif
+include src/externals/Makefile

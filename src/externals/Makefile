@@ -1,12 +1,8 @@
-cfiles=$(wildcard *.c)
+extcfiles := $(wildcard src/externals/*.c)
 
-objs=$(addsuffix .o,$(basename $(cfiles)))
+extobjs := $(addsuffix .o,$(basename $(extcfiles)))
+allobjs := $(allobjs) $(extobjs)
+alllibs := $(alllibs) src/externals/libthrowtheswitch.a
 
-libthrowtheswitch.a: $(objs)
+src/externals/libthrowtheswitch.a: $(extobjs)
 	$(AR) rcs $@ $^
-
-$(objs): %.o: %.c
-
-.PHONY: clean
-clean:
-	rm -rf libthrowtheswitch.a *.o

@@ -1,18 +1,25 @@
+#####----- Begin Boilerplate for Advanced VPATH
+####ifeq (,$(filter build_%,$(notdir $(CURDIR))))
+####include target.mk
+####else
+####VPATH=$(SRCDIR)
+####$(info $$VPATH is [${VPATH}])
+#####----- End Boilerplate
+####
+####include src/Makefile
+####
+#####----- Begin Boilerplate
+####endif
 
-.PHONY: cppcheck default doc
+allcfiles :=
+alllibs :=
+allexes :=
+include src/Makefile
 
-## Default rule
+$(allobjs): %.o: %.c
 
-default:
-	$(MAKE) -C build native_gcc_debug
-	$(MAKE) -C build native_clang_debug
-
-cppcheck:
-	$(MAKE) -C src cppcheck
-
-doc:
-	$(MAKE) -C doc
-
-## If none of above pass goal on to build dir goals:
-.DEFAULT:
-	$(MAKE) -C build $(MAKECMDGOALS)
+.PHONY: clean
+clean:
+	rm -rf $(allobjs)
+	rm -rf $(alllibs)
+	rm -rf $(allexes)
