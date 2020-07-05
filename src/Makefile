@@ -1,3 +1,10 @@
+#----- Begin Boilerplate for Advanced VPATH
+ifeq (,$(filter build_%,$(notdir $(CURDIR))))
+include target.mk
+else
+VPATH=$(SRCDIR) $(SRCDIR)/externals
+$(info $$VPATH is [${VPATH}])
+#----- End Boilerplate
 
 LDFLAGS=$(CFLAGS)
 
@@ -42,8 +49,13 @@ test: $(objs) externals/libthrowtheswitch.a
 
 $(objs): %.o: %.c
 
-externals/libthrowtheswitch.a:
+externals/libthrowtheswitch.a: | externals
 	$(MAKE) -C externals
+
+.PHONY: externals
+externals:
+	mkdir -p externals
+	cp $(SRCDIR)/externals/Makefile externals/Makefile
 
 cppcheck:
 	cppcheck .
@@ -52,3 +64,6 @@ cppcheck:
 clean:
 	rm -rf test *.o
 	$(MAKE) -C externals clean
+
+#----- Begin Boilerplate
+endif
