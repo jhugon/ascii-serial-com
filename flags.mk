@@ -1,4 +1,7 @@
 
+#$(info CC is ${CC})
+#$(info build_type is ${build_type})
+
 ifneq (,$(findstring gcc,$(CC)))
   GCCFLAGS=-Werror -pedantic -pedantic-errors -Wall -Wextra
   GCCFLAGS+=-Wdouble-promotion -Wformat=2 -Wformat-signedness -Winit-self -Wmissing-include-dirs -Wswitch-default -Wswitch-enum -Wuninitialized -Wtrampolines -Wfloat-equal -Wshadow -Wundef -Wbad-function-cast

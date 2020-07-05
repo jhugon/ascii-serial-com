@@ -1,24 +1,41 @@
+
+ifndef platform
+platform = native
+export platform
+endif
+
+ifndef build_type
+build_type = debug
+export build_type
+endif
+
+ifndef CC
+CC = gcc
+export CC
+endif
+ifeq ($(CC),cc)
+CC = gcc
+export CC
+endif
+
+
+target_type := $(platform)_$(CC)_$(build_type)
+$(info target_type is ${target_type})
+
+##builddir := build_$(target_type)/
+##$(info builddir is ${builddir})
+
 include flags.mk
 
-#####----- Begin Boilerplate for Advanced VPATH
-####ifeq (,$(filter build_%,$(notdir $(CURDIR))))
-####include target.mk
-####else
-####VPATH=$(SRCDIR)
-####$(info $$VPATH is [${VPATH}])
-#####----- End Boilerplate
-####
-####include src/Makefile
-####
-#####----- Begin Boilerplate
-####endif
-
-allcfiles :=
+allobjs :=
 alllibs :=
 allexes :=
 include src/Makefile
 
 $(allobjs): %.o: %.c
+
+.PHONY: install
+install:
 
 .PHONY: clean
 clean:
