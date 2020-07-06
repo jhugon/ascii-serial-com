@@ -354,6 +354,7 @@ void UnityPrintFloat(const UNITY_DOUBLE input_number)
     }
 
     /* handle zero, NaN, and +/- infinity */
+#pragma GCC diagnostic ignored "-Wfloat-equal"
     if (number == 0.0f)
     {
         UnityPrint("0");
@@ -482,6 +483,7 @@ void UnityPrintFloat(const UNITY_DOUBLE input_number)
             }
         }
     }
+#pragma GCC diagnostic pop
 }
 #endif /* ! UNITY_EXCLUDE_FLOAT_PRINT */
 
@@ -980,6 +982,7 @@ void UnityAssertFloatSpecial(const UNITY_FLOAT actual,
 
     RETURN_IF_FAIL_OR_IGNORE;
 
+#pragma GCC diagnostic ignored "-Wswitch-enum"
     switch (style)
     {
         case UNITY_FLOAT_IS_INF:
@@ -1006,6 +1009,7 @@ void UnityAssertFloatSpecial(const UNITY_FLOAT actual,
             trait_names[0] = UnityStrInvalidFloatTrait;
             break;
     }
+#pragma GCC diagnostic pop
 
     if (is_trait != should_be_trait)
     {
