@@ -19,7 +19,7 @@ void test_circular_buffer_init_uint8(void) {
 
   TEST_ASSERT_TRUE(circular_buffer_is_empty_uint8(&cb));
   TEST_ASSERT_FALSE(circular_buffer_is_full_uint8(&cb));
-  TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 0);
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
 }
 
 void test_circular_buffer_push_pop_back_uint8(void) {
@@ -33,13 +33,13 @@ void test_circular_buffer_push_pop_back_uint8(void) {
 
   TEST_ASSERT_FALSE(circular_buffer_is_empty_uint8(&cb));
   TEST_ASSERT_FALSE(circular_buffer_is_full_uint8(&cb));
-  TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 1);
+  TEST_ASSERT_EQUAL(1, circular_buffer_get_size_uint8(&cb));
 
-  TEST_ASSERT_EQUAL_UINT8(circular_buffer_pop_back_uint8(&cb), 8);
+  TEST_ASSERT_EQUAL_UINT8(8, circular_buffer_pop_back_uint8(&cb));
 
   TEST_ASSERT_TRUE(circular_buffer_is_empty_uint8(&cb));
   TEST_ASSERT_FALSE(circular_buffer_is_full_uint8(&cb));
-  TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 0);
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
 
   for (uint8_t i = 0; i < 5; i++) {
     circular_buffer_push_back_uint8(&cb, i);
@@ -47,16 +47,16 @@ void test_circular_buffer_push_pop_back_uint8(void) {
 
   TEST_ASSERT_FALSE(circular_buffer_is_empty_uint8(&cb));
   TEST_ASSERT_FALSE(circular_buffer_is_full_uint8(&cb));
-  TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 5);
+  TEST_ASSERT_EQUAL(5, circular_buffer_get_size_uint8(&cb));
 
   for (uint8_t i = 0; i < 5; i++) {
-    TEST_ASSERT_EQUAL_UINT8(circular_buffer_pop_back_uint8(&cb), 4 - i);
-    TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 4 - i);
+    TEST_ASSERT_EQUAL_UINT8(4 - i, circular_buffer_pop_back_uint8(&cb));
+    TEST_ASSERT_EQUAL(4 - i, circular_buffer_get_size_uint8(&cb));
   }
 
   TEST_ASSERT_TRUE(circular_buffer_is_empty_uint8(&cb));
   TEST_ASSERT_FALSE(circular_buffer_is_full_uint8(&cb));
-  TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 0);
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
 
   // printf("Should be empty:\n");
   // circular_buffer_print_uint8(&cb);
@@ -67,7 +67,7 @@ void test_circular_buffer_push_pop_back_uint8(void) {
 
   TEST_ASSERT_FALSE(circular_buffer_is_empty_uint8(&cb));
   TEST_ASSERT_FALSE(circular_buffer_is_full_uint8(&cb));
-  TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 9);
+  TEST_ASSERT_EQUAL(9, circular_buffer_get_size_uint8(&cb));
 
   // printf("Should have 0 through 8:\n");
   // circular_buffer_print_uint8(&cb);
@@ -76,20 +76,20 @@ void test_circular_buffer_push_pop_back_uint8(void) {
 
   TEST_ASSERT_FALSE(circular_buffer_is_empty_uint8(&cb));
   TEST_ASSERT_TRUE(circular_buffer_is_full_uint8(&cb));
-  TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 10);
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
 
   // printf("Should have 0 through 9:\n");
   // circular_buffer_print_uint8(&cb);
 
   for (uint8_t i = 0; i < 10; i++) {
-    TEST_ASSERT_EQUAL_UINT8(circular_buffer_pop_back_uint8(&cb), 9 - i);
-    TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 9 - i);
+    TEST_ASSERT_EQUAL_UINT8(9 - i, circular_buffer_pop_back_uint8(&cb));
+    TEST_ASSERT_EQUAL(9 - i, circular_buffer_get_size_uint8(&cb));
     TEST_ASSERT_FALSE(circular_buffer_is_full_uint8(&cb));
   }
 
   TEST_ASSERT_TRUE(circular_buffer_is_empty_uint8(&cb));
   TEST_ASSERT_FALSE(circular_buffer_is_full_uint8(&cb));
-  TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 0);
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
 }
 
 void test_circular_buffer_push_overfull_pop_back_uint8(void) {
@@ -105,11 +105,11 @@ void test_circular_buffer_push_overfull_pop_back_uint8(void) {
 
   TEST_ASSERT_FALSE(circular_buffer_is_empty_uint8(&cb));
   TEST_ASSERT_TRUE(circular_buffer_is_full_uint8(&cb));
-  TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 10);
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
 
   for (uint8_t i = 0; i < 10; i++) {
-    TEST_ASSERT_EQUAL_UINT8(circular_buffer_pop_back_uint8(&cb), 32 - i);
-    TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 9 - i);
+    TEST_ASSERT_EQUAL_UINT8(32 - i, circular_buffer_pop_back_uint8(&cb));
+    TEST_ASSERT_EQUAL(9 - i, circular_buffer_get_size_uint8(&cb));
     TEST_ASSERT_FALSE(circular_buffer_is_full_uint8(&cb));
   }
   TEST_ASSERT_TRUE(circular_buffer_is_empty_uint8(&cb));
@@ -120,7 +120,7 @@ void test_circular_buffer_push_overfull_pop_back_uint8(void) {
 
   TEST_ASSERT_FALSE(circular_buffer_is_empty_uint8(&cb));
   TEST_ASSERT_TRUE(circular_buffer_is_full_uint8(&cb));
-  TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 10);
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
 
   for (uint8_t i = 0; i < 43; i++) {
     circular_buffer_push_back_uint8(&cb, i);
@@ -128,11 +128,11 @@ void test_circular_buffer_push_overfull_pop_back_uint8(void) {
 
   TEST_ASSERT_FALSE(circular_buffer_is_empty_uint8(&cb));
   TEST_ASSERT_TRUE(circular_buffer_is_full_uint8(&cb));
-  TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 10);
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
 
   for (uint8_t i = 0; i < 10; i++) {
-    TEST_ASSERT_EQUAL_UINT8(circular_buffer_pop_back_uint8(&cb), 42 - i);
-    TEST_ASSERT_EQUAL(circular_buffer_get_size_uint8(&cb), 9 - i);
+    TEST_ASSERT_EQUAL_UINT8(42 - i, circular_buffer_pop_back_uint8(&cb));
+    TEST_ASSERT_EQUAL(9 - i, circular_buffer_get_size_uint8(&cb));
     TEST_ASSERT_FALSE(circular_buffer_is_full_uint8(&cb));
   }
   TEST_ASSERT_TRUE(circular_buffer_is_empty_uint8(&cb));
