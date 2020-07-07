@@ -3,4 +3,4 @@
 .*.un~
 *.o
 *.a
-build/*
+build_*

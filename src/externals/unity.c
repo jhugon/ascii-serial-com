@@ -355,6 +355,7 @@ void UnityPrintFloat(const UNITY_DOUBLE input_number)
 
     /* handle zero, NaN, and +/- infinity */
 #pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic push
     if (number == 0.0f)
     {
         UnityPrint("0");
@@ -983,6 +984,7 @@ void UnityAssertFloatSpecial(const UNITY_FLOAT actual,
     RETURN_IF_FAIL_OR_IGNORE;
 
 #pragma GCC diagnostic ignored "-Wswitch-enum"
+#pragma GCC diagnostic push
     switch (style)
     {
         case UNITY_FLOAT_IS_INF:
