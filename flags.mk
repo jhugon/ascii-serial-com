@@ -36,3 +36,4 @@ ifneq (,$(findstring clang,$(CC)))
 endif
 
 LDFLAGS=$(CFLAGS)
+CFLAGS+=-Isrc/

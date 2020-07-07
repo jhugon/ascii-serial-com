@@ -1,13 +1,11 @@
 
-srcobjs := src/test.o src/functest.o src/circular_buffer.o
+srcobjs := src/functest.o src/circular_buffer.o
 allobjs := $(allojbs) $(srcobjs)
-allexes := $(allexes) src/test
+allexes := $(allexes)
+alllibs := $(alllibs) src/libasciiserialcom.a
 
-all: src/test
-
-src/test: $(srcobjs) src/externals/libthrowtheswitch.a
-
-cppcheck:
-	cppcheck .
+src/libasciiserialcom.a: $(srcobjs)
+	$(AR) rcs $@ $^
 
 include src/externals/Makefile
+include src/test/Makefile
