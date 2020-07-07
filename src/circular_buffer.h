@@ -1,8 +1,10 @@
 #ifndef CIRCULAR_BUFFER_H
 #define CIRCULAR_BUFFER_H
 
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 /** \brief circular buffer struct
@@ -64,6 +66,13 @@ bool circular_buffer_is_full_uint8(const circular_buffer_uint8 *circ_buf);
  *
  */
 bool circular_buffer_is_empty_uint8(const circular_buffer_uint8 *circ_buf);
+
+/** \brief circular buffer print contents
+ *
+ *  Use this for debugging
+ *
+ */
+void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf);
 
 /** \brief circular buffer get element
  *

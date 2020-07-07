@@ -34,9 +34,9 @@ alllibs :=
 allexes :=
 include src/Makefile
 
-$(info alllibs is ${alllibs})
-$(info allexes is ${allexes})
-$(info allobjs is ${allobjs})
+#$(info alllibs is ${alllibs})
+#$(info allexes is ${allexes})
+#$(info allobjs is ${allobjs})
 
 .PHONY: all_later
 all_later: $(alllibs) $(allexes)
@@ -61,6 +61,17 @@ $(builddir)/libthrowtheswitch.a: src/externals/libthrowtheswitch.a | $(builddir)
 
 .PHONY: install
 install: $(builddir)/libthrowtheswitch.a $(builddir)/libasciiserialcom.a $(outtestexes) all
+
+######################################
+
+runouttestexes := $(addsuffix _runTest,$(outtestexes))
+
+.PHONY: test
+test: $(runouttestexes)
+
+.PHONY: $(runouttestexes)
+$(runouttestexes): %_runTest: %
+	$(abspath $*)
 
 ######################################
 

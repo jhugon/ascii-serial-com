@@ -53,6 +53,31 @@ bool circular_buffer_is_empty_uint8(const circular_buffer_uint8 *circ_buf) {
   return circular_buffer_get_size_uint8(circ_buf) == 0;
 }
 
+void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf) {
+
+  //////typedef struct circular_buffer_uint8_struct {
+  //////  size_t capacity; /**< capacity of actual data buffer */
+  //////  size_t size;     /**< N elements in circ buffer */
+  //////  size_t iStart;   /**< front element of buffer */
+  //////  size_t iStop;    /**< 1 past the back element of buffer */
+  //////  uint8_t *buffer; /**< pointer to actual data buffer */
+  //////} circular_buffer_uint8;
+
+  printf("circular_buffer_uint8, capacity: %zu\n", circ_buf->capacity);
+  printf("  size: %zu iStart: %zu iStop %zu\n", circ_buf->size,
+         circ_buf->iStart, circ_buf->iStop);
+  printf("  Content: [ ");
+  for (size_t i = 0; i < circ_buf->size; i++) {
+    printf("%" PRIu8 " ", circular_buffer_get_element_uint8(circ_buf, i));
+  }
+  printf("]\n");
+  printf("  Raw Memory: [ ");
+  for (size_t i = 0; i < circ_buf->capacity; i++) {
+    printf("%" PRIu8 " ", *(circ_buf->buffer + i));
+  }
+  printf("]\n");
+}
+
 uint8_t circular_buffer_get_element_uint8(const circular_buffer_uint8 *circ_buf,
                                           const size_t iElement) {
   assert(iElement < circular_buffer_get_size_uint8(circ_buf));
