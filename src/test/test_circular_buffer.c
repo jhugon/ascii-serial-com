@@ -285,6 +285,26 @@ void test_circular_buffer_push_pop_front_back_uint8(void) {
   TEST_ASSERT_TRUE(circular_buffer_is_empty_uint8(&cb));
 }
 
+void test_circular_buffer_get_element_uint8(void) {
+
+  circular_buffer_uint8 cb;
+  const size_t capacity = 10;
+  uint8_t buf[capacity];
+
+  circular_buffer_init_uint8(&cb, capacity, (uint8_t *)(&buf));
+
+  for (uint8_t i = 0; i < 5; i++) {
+    circular_buffer_push_front_uint8(&cb, i);
+  }
+
+  for (uint8_t i = 0; i < 5; i++) {
+    TEST_ASSERT_EQUAL_UINT8(4 - i, circular_buffer_get_element_uint8(&cb, i));
+  }
+
+  // TEST_ASSERT_EQUAL_UINT8(0, circular_buffer_get_element_uint8(&cb,7)); // to
+  // test exception handling
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_circular_buffer_init_uint8);
@@ -293,5 +313,6 @@ int main(void) {
   RUN_TEST(test_circular_buffer_push_pop_front_uint8);
   RUN_TEST(test_circular_buffer_push_overfull_pop_front_uint8);
   RUN_TEST(test_circular_buffer_push_pop_front_back_uint8);
+  RUN_TEST(test_circular_buffer_get_element_uint8);
   return UNITY_END();
 }
