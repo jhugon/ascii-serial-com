@@ -124,10 +124,56 @@ uint8_t circular_buffer_pop_back_uint8(circular_buffer_uint8 *circ_buf) {
   return result;
 }
 
+void circular_buffer_remove_front_to_uint8(circular_buffer_uint8 *circ_buf,
+                                           const uint8_t value,
+                                           const bool inclusive) {
+  while (circ_buf->size > 0) {
+    uint8_t iValue = circular_buffer_get_element_uint8(circ_buf, 0);
+    if (iValue == value) {
+      if (inclusive) {
+        circular_buffer_pop_front_uint8(circ_buf);
+      }
+      return;
+    } else {
+      circular_buffer_pop_front_uint8(circ_buf);
+    }
+  }
+}
+
+void circular_buffer_remove_back_to_uint8(circular_buffer_uint8 *circ_buf,
+                                          const uint8_t value,
+                                          const bool inclusive) {
+  while (circ_buf->size > 0) {
+    uint8_t iValue =
+        circular_buffer_get_element_uint8(circ_buf, circ_buf->size - 1);
+    if (iValue == value) {
+      if (inclusive) {
+        circular_buffer_pop_back_uint8(circ_buf);
+      }
+      return;
+    } else {
+      circular_buffer_pop_back_uint8(circ_buf);
+    }
+  }
+}
+
 size_t circular_buffer_find_first_uint8(const circular_buffer_uint8 *circ_buf,
                                         const uint8_t value) {
   size_t iElement = 0;
   for (iElement = 0; iElement < circ_buf->size; iElement++) {
+    uint8_t iValue = circular_buffer_get_element_uint8(circ_buf, iElement);
+    if (iValue == value) {
+      return iElement;
+    }
+  }
+  return circ_buf->size;
+}
+
+size_t circular_buffer_find_last_uint8(const circular_buffer_uint8 *circ_buf,
+                                       const uint8_t value) {
+  size_t iElement = circ_buf->size;
+  while (iElement > 0) {
+    iElement--;
     uint8_t iValue = circular_buffer_get_element_uint8(circ_buf, iElement);
     if (iValue == value) {
       return iElement;

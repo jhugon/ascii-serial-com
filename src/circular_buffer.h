@@ -146,8 +146,9 @@ uint8_t circular_buffer_pop_back_uint8(circular_buffer_uint8 *circ_buf);
  * the given value
  *
  */
-// void circular_buffer_remove_front_to_uint8(circular_buffer_uint8 *circ_buf,
-// const uint8_t value, const bool inclusive);
+void circular_buffer_remove_front_to_uint8(circular_buffer_uint8 *circ_buf,
+                                           const uint8_t value,
+                                           const bool inclusive);
 
 /** \brief circular buffer remove elements from back until you find the given
  * value
@@ -161,8 +162,9 @@ uint8_t circular_buffer_pop_back_uint8(circular_buffer_uint8 *circ_buf);
  * the given value
  *
  */
-// void circular_buffer_remove_back_to_uint8(circular_buffer_uint8 *circ_buf,
-// const uint8_t value, const bool inclusive);
+void circular_buffer_remove_back_to_uint8(circular_buffer_uint8 *circ_buf,
+                                          const uint8_t value,
+                                          const bool inclusive);
 
 /** \brief circular buffer find index of first occurance of value
  *
@@ -173,11 +175,27 @@ uint8_t circular_buffer_pop_back_uint8(circular_buffer_uint8 *circ_buf);
  *  \param circ_buf is a pointer to an initialized circular buffer struct
  *  \param value is the value you want to find
  *  \return the index where the value can be found using
- * circular_buffer_get_element_uint8, will be >= size if not found \sa
- * circular_buffer_get_element_uint8
+ *     circular_buffer_get_element_uint8, will be >= size if not found
+ *  \sa circular_buffer_get_element_uint8
  *
  */
 size_t circular_buffer_find_first_uint8(const circular_buffer_uint8 *circ_buf,
                                         const uint8_t value);
+
+/** \brief circular buffer find index of last occurance of value
+ *
+ *  Finds the index of the last element with value equal to the given value.
+ *  If the value is not found in the buffer, the return value will be >= the
+ *  size of the buffer.
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *  \param value is the value you want to find
+ *  \return the index where the value can be found using
+ *     circular_buffer_get_element_uint8, will be >= size if not found
+ *  \sa circular_buffer_get_element_uint8
+ *
+ */
+size_t circular_buffer_find_last_uint8(const circular_buffer_uint8 *circ_buf,
+                                       const uint8_t value);
 
 #endif
