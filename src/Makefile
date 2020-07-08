@@ -1,5 +1,5 @@
 
-srcobjs := src/functest.o src/circular_buffer.o
+srcobjs := src/functest.o src/circular_buffer.o src/ascii_serial_com.o
 allobjs := $(allojbs) $(srcobjs)
 allexes := $(allexes)
 alllibs := $(alllibs) src/libasciiserialcom.a
