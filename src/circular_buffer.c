@@ -181,3 +181,15 @@ size_t circular_buffer_find_last_uint8(const circular_buffer_uint8 *circ_buf,
   }
   return circ_buf->size;
 }
+
+size_t circular_buffer_count_uint8(const circular_buffer_uint8 *circ_buf,
+                                   const uint8_t value) {
+  size_t result = 0;
+  for (size_t iElement = 0; iElement < circ_buf->size; iElement++) {
+    uint8_t iValue = circular_buffer_get_element_uint8(circ_buf, iElement);
+    if (iValue == value) {
+      result++;
+    }
+  }
+  return result;
+}

@@ -198,4 +198,16 @@ size_t circular_buffer_find_first_uint8(const circular_buffer_uint8 *circ_buf,
 size_t circular_buffer_find_last_uint8(const circular_buffer_uint8 *circ_buf,
                                        const uint8_t value);
 
+/** \brief circular buffer count the number of a given value
+ *
+ *  Counts the number of elements in the buffer that match the given value
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *  \param value is the value you want to find
+ *  \return the number of matches found
+ *
+ */
+size_t circular_buffer_count_uint8(const circular_buffer_uint8 *circ_buf,
+                                   const uint8_t value);
+
 #endif

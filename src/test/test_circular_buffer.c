@@ -468,6 +468,38 @@ void test_circular_buffer_find_last_uint8(void) {
   TEST_ASSERT_EQUAL(9, circular_buffer_find_last_uint8(&cb, 3));
 }
 
+void test_circular_buffer_count_uint8(void) {
+
+  circular_buffer_uint8 cb;
+  const size_t capacity = 10;
+  uint8_t buf[capacity];
+
+  circular_buffer_init_uint8(&cb, capacity, (uint8_t *)(&buf));
+
+  TEST_ASSERT_EQUAL(0, circular_buffer_count_uint8(&cb, 0));
+  TEST_ASSERT_EQUAL(0, circular_buffer_count_uint8(&cb, 5));
+
+  for (uint8_t i = 0; i < 10; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+  }
+  TEST_ASSERT_EQUAL(0, circular_buffer_count_uint8(&cb, 10));
+  TEST_ASSERT_EQUAL(1, circular_buffer_count_uint8(&cb, 9));
+  TEST_ASSERT_EQUAL(1, circular_buffer_count_uint8(&cb, 4));
+  TEST_ASSERT_EQUAL(1, circular_buffer_count_uint8(&cb, 0));
+  circular_buffer_push_back_uint8(&cb, 0);
+  TEST_ASSERT_EQUAL(1, circular_buffer_count_uint8(&cb, 0));
+  circular_buffer_push_back_uint8(&cb, 5);
+  TEST_ASSERT_EQUAL(2, circular_buffer_count_uint8(&cb, 5));
+  for (uint8_t i = 0; i < 50; i++) {
+    circular_buffer_push_back_uint8(&cb, 255);
+  }
+  TEST_ASSERT_EQUAL(10, circular_buffer_count_uint8(&cb, 255));
+  for (uint8_t i = 0; i < 10; i++) {
+    circular_buffer_pop_back_uint8(&cb);
+  }
+  TEST_ASSERT_EQUAL(0, circular_buffer_count_uint8(&cb, 255));
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_circular_buffer_init_uint8);
@@ -481,5 +513,6 @@ int main(void) {
   RUN_TEST(test_circular_buffer_remove_back_to_uint8);
   RUN_TEST(test_circular_buffer_find_first_uint8);
   RUN_TEST(test_circular_buffer_find_last_uint8);
+  RUN_TEST(test_circular_buffer_count_uint8);
   return UNITY_END();
 }
