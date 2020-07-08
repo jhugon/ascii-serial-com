@@ -134,4 +134,50 @@ uint8_t circular_buffer_pop_front_uint8(circular_buffer_uint8 *circ_buf);
  */
 uint8_t circular_buffer_pop_back_uint8(circular_buffer_uint8 *circ_buf);
 
+/** \brief circular buffer remove elements from front until you find the given
+ * value
+ *
+ *  Remove elements from the front of the buffer until the given value is found.
+ *  If the value isn't in the buffer, will empty the buffer.
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *  \param value is the value you want to remove the front of the buffer up to.
+ *  \param inclusive: if true, then remove the given value, otherwise all before
+ * the given value
+ *
+ */
+// void circular_buffer_remove_front_to_uint8(circular_buffer_uint8 *circ_buf,
+// const uint8_t value, const bool inclusive);
+
+/** \brief circular buffer remove elements from back until you find the given
+ * value
+ *
+ *  Remove elements from the back of the buffer until the given value is found.
+ *  If the value isn't in the buffer, will empty the buffer.
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *  \param value is the value you want to remove the back of the buffer up to.
+ *  \param inclusive: if true, then remove the given value, otherwise all after
+ * the given value
+ *
+ */
+// void circular_buffer_remove_back_to_uint8(circular_buffer_uint8 *circ_buf,
+// const uint8_t value, const bool inclusive);
+
+/** \brief circular buffer find index of first occurance of value
+ *
+ *  Finds the index of the first element with value equal to the given value.
+ *  If the value is not found in the buffer, the return value will be >= the
+ *  size of the buffer.
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *  \param value is the value you want to find
+ *  \return the index where the value can be found using
+ * circular_buffer_get_element_uint8, will be >= size if not found \sa
+ * circular_buffer_get_element_uint8
+ *
+ */
+size_t circular_buffer_find_first_uint8(const circular_buffer_uint8 *circ_buf,
+                                        const uint8_t value);
+
 #endif

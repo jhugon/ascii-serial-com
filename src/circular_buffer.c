@@ -123,3 +123,15 @@ uint8_t circular_buffer_pop_back_uint8(circular_buffer_uint8 *circ_buf) {
   const uint8_t result = *(circ_buf->buffer + circ_buf->iStop);
   return result;
 }
+
+size_t circular_buffer_find_first_uint8(const circular_buffer_uint8 *circ_buf,
+                                        const uint8_t value) {
+  size_t iElement = 0;
+  for (iElement = 0; iElement < circ_buf->size; iElement++) {
+    uint8_t iValue = circular_buffer_get_element_uint8(circ_buf, iElement);
+    if (iValue == value) {
+      return iElement;
+    }
+  }
+  return circ_buf->size;
+}
