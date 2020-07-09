@@ -1,24 +1,28 @@
 #include "ascii_serial_com.h"
 #include "assert.h"
 
-static const char hexLUT[16] = "0123456789ABCDEF";
-
-void convert_uint8_to_hex(uint8_t num, char *outstr) {
-  const uint8_t index1 = num & 0xF;
-  outstr[1] = hexLUT[index1];
-  const uint8_t index0 = (num >> 4) & 0xF;
-  outstr[0] = hexLUT[index0];
-}
-
-void convert_uint16_to_hex(uint16_t num, char *outstr) {
+void convert_uint8_to_hex(uint8_t num, char *outstr, bool caps) {
   for (uint8_t i = 0; i < 2; i++) {
-    convert_uint8_to_hex((num >> (8 * i)) & 0xFF, outstr + (1 - i));
+    uint8_t nibble = (num >> i) & 0xF;
+    if (nibble < 10) {
+      outstr[1 - i] = 0x30 + nibble;
+    } else if (caps) {
+      outstr[1 - i] = 0x41 + nibble - 10;
+    } else {
+      outstr[1 - i] = 0x61 + nibble - 10;
+    }
   }
 }
 
-void convert_uint32_to_hex(uint32_t num, char *outstr) {
+void convert_uint16_to_hex(uint16_t num, char *outstr, bool caps) {
+  for (uint8_t i = 0; i < 2; i++) {
+    convert_uint8_to_hex((num >> (8 * i)) & 0xFF, outstr + (1 - i), caps);
+  }
+}
+
+void convert_uint32_to_hex(uint32_t num, char *outstr, bool caps) {
   for (uint8_t i = 0; i < 4; i++) {
-    convert_uint8_to_hex((num >> (8 * i)) & 0xFF, outstr + (3 - i));
+    convert_uint8_to_hex((num >> (8 * i)) & 0xFF, outstr + (3 - i), caps);
   }
 }
 
@@ -29,6 +33,8 @@ uint8_t convert_hex_to_uint8(char *instr) {
     if (thischar >= 0x30 && thischar <= 0x39) {
       result |= (thischar - 0x30) << i;
     } else if (thischar >= 0x41 && thischar <= 0x46) {
+      result |= (thischar - 0x41 + 10) << i;
+    } else if (thischar >= 0x61 && thischar <= 0x66) {
       result |= (thischar - 0x41 + 10) << i;
     } else {
       assert(false);

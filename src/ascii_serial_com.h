@@ -103,9 +103,10 @@ typedef struct ascii_serial_com_struct {
  *
  *  \param num: the number to convert to hex
  *  \param outstr: a pointer to a 2-byte long string that will hold the result
+ *  \param caps: hex letters are caps A-F if true, and lowercase a-f if false
  *
  */
-void convert_uint8_to_hex(uint8_t num, char *outstr);
+void convert_uint8_to_hex(uint8_t num, char *outstr, bool caps);
 
 /** \brief convert uint16 to hex string
  *
@@ -113,9 +114,10 @@ void convert_uint8_to_hex(uint8_t num, char *outstr);
  *
  *  \param num: the number to convert to hex
  *  \param outstr: a pointer to a 4-byte long string that will hold the result
+ *  \param caps: hex letters are caps A-F if true, and lowercase a-f if false
  *
  */
-void convert_uint16_to_hex(uint16_t num, char *outstr);
+void convert_uint16_to_hex(uint16_t num, char *outstr, bool caps);
 
 /** \brief convert uint32 to hex string
  *
@@ -123,9 +125,10 @@ void convert_uint16_to_hex(uint16_t num, char *outstr);
  *
  *  \param num: the number to convert to hex
  *  \param outstr: a pointer to a 8-byte long string that will hold the result
+ *  \param caps: hex letters are caps A-F if true, and lowercase a-f if false
  *
  */
-void convert_uint32_to_hex(uint32_t num, char *outstr);
+void convert_uint32_to_hex(uint32_t num, char *outstr, bool caps);
 
 /** \brief convert hex string to uint8
  *
