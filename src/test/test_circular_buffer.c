@@ -500,6 +500,87 @@ void test_circular_buffer_count_uint8(void) {
   TEST_ASSERT_EQUAL(0, circular_buffer_count_uint8(&cb, 255));
 }
 
+void test_circular_buffer_get_first_block_uint8(void) {
+
+  circular_buffer_uint8 cb;
+  const size_t capacity = 10;
+  uint8_t buf[capacity];
+
+  circular_buffer_init_uint8(&cb, capacity, (uint8_t *)(&buf));
+  const uint8_t *block = NULL;
+  size_t blockSize = circular_buffer_get_first_block_uint8(&cb, &block);
+  TEST_ASSERT_EQUAL(0, blockSize);
+
+  for (uint8_t i = 0; i < 5; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+  }
+
+  blockSize = circular_buffer_get_first_block_uint8(&cb, &block);
+  TEST_ASSERT_EQUAL(5, blockSize);
+  TEST_ASSERT_EQUAL_MESSAGE(cb.buffer, block,
+                            "Pointers not equal cb buffer and block!");
+  for (uint8_t i = 0; i < blockSize; i++) {
+    TEST_ASSERT_EQUAL_UINT8(i, block[i]);
+  }
+
+  for (uint8_t i = 0; i < 5; i++) {
+    circular_buffer_pop_front_uint8(&cb);
+  }
+  TEST_ASSERT_EQUAL(5, cb.iStart);
+
+  blockSize = circular_buffer_get_first_block_uint8(&cb, &block);
+  TEST_ASSERT_EQUAL(0, blockSize);
+  TEST_ASSERT_EQUAL_MESSAGE(cb.buffer + 5, block,
+                            "Pointers not equal cb buffer and block!");
+
+  for (uint8_t i = 0; i < 20; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+  }
+  blockSize = circular_buffer_get_first_block_uint8(&cb, &block);
+  TEST_ASSERT_EQUAL(5, blockSize);
+  for (uint8_t i = 0; i < blockSize; i++) {
+    TEST_ASSERT_EQUAL_UINT8(i + 10, block[i]);
+  }
+}
+
+void test_circular_buffer_delete_first_block_uint8(void) {
+
+  circular_buffer_uint8 cb;
+  const size_t capacity = 10;
+  uint8_t buf[capacity];
+
+  circular_buffer_init_uint8(&cb, capacity, (uint8_t *)(&buf));
+  size_t delSize = circular_buffer_delete_first_block_uint8(&cb);
+  TEST_ASSERT_EQUAL(0, delSize);
+
+  for (uint8_t i = 0; i < 5; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+  }
+  delSize = circular_buffer_delete_first_block_uint8(&cb);
+  TEST_ASSERT_EQUAL(5, delSize);
+
+  for (uint8_t i = 0; i < 5; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+    circular_buffer_pop_front_uint8(&cb);
+  }
+  for (uint8_t i = 0; i < 20; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+  }
+  delSize = circular_buffer_delete_first_block_uint8(&cb);
+  TEST_ASSERT_EQUAL(5, delSize);
+  TEST_ASSERT_EQUAL(5, circular_buffer_get_size_uint8(&cb));
+  const uint8_t *block = NULL;
+  size_t blockSize = circular_buffer_get_first_block_uint8(&cb, &block);
+  TEST_ASSERT_EQUAL_MESSAGE(cb.buffer, block,
+                            "Pointers not equal cb buffer and block!");
+  for (uint8_t i = 0; i < blockSize; i++) {
+    TEST_ASSERT_EQUAL_UINT8(i + 15, block[i]);
+  }
+  delSize = circular_buffer_delete_first_block_uint8(&cb);
+  TEST_ASSERT_EQUAL(5, delSize);
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_circular_buffer_init_uint8);
@@ -514,5 +595,7 @@ int main(void) {
   RUN_TEST(test_circular_buffer_find_first_uint8);
   RUN_TEST(test_circular_buffer_find_last_uint8);
   RUN_TEST(test_circular_buffer_count_uint8);
+  RUN_TEST(test_circular_buffer_get_first_block_uint8);
+  RUN_TEST(test_circular_buffer_delete_first_block_uint8);
   return UNITY_END();
 }

@@ -210,4 +210,43 @@ size_t circular_buffer_find_last_uint8(const circular_buffer_uint8 *circ_buf,
 size_t circular_buffer_count_uint8(const circular_buffer_uint8 *circ_buf,
                                    const uint8_t value);
 
+/** \brief circular buffer get first block
+ *
+ *  Internally, the data may wrap around the end of the block of memory. This
+ * function gives you access to the memory block up to the end of the memory
+ * block, or if the data doesn't wrap, up to the end of the data.
+ *
+ *  This can be used followed by circular_buffer_delete_first_block_uint8 to
+ * "pop_front" a whole block of data at once.
+ *
+ *  \sa circular_buffer_delete_first_block_uint8
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *  \param outBlock is a pointer to the start of the block of memory
+ *  \return size of the block pointed to by outBlock
+ *
+ */
+size_t
+circular_buffer_get_first_block_uint8(const circular_buffer_uint8 *circ_buf,
+                                      const uint8_t **outBlock);
+
+/** \brief circular buffer delete first block
+ *
+ *  Internally, the data may wrap around the end of the block of memory. This
+ * function deletes the memory block from the current start of the circular
+ * buffer up to the end of the memory block, or if the data doesn't wrap, up to
+ * the end of the data.
+ *
+ *  This can be used after circular_buffer_get_first_block_uint8 to "pop_front"
+ * a whole block of data at once.
+ *
+ *  \sa circular_buffer_get_first_block_uint8
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *  \return size of the block deleted
+ *
+ */
+size_t
+circular_buffer_delete_first_block_uint8(circular_buffer_uint8 *circ_buf);
+
 #endif

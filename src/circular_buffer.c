@@ -193,3 +193,31 @@ size_t circular_buffer_count_uint8(const circular_buffer_uint8 *circ_buf,
   }
   return result;
 }
+
+size_t
+circular_buffer_get_first_block_uint8(const circular_buffer_uint8 *circ_buf,
+                                      const uint8_t **outBlock) {
+  *outBlock = circ_buf->buffer + circ_buf->iStart;
+  if (circ_buf->iStart + circ_buf->size > circ_buf->capacity) { // wraps
+    return circ_buf->capacity - circ_buf->iStart;
+  } else { // doesn't wrap
+    return circ_buf->size;
+  }
+}
+
+size_t
+circular_buffer_delete_first_block_uint8(circular_buffer_uint8 *circ_buf) {
+  if (circ_buf->iStart + circ_buf->size > circ_buf->capacity) { // wraps
+    const size_t toPop = circ_buf->capacity - circ_buf->iStart;
+    for (size_t i = 0; i < toPop; i++) {
+      circular_buffer_pop_front_uint8(circ_buf);
+    }
+    return toPop;
+  } else { // doesn't wrap
+    const size_t origSize = circ_buf->size;
+    circ_buf->size = 0;
+    circ_buf->iStart = 0;
+    circ_buf->iStop = 0;
+    return origSize;
+  }
+}
