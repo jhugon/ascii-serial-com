@@ -45,7 +45,7 @@ $(allobjs): %.o: %.c
 
 ######################################
 
-outtestexes := $(builddir)$(notdir $(testexes))
+outtestexes := $(addprefix $(builddir),$(notdir $(testexes)))
 
 $(builddir):
 	mkdir -p $(builddir)
