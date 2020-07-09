@@ -116,9 +116,10 @@ void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
 
 /** \brief ASCII Serial Com compute checksum of message
  *
- *  Computes the checksum of the last message in either the input or output
- * buffer. Specifically finds the substring bracketed by the last '>' and '.'
- * inclusive, and computes the checksum of that.
+ *
+ *  Computes the checksum of the last message in the input or output buffer.
+ * Specifically finds the last suubstring starting with the last '>' and ending
+ * in the last '.'.
  *
  *  \param asc is a pointer to an initialized ascii_serial_com struct
  *  \param checksumOut: pointer to already initialized buffer NCHARCHECKSUM long

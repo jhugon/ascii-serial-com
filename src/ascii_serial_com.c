@@ -1,4 +1,5 @@
 #include "ascii_serial_com.h"
+#include "compute_crc.h"
 
 #include <assert.h>
 
@@ -88,6 +89,37 @@ void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
     }
   }
   return; // success!
+}
+
+bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
+                                       bool outputBuffer) {
+  uint8_t checksumbuffer[MAXMESSAGELEN - NCHARCHECKSUM - 1];
+  circular_buffer_uint8 *circ_buf;
+  if (outputBuffer) {
+    circ_buf = &asc->out_buf;
+  } else {
+    circ_buf = &asc->in_buf;
+  }
+  const size_t size = circular_buffer_get_size_uint8(circ_buf);
+  const size_t iStart = circular_buffer_find_last_uint8(circ_buf, '>');
+  if (iStart >= size) {
+    return false;
+  }
+  const size_t iStop = circular_buffer_find_last_uint8(circ_buf, '.');
+  if (iStart >= size) {
+    return false;
+  }
+  if (iStop <= iStart || iStop - iStart < 4) {
+    return false;
+  }
+  for (size_t iElement = iStart; iElement <= iStop; iElement++) {
+    checksumbuffer[iElement] =
+        circular_buffer_get_element_uint8(circ_buf, iElement);
+  }
+  uint16_t resultInt = 0;
+  computeCRC_16_DNP(checksumbuffer, iStop - iStart + 1, resultInt);
+  convert_uint16_to_hex(resultInt, checksumOut, true);
+  return true;
 }
 
 /////////////////////////////////////////////////////
