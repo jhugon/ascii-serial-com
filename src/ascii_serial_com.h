@@ -11,6 +11,7 @@
 
 #define MAXMESSAGELEN 64
 #define MAXDATALEN 54
+#define NCHARCHECKSUM 4
 
 /** \brief ASCII Serial Com Interface State struct
  *
@@ -26,7 +27,8 @@ typedef struct ascii_serial_com_struct {
   size_t (*fWrite)(char *, size_t); /**< */
   circular_buffer_uint8 in_buf;     /**< */
   circular_buffer_uint8 out_buf;    /**< */
-  uint8_t raw_buffer[128];          /**< Raw buffer used by circular buffers */
+  uint8_t
+      raw_buffer[2 * MAXMESSAGELEN]; /**< Raw buffer used by circular buffers */
 } ascii_serial_com;
 
 /** \brief ASCII Serial Com Interface init method
@@ -41,9 +43,10 @@ typedef struct ascii_serial_com_struct {
  *  \param fwrite: the function to use to write to the serial port
  *
  */
-// void ascii_serial_com_init(ascii_serial_com *asc, uint8_t registerBitWidth,
-// char appVersion, char asciiSerialComVersion, size_t (*fRead)(char*,size_t),
-// size_t (*fWrite)(char*,size_t));
+void ascii_serial_com_init(ascii_serial_com *asc, uint8_t registerBitWidth,
+                           char appVersion, char asciiSerialComVersion,
+                           size_t (*fRead)(char *, size_t),
+                           size_t (*fWrite)(char *, size_t));
 
 /** \brief ASCII Serial Com send message
  *
@@ -71,7 +74,7 @@ typedef struct ascii_serial_com_struct {
  *  \param dataLen: The length of the data written
  *
  */
-// void ascii_serial_com_receive(ascii_serial_com *asc, char* ascVerson, char*
+// void ascii_serial_com_receive(ascii_serial_com *asc, char* ascVersion, char*
 // appVersion, char* command, char* data, size_t* dataLen);
 
 ////////////////////////////////////////////////////
@@ -83,19 +86,48 @@ typedef struct ascii_serial_com_struct {
 /** \brief ASCII Serial Com Pack and put message in output buffer
  *
  *  Packs the message into the output format and push it onto the output buffer
+ *  USER'S RESPONSIBILITY TO MAKE SURE MESSAGE CAN FIT IN OUTPUT CIRCULAR
+ * BUFFER. Message length is dataLen + (MAXMESSAGELEN-MAXMESSAGELEN)
  *
- *  \param asc is a pointer to an uninitialized ascii_serial_com struct
+ *  \param asc is a pointer to an initialized ascii_serial_com struct
  *  \param command: the single char command will be written to this byte
  *  \param data: The message data
  *  \param dataLen: The length of the data
+ */
+void ascii_serial_com_pack_message_push_out(ascii_serial_com *asc, char command,
+                                            char *data, size_t dataLen);
+
+/** \brief ASCII Serial Com pop message from input buffer and unpack
+ *
+ *  Unpacks the first message found in the input buffer
+ *
+ *  \param asc is a pointer to an initialized ascii_serial_com struct
+ *  All other parameters are outputs. Command will be set to \0 if no message
+ * found in buffer \param ascVersion: the single char ASCII-Serial-Com version
+ * in the message will be written here \param appVersion: the single char
+ * application version in the message will be written here \param command: the
+ * single char command will be written to this byte \param data: The message
+ * data will be put here. Should point to a MAXDATALEN long buffer \param
+ * dataLen: The length of the data put in data
+ */
+void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
+                                    char *appVersion, char *command, char *data,
+                                    size_t *dataLen);
+
+/** \brief ASCII Serial Com compute checksum of message
+ *
+ *  Computes the checksum of the last message in either the input or output
+ * buffer. Specifically finds the substring bracketed by the last '>' and '.'
+ * inclusive, and computes the checksum of that.
+ *
+ *  \param asc is a pointer to an initialized ascii_serial_com struct
+ *  \param checksumOut: pointer to already initialized buffer NCHARCHECKSUM long
+ *  \param outputBuffer: if true, use output buffer, if false use input buffer
+ *  \return true if checksum valid
  *
  */
-// void ascii_serial_com_pack_message_push_out(ascii_serial_com *asc, char
-// command, char* data, size_t dataLen);
-
-// void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char* ascVerson,
-// char* appVersion, char* command, char* data, size_t* dataLen); void
-// compute_checksum(char* message, size_t* messageLen, char* outChecksum);
+bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
+                                       bool outputBuffer);
 
 /** \brief convert uint8 to hex string
  *
