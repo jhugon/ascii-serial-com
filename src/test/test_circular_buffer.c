@@ -2,6 +2,24 @@
 #include "externals/unity.h"
 #include <stdio.h>
 
+static uint8_t buf_mock[100];
+static size_t buf_mock_iStart = 0;
+static size_t buf_mock_size = 0;
+size_t fRead_mock(uint8_t *buf, size_t size);
+
+size_t fRead_mock(uint8_t *buf, size_t size) {
+  size_t write_size = buf_mock_size;
+  if (size < write_size) {
+    write_size = size;
+  }
+  for (size_t iElement = buf_mock_iStart; iElement < write_size; iElement++) {
+    buf[iElement] = buf_mock[iElement];
+  }
+  buf_mock_iStart += write_size;
+  buf_mock_size -= write_size;
+  return write_size;
+}
+
 void setUp(void) {
   // set stuff up here
 }
@@ -581,6 +599,101 @@ void test_circular_buffer_delete_first_block_uint8(void) {
   TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
 }
 
+void test_circular_buffer_push_back_block_uint8(void) {
+
+  circular_buffer_uint8 cb;
+  const size_t capacity = 10;
+  uint8_t buf[capacity];
+  circular_buffer_init_uint8(&cb, capacity, (uint8_t *)(&buf));
+
+  buf_mock_size = 5;
+  buf_mock_iStart = 0;
+  for (uint8_t i = 0; i < buf_mock_size; i++) {
+    buf_mock[i] = i;
+  }
+
+  // circular_buffer_print_uint8(&cb);
+  size_t nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  // circular_buffer_print_uint8(&cb);
+  TEST_ASSERT_EQUAL(5, nPushed);
+  TEST_ASSERT_EQUAL(5, circular_buffer_get_size_uint8(&cb));
+
+  buf_mock_size = 2;
+  buf_mock_iStart = 0;
+  for (uint8_t i = 0; i < buf_mock_size; i++) {
+    buf_mock[i] = i;
+  }
+  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  // circular_buffer_print_uint8(&cb);
+  TEST_ASSERT_EQUAL(2, nPushed);
+  TEST_ASSERT_EQUAL(7, circular_buffer_get_size_uint8(&cb));
+
+  buf_mock_size = 10;
+  buf_mock_iStart = 0;
+  for (uint8_t i = 0; i < buf_mock_size; i++) {
+    buf_mock[i] = i;
+  }
+  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  // circular_buffer_print_uint8(&cb);
+  TEST_ASSERT_EQUAL(3, nPushed);
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
+
+  // already full!
+  buf_mock_size = 10;
+  buf_mock_iStart = 0;
+  for (uint8_t i = 0; i < buf_mock_size; i++) {
+    buf_mock[i] = i;
+  }
+  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  // circular_buffer_print_uint8(&cb);
+  TEST_ASSERT_EQUAL(0, nPushed);
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
+
+  // test just one empty at back
+  circular_buffer_pop_back_uint8(&cb);
+
+  buf_mock_size = 10;
+  buf_mock_iStart = 0;
+  for (uint8_t i = 0; i < buf_mock_size; i++) {
+    buf_mock[i] = i;
+  }
+  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  // circular_buffer_print_uint8(&cb);
+  TEST_ASSERT_EQUAL(1, nPushed);
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
+
+  // test just one empty at front
+  circular_buffer_pop_front_uint8(&cb);
+
+  buf_mock_size = 10;
+  buf_mock_iStart = 0;
+  for (uint8_t i = 0; i < buf_mock_size; i++) {
+    buf_mock[i] = i;
+  }
+  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  // circular_buffer_print_uint8(&cb);
+  TEST_ASSERT_EQUAL(1, nPushed);
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
+
+  // Test start empty from middle
+  for (uint8_t i = 0; i < 5; i++) {
+    circular_buffer_pop_back_uint8(&cb);
+    circular_buffer_pop_front_uint8(&cb);
+  }
+  // circular_buffer_print_uint8(&cb);
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+
+  buf_mock_size = 4;
+  buf_mock_iStart = 0;
+  for (uint8_t i = 0; i < buf_mock_size; i++) {
+    buf_mock[i] = i;
+  }
+  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  // circular_buffer_print_uint8(&cb);
+  TEST_ASSERT_EQUAL(4, nPushed);
+  TEST_ASSERT_EQUAL(4, circular_buffer_get_size_uint8(&cb));
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_circular_buffer_init_uint8);
@@ -597,5 +710,6 @@ int main(void) {
   RUN_TEST(test_circular_buffer_count_uint8);
   RUN_TEST(test_circular_buffer_get_first_block_uint8);
   RUN_TEST(test_circular_buffer_delete_first_block_uint8);
+  RUN_TEST(test_circular_buffer_push_back_block_uint8);
   return UNITY_END();
 }

@@ -3,9 +3,8 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 /** \brief circular buffer struct
  *
@@ -248,5 +247,24 @@ circular_buffer_get_first_block_uint8(const circular_buffer_uint8 *circ_buf,
  */
 size_t
 circular_buffer_delete_first_block_uint8(circular_buffer_uint8 *circ_buf);
+
+/** \brief circular buffer push a block of memory on back
+ *
+ *  Pushes a block of memory onto back until full or no bytes read from fRead
+ *
+ *  ASSUMES fRead DOESN'T BLOCK, just reads from another buffer or something
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *
+ *  \param fRead: function that writes data into it's first argument of
+ *     size <= the second argument. The function returns the number of
+ *     bytes actually written (<= 2nd arg)
+ *
+ *  \return total number of elements pushed onto buffer (and read from function)
+ *
+ */
+size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
+                                             size_t (*fRead)(uint8_t *,
+                                                             size_t));
 
 #endif

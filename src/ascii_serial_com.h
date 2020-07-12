@@ -3,9 +3,8 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 #include "circular_buffer.h"
 
@@ -19,14 +18,14 @@
  *
  */
 typedef struct ascii_serial_com_struct {
-  uint8_t registerBitWidth;         /**< */
-  uint8_t registerByteWidth;        /**< */
-  char appVersion;                  /**< */
-  char asciiSerialComVersion;       /**< */
-  size_t (*fRead)(char *, size_t);  /**< */
-  size_t (*fWrite)(char *, size_t); /**< */
-  circular_buffer_uint8 in_buf;     /**< */
-  circular_buffer_uint8 out_buf;    /**< */
+  uint8_t registerBitWidth;               /**< */
+  uint8_t registerByteWidth;              /**< */
+  char appVersion;                        /**< */
+  char asciiSerialComVersion;             /**< */
+  size_t (*fRead)(char *, size_t);        /**< */
+  size_t (*fWrite)(const char *, size_t); /**< */
+  circular_buffer_uint8 in_buf;           /**< */
+  circular_buffer_uint8 out_buf;          /**< */
   uint8_t
       raw_buffer[2 * MAXMESSAGELEN]; /**< Raw buffer used by circular buffers */
 } ascii_serial_com;
@@ -46,7 +45,7 @@ typedef struct ascii_serial_com_struct {
 void ascii_serial_com_init(ascii_serial_com *asc, uint8_t registerBitWidth,
                            char appVersion, char asciiSerialComVersion,
                            size_t (*fRead)(char *, size_t),
-                           size_t (*fWrite)(char *, size_t));
+                           size_t (*fWrite)(const char *, size_t));
 
 /** \brief ASCII Serial Com send message
  *
@@ -58,24 +57,33 @@ void ascii_serial_com_init(ascii_serial_com *asc, uint8_t registerBitWidth,
  *  \param dataLen: number of bytes of data to send
  *
  */
-// void ascii_serial_com_send(ascii_serial_com *asc, char command, char* data,
-// size_t dataLen);
+void ascii_serial_com_send(ascii_serial_com *asc, char command, char *data,
+                           size_t dataLen);
 
 /** \brief ASCII Serial Com receive message
  *
  *  Receive a message
  *
  *  \param asc is a pointer to an uninitialized ascii_serial_com struct
+ *
  *  \param ascVersion: the single char ASCII Serial Com version will be written
- * to this byte \param appVersion: the single char application version will be
- * written to this byte \param command: the single char command will be written
- * to this byte \param data: Data will be written to this buffer (The data
- * written can be up to MAXDATALEN bytes long, so allocate MAXDATALEN bytes)
- *  \param dataLen: The length of the data written
+ *  to this byte
+ *
+ *  \param appVersion: the single char application version will be
+ *  written to this byte
+ *
+ *  \param command: the single char command will be written
+ *  to this byte. Will be '\0' if no message in read
+ *
+ *  \param data: Data will be written to this buffer (The data
+ *  written can be up to MAXDATALEN bytes long, so allocate MAXDATALEN bytes)
+ *
+ *  \param dataLen: The length of the data astually written
  *
  */
-// void ascii_serial_com_receive(ascii_serial_com *asc, char* ascVersion, char*
-// appVersion, char* command, char* data, size_t* dataLen);
+void ascii_serial_com_receive(ascii_serial_com *asc, char *ascVersion,
+                              char *appVersion, char *command, char *data,
+                              size_t *dataLen);
 
 ////////////////////////////////////////////////////
 ////////////////////////////////////////////////////

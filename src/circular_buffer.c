@@ -1,5 +1,6 @@
 #include "circular_buffer.h"
 #include <assert.h>
+#include <stdio.h>
 
 // Private helper functions
 
@@ -220,4 +221,28 @@ circular_buffer_delete_first_block_uint8(circular_buffer_uint8 *circ_buf) {
     circ_buf->iStop = 0;
     return origSize;
   }
+}
+
+size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
+                                             size_t (*fRead)(uint8_t *,
+                                                             size_t)) {
+  size_t nReadTotal = 0;
+  size_t nRead = 255;
+  size_t block_size_available;
+  while (nRead != 0 && circ_buf->size != circ_buf->capacity) {
+    uint8_t *block_start = circ_buf->buffer + circ_buf->iStop;
+    if (circ_buf->iStop >= circ_buf->iStart) {
+      block_size_available = circ_buf->capacity - circ_buf->iStop;
+    } else {
+      block_size_available = circ_buf->iStart - circ_buf->iStop;
+    }
+    nRead = fRead(block_start, block_size_available);
+    // printf("push_back_block: nRead: %zu, block_size_available: %zu, buffer:
+    // %p, block_start: %p\n", nRead, block_size_available, circ_buf->buffer,
+    // block_start);
+    circ_buf->iStop = (circ_buf->iStop + nRead) % circ_buf->capacity;
+    circ_buf->size += nRead;
+    nReadTotal += nRead;
+  }
+  return nReadTotal;
 }
