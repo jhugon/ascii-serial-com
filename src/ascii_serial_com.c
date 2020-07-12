@@ -5,18 +5,10 @@
 
 ///////////////////////////////////////////////////////////////////////////
 
-void ascii_serial_com_init(ascii_serial_com *asc, uint8_t registerBitWidth,
-                           char appVersion, char asciiSerialComVersion,
+void ascii_serial_com_init(ascii_serial_com *asc,
                            size_t (*fRead)(char *, size_t),
                            size_t (*fWrite)(const char *, size_t)) {
 
-  asc->registerBitWidth = registerBitWidth;
-  asc->registerByteWidth = registerBitWidth >> 3; // divide by 8
-  if ((registerBitWidth & 0x7) > 0) {             // if mod 8 > 0
-    asc->registerByteWidth++;
-  }
-  asc->appVersion = appVersion;
-  asc->asciiSerialComVersion = asciiSerialComVersion;
   asc->fRead = fRead;
   asc->fWrite = fWrite;
   circular_buffer_init_uint8(&(asc->in_buf), MAXMESSAGELEN, asc->raw_buffer);
@@ -24,9 +16,11 @@ void ascii_serial_com_init(ascii_serial_com *asc, uint8_t registerBitWidth,
                              asc->raw_buffer + MAXMESSAGELEN);
 }
 
-void ascii_serial_com_send(ascii_serial_com *asc, char command, char *data,
+void ascii_serial_com_send(ascii_serial_com *asc, char ascVersion,
+                           char appVersion, char command, char *data,
                            size_t dataLen) {
-  ascii_serial_com_pack_message_push_out(asc, command, data, dataLen);
+  ascii_serial_com_pack_message_push_out(asc, ascVersion, appVersion, command,
+                                         data, dataLen);
   size_t nToWrite;
   const uint8_t *buf = NULL;
   while (true) {
@@ -56,12 +50,14 @@ void ascii_serial_com_receive(ascii_serial_com *asc, char *ascVersion,
                                  dataLen);
 }
 
-void ascii_serial_com_pack_message_push_out(ascii_serial_com *asc, char command,
-                                            char *data, size_t dataLen) {
+void ascii_serial_com_pack_message_push_out(ascii_serial_com *asc,
+                                            char ascVersion, char appVersion,
+                                            char command, char *data,
+                                            size_t dataLen) {
   assert(dataLen < MAXMESSAGELEN);
   circular_buffer_push_back_uint8(&asc->out_buf, '>');
-  circular_buffer_push_back_uint8(&asc->out_buf, asc->asciiSerialComVersion);
-  circular_buffer_push_back_uint8(&asc->out_buf, asc->appVersion);
+  circular_buffer_push_back_uint8(&asc->out_buf, ascVersion);
+  circular_buffer_push_back_uint8(&asc->out_buf, appVersion);
   circular_buffer_push_back_uint8(&asc->out_buf, command);
   for (size_t i = 0; i < dataLen; i++) {
     circular_buffer_push_back_uint8(&asc->out_buf, data[i]);

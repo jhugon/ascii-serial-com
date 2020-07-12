@@ -18,10 +18,6 @@
  *
  */
 typedef struct ascii_serial_com_struct {
-  uint8_t registerBitWidth;               /**< */
-  uint8_t registerByteWidth;              /**< */
-  char appVersion;                        /**< */
-  char asciiSerialComVersion;             /**< */
   size_t (*fRead)(char *, size_t);        /**< */
   size_t (*fWrite)(const char *, size_t); /**< */
   circular_buffer_uint8 in_buf;           /**< */
@@ -35,15 +31,13 @@ typedef struct ascii_serial_com_struct {
  *  Initialize interface
  *
  *  \param asc is a pointer to an uninitialized ascii_serial_com struct
- *  \param registerBitWidth is the bit width of the registers
- *  \param appVersion: an ASCII byte representing the application version
- *  \param asciiSerialComVersion: an ASCII byte representing the version
+ *
  *  \param fread: the function to use to read from the serial port
+ *
  *  \param fwrite: the function to use to write to the serial port
  *
  */
-void ascii_serial_com_init(ascii_serial_com *asc, uint8_t registerBitWidth,
-                           char appVersion, char asciiSerialComVersion,
+void ascii_serial_com_init(ascii_serial_com *asc,
                            size_t (*fRead)(char *, size_t),
                            size_t (*fWrite)(const char *, size_t));
 
@@ -51,20 +45,29 @@ void ascii_serial_com_init(ascii_serial_com *asc, uint8_t registerBitWidth,
  *
  *  Send a message
  *
- *  \param asc is a pointer to an uninitialized ascii_serial_com struct
+ *  \param asc is a pointer to an initialized ascii_serial_com struct
+ *
+ *  \param ascVersion: the single char ASCII Serial Com version (probably '0')
+ *
+ *  \param appVersion: the single char application version (user application
+ * info)
+ *
  *  \param command: a single letter command type
+ *
  *  \param data: an array of data to send
+ *
  *  \param dataLen: number of bytes of data to send
  *
  */
-void ascii_serial_com_send(ascii_serial_com *asc, char command, char *data,
+void ascii_serial_com_send(ascii_serial_com *asc, char ascVersion,
+                           char appVersion, char command, char *data,
                            size_t dataLen);
 
 /** \brief ASCII Serial Com receive message
  *
  *  Receive a message
  *
- *  \param asc is a pointer to an uninitialized ascii_serial_com struct
+ *  \param asc is a pointer to an initialized ascii_serial_com struct
  *
  *  \param ascVersion: the single char ASCII Serial Com version will be written
  *  to this byte
@@ -98,25 +101,44 @@ void ascii_serial_com_receive(ascii_serial_com *asc, char *ascVersion,
  * BUFFER. Message length is dataLen + (MAXMESSAGELEN-MAXMESSAGELEN)
  *
  *  \param asc is a pointer to an initialized ascii_serial_com struct
+ *
+ *  \param ascVersion: the single char ASCII Serial Com version (probably '0')
+ *
+ *  \param appVersion: the single char application version (user application
+ * info)
+ *
  *  \param command: the single char command will be written to this byte
+ *
  *  \param data: The message data
+ *
  *  \param dataLen: The length of the data
  */
-void ascii_serial_com_pack_message_push_out(ascii_serial_com *asc, char command,
-                                            char *data, size_t dataLen);
+void ascii_serial_com_pack_message_push_out(ascii_serial_com *asc,
+                                            char ascVersion, char appVersion,
+                                            char command, char *data,
+                                            size_t dataLen);
 
 /** \brief ASCII Serial Com pop message from input buffer and unpack
  *
  *  Unpacks the first message found in the input buffer
  *
  *  \param asc is a pointer to an initialized ascii_serial_com struct
+ *
  *  All other parameters are outputs. Command will be set to \0 if no message
- * found in buffer \param ascVersion: the single char ASCII-Serial-Com version
- * in the message will be written here \param appVersion: the single char
- * application version in the message will be written here \param command: the
- * single char command will be written to this byte \param data: The message
- * data will be put here. Should point to a MAXDATALEN long buffer \param
- * dataLen: The length of the data put in data
+ * found in buffer
+ *
+ * \param ascVersion: the single char ASCII-Serial-Com version
+ * in the message will be written here
+ *
+ * \param appVersion: the single char application version in the message will be
+ * written here
+ *
+ * \param command: the single char command will be written to this byte
+ *
+ * \param data: The message data will be put here. Should point to a MAXDATALEN
+ * long buffer
+ *
+ * \param dataLen: The length of the data put in data
  */
 void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
                                     char *appVersion, char *command, char *data,
@@ -126,12 +148,15 @@ void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
  *
  *
  *  Computes the checksum of the last message in the input or output buffer.
- * Specifically finds the last suubstring starting with the last '>' and ending
+ * Specifically finds the last substring starting with the last '>' and ending
  * in the last '.'.
  *
  *  \param asc is a pointer to an initialized ascii_serial_com struct
+ *
  *  \param checksumOut: pointer to already initialized buffer NCHARCHECKSUM long
+ *
  *  \param outputBuffer: if true, use output buffer, if false use input buffer
+ *
  *  \return true if checksum valid
  *
  */
@@ -143,7 +168,9 @@ bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
  *  Converts uint8 to capital hex string, 2-bytes long, zero padded
  *
  *  \param num: the number to convert to hex
+ *
  *  \param outstr: a pointer to a 2-byte long string that will hold the result
+ *
  *  \param caps: hex letters are caps A-F if true, and lowercase a-f if false
  *
  */
@@ -154,7 +181,9 @@ void convert_uint8_to_hex(uint8_t num, char *outstr, bool caps);
  *  Converts uint16 to capital hex string, 4-bytes long, zero padded
  *
  *  \param num: the number to convert to hex
+ *
  *  \param outstr: a pointer to a 4-byte long string that will hold the result
+ *
  *  \param caps: hex letters are caps A-F if true, and lowercase a-f if false
  *
  */
@@ -165,7 +194,9 @@ void convert_uint16_to_hex(uint16_t num, char *outstr, bool caps);
  *  Converts uint32 to capital hex string, 8-bytes long, zero padded
  *
  *  \param num: the number to convert to hex
+ *
  *  \param outstr: a pointer to a 8-byte long string that will hold the result
+ *
  *  \param caps: hex letters are caps A-F if true, and lowercase a-f if false
  *
  */
@@ -176,6 +207,7 @@ void convert_uint32_to_hex(uint32_t num, char *outstr, bool caps);
  *  Converts hex string to uint8
  *
  *  \param str: a pointer to a 2-byte long string that holds the hex input
+ *
  *  \return the uint8_t
  *
  */
@@ -186,6 +218,7 @@ uint8_t convert_hex_to_uint8(char *instr);
  *  Converts hex string to uint16
  *
  *  \param str: a pointer to a 4-byte long string that holds the hex input
+ *
  *  \return the uint16_t
  *
  */
@@ -196,6 +229,7 @@ uint16_t convert_hex_to_uint16(char *instr);
  *  Converts hex string to uint32
  *
  *  \param str: a pointer to a 8-byte long string that holds the hex input
+ *
  *  \return the uint32_t
  *
  */
