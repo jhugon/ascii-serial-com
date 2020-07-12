@@ -22,6 +22,8 @@ size_t fRead_mock(uint8_t *buf, size_t size) {
 
 void setUp(void) {
   // set stuff up here
+  buf_mock_iStart = 0;
+  buf_mock_size = 0;
 }
 
 void tearDown(void) {

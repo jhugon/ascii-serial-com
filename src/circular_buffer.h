@@ -267,4 +267,30 @@ size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
                                              size_t (*fRead)(uint8_t *,
                                                              size_t));
 
+/** \brief circular buffer clear
+ *
+ *  Resets the circular buffer to empty and starting from the beginning of the
+ * memory buffer
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *
+ */
+void circular_buffer_clear_uint8(circular_buffer_uint8 *circ_buf);
+
+/** \brief circular buffer push back string (null terminated)
+ *
+ *  Pushes null terminated string onto buffer (without pushing the null)
+ *
+ *  For testing, NOT RECOMMENDED FOR MICROCONTROLLER USE
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *
+ *  \param string: null terminated string like a string literal
+ *
+ *  \return total number of elements pushed onto buffer
+ *
+ */
+size_t circular_buffer_push_back_string_uint8(circular_buffer_uint8 *circ_buf,
+                                              const char *string);
+
 #endif

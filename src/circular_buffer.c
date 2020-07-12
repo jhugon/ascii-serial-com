@@ -246,3 +246,24 @@ size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
   }
   return nReadTotal;
 }
+
+void circular_buffer_clear_uint8(circular_buffer_uint8 *circ_buf) {
+  circ_buf->size = 0;
+  circ_buf->iStart = 0;
+  circ_buf->iStop = 0;
+}
+
+size_t circular_buffer_push_back_string_uint8(circular_buffer_uint8 *circ_buf,
+                                              const char *string) {
+  size_t nPushed = 0;
+  size_t iChar = 0;
+  while (true) {
+    const char *pChar = string + iChar;
+    if ((*pChar) == '\0') {
+      break;
+    }
+    circular_buffer_push_back_uint8(circ_buf, *pChar);
+    iChar++;
+  }
+  return nPushed;
+}

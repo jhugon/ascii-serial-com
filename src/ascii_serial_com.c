@@ -2,6 +2,8 @@
 #include "compute_crc.h"
 
 #include <assert.h>
+#include <inttypes.h>
+#include <stdio.h>
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -149,12 +151,16 @@ bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
     circ_buf = &asc->in_buf;
   }
   const size_t size = circular_buffer_get_size_uint8(circ_buf);
-  const size_t iStart = circular_buffer_find_last_uint8(circ_buf, '>');
+  size_t iStart = circular_buffer_find_last_uint8(circ_buf, '>');
+  size_t iStop = circular_buffer_find_last_uint8(circ_buf, '.');
+  if (!outputBuffer) { // want the first one on input
+    iStart = circular_buffer_find_first_uint8(circ_buf, '>');
+    iStop = circular_buffer_find_first_uint8(circ_buf, '.');
+  }
   if (iStart >= size) {
     return false;
   }
-  const size_t iStop = circular_buffer_find_last_uint8(circ_buf, '.');
-  if (iStart >= size) {
+  if (iStop >= size) {
     return false;
   }
   if (iStop <= iStart || iStop - iStart < 4) {
@@ -164,8 +170,8 @@ bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
     checksumbuffer[iElement] =
         circular_buffer_get_element_uint8(circ_buf, iElement);
   }
-  uint16_t resultInt = 0;
-  computeCRC_16_DNP(checksumbuffer, iStop - iStart + 1, resultInt);
+  uint16_t resultInt =
+      computeCRC_16_DNP(checksumbuffer, iStop - iStart + 1, 0xFFFF);
   convert_uint16_to_hex(resultInt, checksumOut, true);
   return true;
 }
