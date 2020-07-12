@@ -60,7 +60,7 @@ void ascii_serial_com_init(ascii_serial_com *asc,
  *
  */
 void ascii_serial_com_send(ascii_serial_com *asc, char ascVersion,
-                           char appVersion, char command, char *data,
+                           char appVersion, char command, const char *data,
                            size_t dataLen);
 
 /** \brief ASCII Serial Com receive message
@@ -115,7 +115,7 @@ void ascii_serial_com_receive(ascii_serial_com *asc, char *ascVersion,
  */
 void ascii_serial_com_pack_message_push_out(ascii_serial_com *asc,
                                             char ascVersion, char appVersion,
-                                            char command, char *data,
+                                            char command, const char *data,
                                             size_t dataLen);
 
 /** \brief ASCII Serial Com pop message from input buffer and unpack

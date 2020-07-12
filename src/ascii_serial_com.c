@@ -19,17 +19,20 @@ void ascii_serial_com_init(ascii_serial_com *asc,
 }
 
 void ascii_serial_com_send(ascii_serial_com *asc, char ascVersion,
-                           char appVersion, char command, char *data,
+                           char appVersion, char command, const char *data,
                            size_t dataLen) {
   ascii_serial_com_pack_message_push_out(asc, ascVersion, appVersion, command,
                                          data, dataLen);
   size_t nToWrite;
   const uint8_t *buf = NULL;
   while (true) {
-    nToWrite = circular_buffer_get_first_block_uint8(&asc->in_buf, &buf);
+    nToWrite = circular_buffer_get_first_block_uint8(&asc->out_buf, &buf);
     if (nToWrite > 0) {
       while (true) {
         size_t nWritten = asc->fWrite((const char *)buf, nToWrite);
+        for (size_t iWritten = 0; iWritten < nWritten; iWritten++) {
+          circular_buffer_pop_front_uint8(&asc->out_buf);
+        }
         nToWrite -= nWritten;
         if (nToWrite > 0) {
           buf += nWritten;
@@ -54,7 +57,7 @@ void ascii_serial_com_receive(ascii_serial_com *asc, char *ascVersion,
 
 void ascii_serial_com_pack_message_push_out(ascii_serial_com *asc,
                                             char ascVersion, char appVersion,
-                                            char command, char *data,
+                                            char command, const char *data,
                                             size_t dataLen) {
   assert(dataLen < MAXMESSAGELEN);
   circular_buffer_push_back_uint8(&asc->out_buf, '>');

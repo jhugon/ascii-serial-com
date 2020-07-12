@@ -15,6 +15,7 @@ static size_t fWrite_mock_size = 0;
 size_t fWrite_mock(const char *buf, size_t size);
 
 size_t fRead_mock(char *buf, size_t size) {
+  printf("fRead_mock called with: %p and %zu\n", buf, size);
   size_t write_size = fRead_mock_size;
   if (size < write_size) {
     write_size = size;
@@ -28,6 +29,10 @@ size_t fRead_mock(char *buf, size_t size) {
 }
 
 size_t fWrite_mock(const char *buf, size_t size) {
+  // printf("fWrite_mock called with: %p and %zu\n",buf,size);
+  // printf("fWrite_mock_iStart: %zu fWrite_CAPACITY: %u fWrite_CAPACITY_MAX:
+  // %u\n",fWrite_mock_iStart, (unsigned) fWrite_CAPACITY, (unsigned)
+  // fWrite_CAPACITY_MAX);
   size_t write_size = size;
   if (size >= fWrite_CAPACITY - fWrite_mock_iStart) {
     write_size = fWrite_CAPACITY - fWrite_mock_iStart;
@@ -40,6 +45,7 @@ size_t fWrite_mock(const char *buf, size_t size) {
   }
   fWrite_mock_iStart += write_size;
   fWrite_mock_size += write_size;
+  // printf("fWrite_mock returning: %zu\n",write_size);
   return write_size;
 }
 
@@ -178,11 +184,50 @@ void test_ascii_serial_com_compute_checksum(void) {
   }
 }
 
+void test_ascii_serial_com_send(void) {
+  ascii_serial_com asc;
+  ascii_serial_com_init(&asc, fRead_mock, fWrite_mock);
+
+  fWrite_mock_iStart = 0;
+  fWrite_mock_size = 0;
+  ascii_serial_com_send(&asc, '0', '0', 'w', "", 0);
+  // printf("fWrite_mock_size: %zu fRead_mock_size: %zu\n", fWrite_mock_size,
+  // fRead_mock_size);
+  TEST_ASSERT_EQUAL_size_t(10, fWrite_mock_size);
+  // fWrite_mock_buf[10] = '\0';
+  // printf("%s\n",fWrite_mock_buf);
+  TEST_ASSERT_EQUAL_MEMORY(">00w.23A6\n", fWrite_mock_buf, 10);
+
+  fWrite_mock_iStart = 0;
+  fWrite_mock_size = 0;
+  ascii_serial_com_send(&asc, '0', '0', 'w', "FFFF", 4);
+  // printf("fWrite_mock_size: %zu fRead_mock_size: %zu\n", fWrite_mock_size,
+  // fRead_mock_size);
+  TEST_ASSERT_EQUAL_size_t(14, fWrite_mock_size);
+  // fWrite_mock_buf[14] = '\0';
+  // printf("%s\n",fWrite_mock_buf);
+  TEST_ASSERT_EQUAL_MEMORY(">00wFFFF.9F3B\n", fWrite_mock_buf, 14);
+
+  const char solnbuf[64] =
+      ">345666666666666666666666666666666666666666666666666666666.C7FB\n";
+  const char *databuf = solnbuf + 4;
+  fWrite_mock_iStart = 0;
+  fWrite_mock_size = 0;
+  ascii_serial_com_send(&asc, '3', '4', '5', databuf, MAXDATALEN);
+  // printf("fWrite_mock_size: %zu fRead_mock_size: %zu\n", fWrite_mock_size,
+  // fRead_mock_size);
+  TEST_ASSERT_EQUAL_size_t(64, fWrite_mock_size);
+  // fWrite_mock_buf[14] = '\0';
+  // printf("%s\n",fWrite_mock_buf);
+  TEST_ASSERT_EQUAL_MEMORY(solnbuf, fWrite_mock_buf, 64);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_convert_uint8_to_hex);
   RUN_TEST(test_convert_uint16_to_hex);
   RUN_TEST(test_convert_uint32_to_hex);
   RUN_TEST(test_ascii_serial_com_compute_checksum);
+  RUN_TEST(test_ascii_serial_com_send);
   return UNITY_END();
 }
