@@ -51,6 +51,8 @@ void ascii_serial_com_receive(ascii_serial_com *asc, char *ascVersion,
                               size_t *dataLen) {
   circular_buffer_push_back_block_uint8(
       &asc->in_buf, (size_t(*)(uint8_t *, size_t))asc->fRead);
+  // printf("in_buf content after circular_buffer_push_back_block_uint8:\n");
+  // circular_buffer_print_uint8(&asc->in_buf);
   ascii_serial_com_pop_in_unpack(asc, ascVersion, appVersion, command, data,
                                  dataLen);
 }
@@ -83,12 +85,14 @@ void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
   circular_buffer_remove_front_to_uint8(&asc->in_buf, '>', false);
   size_t buf_size = circular_buffer_get_size_uint8(&asc->in_buf);
   if (buf_size == 0) {
+    printf("Error Buffer size == 0\n");
     *command = '\0';
     *dataLen = 0;
     return;
   }
   size_t iEnd = circular_buffer_find_first_uint8(&asc->in_buf, '\n');
   if (iEnd >= buf_size) {
+    printf("Error \\n not found\n");
     *command = '\0';
     *dataLen = 0;
     return;
@@ -99,6 +103,7 @@ void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
     if (element == '>') {
       circular_buffer_pop_front_uint8(
           &asc->in_buf); // get rid of spuroius start of frame
+      printf("Error extra >\n");
       *command = '\0';
       *dataLen = 0;
       return;
@@ -106,10 +111,12 @@ void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
   }
   if (!ascii_serial_com_compute_checksum(asc, computeChecksum, false)) {
     // invalid checksum, so probably couldn't find a valid message
+    printf("Error invalid message frame (couldn't compute checksum)\n");
     *command = '\0';
     *dataLen = 0;
     return;
   }
+  circular_buffer_pop_front_uint8(&asc->in_buf); // pop off starting '>'
   *ascVersion = circular_buffer_pop_front_uint8(&asc->in_buf);
   *appVersion = circular_buffer_pop_front_uint8(&asc->in_buf);
   *command = circular_buffer_pop_front_uint8(&asc->in_buf);
@@ -125,6 +132,7 @@ void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
   if (*dataLen == MAXDATALEN &&
       circular_buffer_pop_front_uint8(&asc->in_buf) != '.') {
     // never found '.', so bad message
+    printf("Error invalid message frame (no '.' found)\n");
     *command = '\0';
     *dataLen = 0;
     return;
@@ -134,14 +142,24 @@ void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
     receiveChecksum[iChk] = circular_buffer_pop_front_uint8(&asc->in_buf);
   }
   for (size_t iChk = 0; iChk < NCHARCHECKSUM; iChk++) {
-    if (receiveChecksum[iChk] == computeChecksum[iChk]) {
+    if (receiveChecksum[iChk] != computeChecksum[iChk]) {
       // checksum mismatch!
+      printf("Error: checksum mismatch, computed: ");
+      for (size_t i = 0; i < NCHARCHECKSUM; i++) {
+        printf("%c", computeChecksum[i]);
+      }
+      printf(", received: ");
+      for (size_t i = 0; i < NCHARCHECKSUM; i++) {
+        printf("%c", receiveChecksum[i]);
+      }
+      printf("\n");
       *command = '\0';
       *dataLen = 0;
       return;
     }
   }
-  return; // success!
+  circular_buffer_pop_front_uint8(&asc->in_buf); // pop off trailing '\n'
+  return;                                        // success!
 }
 
 bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,

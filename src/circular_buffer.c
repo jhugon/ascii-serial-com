@@ -56,17 +56,9 @@ bool circular_buffer_is_empty_uint8(const circular_buffer_uint8 *circ_buf) {
 
 void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf) {
 
-  //////typedef struct circular_buffer_uint8_struct {
-  //////  size_t capacity; /**< capacity of actual data buffer */
-  //////  size_t size;     /**< N elements in circ buffer */
-  //////  size_t iStart;   /**< front element of buffer */
-  //////  size_t iStop;    /**< 1 past the back element of buffer */
-  //////  uint8_t *buffer; /**< pointer to actual data buffer */
-  //////} circular_buffer_uint8;
-
   printf("circular_buffer_uint8, capacity: %zu\n", circ_buf->capacity);
-  printf("  size: %zu iStart: %zu iStop %zu\n", circ_buf->size,
-         circ_buf->iStart, circ_buf->iStop);
+  printf("  size: %zu iStart: %zu iStop %zu buffer: %p\n", circ_buf->size,
+         circ_buf->iStart, circ_buf->iStop, circ_buf->buffer);
   printf("  Content: [ ");
   for (size_t i = 0; i < circ_buf->size; i++) {
     printf("%" PRIu8 " ", circular_buffer_get_element_uint8(circ_buf, i));
@@ -77,6 +69,26 @@ void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf) {
     printf("%" PRIu8 " ", *(circ_buf->buffer + i));
   }
   printf("]\n");
+  printf("  Content as string: ");
+  for (size_t i = 0; i < circ_buf->size; i++) {
+    uint8_t thisChar = circular_buffer_get_element_uint8(circ_buf, i);
+    if (thisChar < 0x20 || thisChar == 0x7F) { // is control char
+      printf("\\x%02" PRIX8, thisChar);
+    } else { // is printable
+      printf("%c", thisChar);
+    }
+  }
+  printf("\n");
+  printf("  Raw memory as string: ");
+  for (size_t i = 0; i < circ_buf->capacity; i++) {
+    uint8_t thisChar = *(circ_buf->buffer + i);
+    if (thisChar < 0x20 || thisChar == 0x7F) { // is control char
+      printf("\\x%02" PRIX8, thisChar);
+    } else { // is printable
+      printf("%c", thisChar);
+    }
+  }
+  printf("\n");
 }
 
 uint8_t circular_buffer_get_element_uint8(const circular_buffer_uint8 *circ_buf,
@@ -237,9 +249,6 @@ size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
       block_size_available = circ_buf->iStart - circ_buf->iStop;
     }
     nRead = fRead(block_start, block_size_available);
-    // printf("push_back_block: nRead: %zu, block_size_available: %zu, buffer:
-    // %p, block_start: %p\n", nRead, block_size_available, circ_buf->buffer,
-    // block_start);
     circ_buf->iStop = (circ_buf->iStop + nRead) % circ_buf->capacity;
     circ_buf->size += nRead;
     nReadTotal += nRead;
