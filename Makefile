@@ -29,26 +29,30 @@ all: all_later
 
 include flags.mk
 
-allobjs :=
-alllibs :=
-allexes :=
 include src/Makefile
 
 #$(info alllibs is ${alllibs})
-#$(info allexes is ${allexes})
+#$(info exes is ${exes})
 #$(info allobjs is ${allobjs})
+#$(info testexes is ${testexes})
 
 .PHONY: all_later
-all_later: $(alllibs) $(allexes)
+all_later: $(alllibs) $(exes) $(testexes)
 
 $(allobjs): %.o: %.c
 
+$(exes): %: %.o $(alllibs)
+
 ######################################
 
+outexes := $(addprefix $(builddir),$(notdir $(exes)))
 outtestexes := $(addprefix $(builddir),$(notdir $(testexes)))
 
 $(builddir):
 	mkdir -p $(builddir)
+
+$(outexes): $(builddir)%: src/% | $(builddir)
+	cp $^ $(builddir)
 
 $(outtestexes): $(builddir)%: src/test/% | $(builddir)
 	cp $^ $(builddir)
@@ -60,7 +64,7 @@ $(builddir)/libthrowtheswitch.a: src/externals/libthrowtheswitch.a | $(builddir)
 	cp $^ $@
 
 .PHONY: install
-install: $(builddir)/libthrowtheswitch.a $(builddir)/libasciiserialcom.a $(outtestexes) all
+install: $(builddir)/libthrowtheswitch.a $(builddir)/libasciiserialcom.a $(outtestexes) $(outexes) all
 
 ######################################
 
@@ -79,4 +83,5 @@ $(runouttestexes): %_runTest: %
 clean:
 	rm -rf $(allobjs)
 	rm -rf $(alllibs)
-	rm -rf $(allexes)
+	rm -rf $(exes)
+	rm -rf $(testexes)

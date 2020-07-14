@@ -58,7 +58,7 @@ void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf) {
 
   printf("circular_buffer_uint8, capacity: %zu\n", circ_buf->capacity);
   printf("  size: %zu iStart: %zu iStop %zu buffer: %p\n", circ_buf->size,
-         circ_buf->iStart, circ_buf->iStop, circ_buf->buffer);
+         circ_buf->iStart, circ_buf->iStop, (void *)circ_buf->buffer);
   printf("  Content: [ ");
   for (size_t i = 0; i < circ_buf->size; i++) {
     printf("%" PRIu8 " ", circular_buffer_get_element_uint8(circ_buf, i));
