@@ -5,7 +5,7 @@
 static uint8_t fRead_mock_buf[100];
 static size_t fRead_mock_iStart = 0;
 static size_t fRead_mock_size = 0;
-size_t fRead_mock(char *buf, size_t size);
+size_t fRead_mock(char *buf, size_t size, void *);
 size_t put_string_in_fRead_mock_buf(const char *buf);
 
 #define fWrite_CAPACITY_MAX 100
@@ -13,9 +13,10 @@ static size_t fWrite_CAPACITY = fWrite_CAPACITY_MAX;
 static uint8_t fWrite_mock_buf[fWrite_CAPACITY_MAX];
 static size_t fWrite_mock_iStart = 0;
 static size_t fWrite_mock_size = 0;
-size_t fWrite_mock(const char *buf, size_t size);
+size_t fWrite_mock(const char *buf, size_t size, void *);
 
-size_t fRead_mock(char *buf, size_t size) {
+size_t fRead_mock(char *buf, size_t size,
+                  void *unused __attribute__((unused))) {
   // printf("fRead_mock called with: %p and %zu\n", buf, size);
   // printf("fRead_mock_iStart: %zu fRead_mock_size: %zu\n", fRead_mock_iStart,
   // fRead_mock_size);
@@ -32,7 +33,8 @@ size_t fRead_mock(char *buf, size_t size) {
   return write_size;
 }
 
-size_t fWrite_mock(const char *buf, size_t size) {
+size_t fWrite_mock(const char *buf, size_t size,
+                   void *unused __attribute__((unused))) {
   // printf("fWrite_mock called with: %p and %zu\n",buf,size);
   // printf("fWrite_mock_iStart: %zu fWrite_CAPACITY: %u fWrite_CAPACITY_MAX:
   // %u\n",fWrite_mock_iStart, (unsigned) fWrite_CAPACITY, (unsigned)
@@ -150,7 +152,7 @@ void test_convert_uint32_to_hex(void) {
 
 void test_ascii_serial_com_compute_checksum(void) {
   ascii_serial_com asc;
-  ascii_serial_com_init(&asc, fRead_mock, fWrite_mock);
+  ascii_serial_com_init(&asc, fRead_mock, fWrite_mock, NULL, NULL);
 
   char checksumOut[5];
   checksumOut[4] = '\0'; // for easy printing
@@ -204,7 +206,7 @@ void test_ascii_serial_com_compute_checksum(void) {
 
 void test_ascii_serial_com_send(void) {
   ascii_serial_com asc;
-  ascii_serial_com_init(&asc, fRead_mock, fWrite_mock);
+  ascii_serial_com_init(&asc, fRead_mock, fWrite_mock, NULL, NULL);
 
   fWrite_mock_iStart = 0;
   fWrite_mock_size = 0;
@@ -242,7 +244,7 @@ void test_ascii_serial_com_send(void) {
 
 void test_ascii_serial_com_receive(void) {
   ascii_serial_com asc;
-  ascii_serial_com_init(&asc, fRead_mock, fWrite_mock);
+  ascii_serial_com_init(&asc, fRead_mock, fWrite_mock, NULL, NULL);
 
   char ascVersion = '\0';
   char appVersion = '\0';

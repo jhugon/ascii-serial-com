@@ -260,12 +260,15 @@ circular_buffer_delete_first_block_uint8(circular_buffer_uint8 *circ_buf);
  *     size <= the second argument. The function returns the number of
  *     bytes actually written (<= 2nd arg)
  *
+ *  \param fReadState: state info passed to fRead
+ *
  *  \return total number of elements pushed onto buffer (and read from function)
  *
  */
 size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
-                                             size_t (*fRead)(uint8_t *,
-                                                             size_t));
+                                             size_t (*fRead)(uint8_t *, size_t,
+                                                             void *),
+                                             void *fReadState);
 
 /** \brief circular buffer clear
  *

@@ -14,6 +14,11 @@ those buffers into other buffers etc.
 May need a polling loop or even software interrupt that says the receive buffer
 needs to be parsed for a message.
 
+It seems like having access to the push/pop functions of the buffers would be
+desirable. It may be easiest to have a function to give access to the buffers,
+and then let buffer methods handle things. Atomic buffer operations may also be
+useful to disable interrupts.
+
 ### AVR
 
 For transmission: a flag or interrupt will say the (single byte) transmit

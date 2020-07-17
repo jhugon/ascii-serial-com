@@ -12,16 +12,58 @@
 #define MAXDATALEN 54
 #define NCHARCHECKSUM 4
 
+////////////////////////////////////////////////////
+////////////////////////////////////////////////////
+//////////////// Associated Functions //////////////
+////////////////////////////////////////////////////
+////////////////////////////////////////////////////
+
+/** \brief Example fRead function for use with file descriptors
+ *
+ *  Reads data from the file-like object
+ *
+ *  The fReadState passed to ascii_serial_com_init should be a pointer to an
+ * open file desciptor (int *)
+ *
+ */
+size_t readFromFileDescriptor(char *buffer, size_t bufferSize, void *fdPtr);
+
+/** \brief Example fWrite function for use with file descriptors
+ *
+ *  Writes data from the file-like object
+ *
+ *  The fWriteState passed to ascii_serial_com_init should be a pointer to an
+ * open file desciptor (int *)
+ *
+ */
+size_t writeToFileDescriptor(const char *buffer, size_t bufferSize,
+                             void *fdPtr);
+
+////////////////////////////////////////////////////
+////////////////////////////////////////////////////
+//////////////// Public Interface //////////////////
+////////////////////////////////////////////////////
+////////////////////////////////////////////////////
+
 /** \brief ASCII Serial Com Interface State struct
  *
  *  Keeps track of the state of the ASCII Serial Com interface
  *
  */
 typedef struct ascii_serial_com_struct {
-  size_t (*fRead)(char *, size_t);        /**< */
-  size_t (*fWrite)(const char *, size_t); /**< */
-  circular_buffer_uint8 in_buf;           /**< */
-  circular_buffer_uint8 out_buf;          /**< */
+  size_t (*fRead)(
+      char *, size_t,
+      void *); /**< Function to read from serial link, a writable buffer is
+                  passed in with the buffer size, and a pointer to fReadState,
+                  the size written is returned */
+  size_t (*fWrite)(const char *, size_t,
+                   void *); /**< Function to write to serial link, a readable
+                               buffer is passed in with it's size, and a pointer
+                               to fWriteState. The size read is returned */
+  void *fReadState;         /**< Passed to fRead */
+  void *fWriteState;        /**< Passed to fWrite */
+  circular_buffer_uint8 in_buf;  /**< Input buffer */
+  circular_buffer_uint8 out_buf; /**< Output buffer */
   uint8_t
       raw_buffer[2 * MAXMESSAGELEN]; /**< Raw buffer used by circular buffers */
 } ascii_serial_com;
@@ -32,14 +74,23 @@ typedef struct ascii_serial_com_struct {
  *
  *  \param asc is a pointer to an uninitialized ascii_serial_com struct
  *
- *  \param fread: the function to use to read from the serial port
+ *  \param fread: the function to use to read from the serial port. A writable
+ * buffer is passed in with the buffer size, and a pointer to fReadState. The
+ * size written is returned.
  *
- *  \param fwrite: the function to use to write to the serial port
+ *  \param fwrite: the function to use to write to the serial port. A readable
+ * buffer is passed in with it's size, and a pointer to fWriteState. The size
+ * read is returned.
+ *
+ *  \param fReadState: the pointer passed as the last argument to fRead
+ *
+ *  \param fWriteState: the pointer passed as the last argument to fWrite
  *
  */
 void ascii_serial_com_init(ascii_serial_com *asc,
-                           size_t (*fRead)(char *, size_t),
-                           size_t (*fWrite)(const char *, size_t));
+                           size_t (*fRead)(char *, size_t, void *),
+                           size_t (*fWrite)(const char *, size_t, void *),
+                           void *fReadState, void *fWriteState);
 
 /** \brief ASCII Serial Com send message
  *

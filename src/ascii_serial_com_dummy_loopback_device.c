@@ -13,22 +13,37 @@ circular_buffer_uint8 buffer;
 uint8_t buffer_raw[bufCap];
 uint8_t little_buffer[littleBufCap];
 
+char dataBuffer[MAXDATALEN];
+
+ascii_serial_com asc;
+
 int main(int argc, char *argv[]) {
 
+  bool rawLoopback = false;
   if (argc > 1) {
-    if (strncmp("-h", argv[1], 2) == 0)
-      printf("\n  ascii_serial_com_dummy_loopback_device [-h] <infile> "
+    if (strncmp("-h", argv[1], 2) == 0) {
+      printf("\n  ascii_serial_com_dummy_loopback_device [-h] [-l] <infile> "
              "<outfile>\n\n");
-    printf(
-        "\n  If no filenames are provided, then stdin and stdout are used\n\n");
-    return 0;
+      printf("  If no filenames are provided, then stdin and stdout are used\n"
+             "  -h: show help and exit\n"
+             "  -l: Raw loopback mode, ASCII Serial Com will not be used\n"
+             "\n");
+      return 0;
+    }
+    if (strncmp("-l", argv[1], 2) == 0) {
+      printf("\nRaw loopback mode enabled, ASCII Serial Com will not be "
+             "used.\n\n");
+      rawLoopback = true;
+    }
   }
-  if (argc == 2) {
+  if (argc == 2 && !rawLoopback) {
     printf("Error: either 0 or 2 arguments required:\n");
-    printf("\n  ascii_serial_com_dummy_loopback_device [-h] <infile> "
+    printf("\n  ascii_serial_com_dummy_loopback_device [-h] [-l] <infile> "
            "<outfile>\n\n");
-    printf(
-        "\n  If no filenames are provided, then stdin and stdout are used\n\n");
+    printf("  If no filenames are provided, then stdin and stdout are used\n"
+           "  -h: show help and exit\n"
+           "  -l: Raw loopback mode, ASCII Serial Com will not be used\n"
+           "\n");
     return 1;
   }
 
@@ -83,6 +98,9 @@ int main(int argc, char *argv[]) {
 
   circular_buffer_init_uint8(&buffer, bufCap, buffer_raw);
 
+  ascii_serial_com_init(&asc, readFromFileDescriptor, writeToFileDescriptor,
+                        &infileno, &outfileno);
+
   while (true) {
     int ready = poll(fds, 2, -1);
     if (ready < 0) {
@@ -90,59 +108,76 @@ int main(int argc, char *argv[]) {
       printf("Exiting.\n");
       return 1;
     }
-    if ((*inflags & POLLERR) > 0) {
+    if (*inflags & POLLERR) {
       printf("Infile error, exiting.\n");
       return 1;
     }
-    if ((*outflags & POLLERR) > 0) {
+    if (*outflags & POLLERR) {
       printf("Outfile error, exiting.\n");
       return 1;
     }
-    if ((*inflags & POLLHUP) > 0) {
+    if (*inflags & POLLHUP) {
       printf("Infile hung up, exiting.\n");
       return 1;
     }
-    if ((*outflags & POLLHUP) > 0) {
+    if (*outflags & POLLHUP) {
       printf("Outfile hung up, exiting.\n");
       return 1;
     }
-    if ((*inflags & POLLNVAL) > 0) {
+    if (*inflags & POLLNVAL) {
       printf("Infile closed, exiting.\n");
       return 1;
     }
-    if ((*outflags & POLLNVAL) > 0) {
+    if (*outflags & POLLNVAL) {
       printf("Outfile closed, exiting.\n");
       return 1;
     }
-    if ((*inflags & POLLIN) > 0) {
+    if (*inflags & POLLIN) {
       // read
       // fprintf(stderr,"Something to read!\n");
-      if (circular_buffer_is_full_uint8(&buffer)) {
-        if (!usleep(1000)) {
-          perror("Error while sleeping waiting for read");
-          printf("Exiting.\n");
-          return 1;
+      if (rawLoopback) {
+        if (circular_buffer_is_full_uint8(&buffer)) {
+          if (!usleep(1000)) {
+            perror("Error while sleeping waiting for read");
+            printf("Exiting.\n");
+            return 1;
+          }
+        } else {
+          // fprintf(stderr,"About to call read()\n");
+          ssize_t nRead = read(infileno, little_buffer, littleBufCap);
+          // fprintf(stderr,"Read %zd\n",nRead);
+          if (nRead < 0) {
+            perror("Error reading from infile");
+            printf("Exiting.\n");
+            return 1;
+          }
+          if (nRead == 0) {
+            break;
+          }
+          for (ssize_t iChar = 0; iChar < nRead; iChar++) {
+            circular_buffer_push_back_uint8(&buffer, little_buffer[iChar]);
+          }
         }
-      } else {
-        // fprintf(stderr,"About to call read()\n");
-        ssize_t nRead = read(infileno, little_buffer, littleBufCap);
-        // fprintf(stderr,"Read %zd\n",nRead);
-        if (nRead < 0) {
-          perror("Error reading from infile");
-          printf("Exiting.\n");
-          return 1;
+      } else { // if rawLoopback
+        char ascVersion, appVersion, command;
+        size_t dataLen;
+        ascii_serial_com_receive(&asc, &ascVersion, &appVersion, &command,
+                                 dataBuffer, &dataLen);
+        if (command != '\0') {
+          fprintf(stderr,
+                  "Received message:\n  asc and app versions: %c %c, command: "
+                  "%c\n  data: ",
+                  ascVersion, appVersion, command);
+          for (size_t iData = 0; iData < dataLen; iData++) {
+            fprintf(stderr, "%c", dataBuffer[dataLen]);
+          }
+          fprintf(stderr, "\n");
         }
-        if (nRead == 0) {
-          break;
-        }
-        for (ssize_t iChar = 0; iChar < nRead; iChar++) {
-          circular_buffer_push_back_uint8(&buffer, little_buffer[iChar]);
-        }
-      }
-    }
+      } // else with if raw Loopback
+    }   // if inflags POLLIN
     // fprintf(stderr,"inflags: %hu outflags: %hu, buffer size: %zu\n",
     // *inflags, *outflags, circular_buffer_get_size_uint8(&buffer));
-    if ((*outflags & POLLOUT) > 0) {
+    if (rawLoopback && (*outflags & POLLOUT)) {
       // write
       // fprintf(stderr,"File ready to write!\n");
       if (circular_buffer_is_empty_uint8(&buffer)) {
@@ -163,7 +198,7 @@ int main(int argc, char *argv[]) {
           }
         }
       }
-    }
+    } // if rawLoopback and outflags & POLLHUP
     if (circular_buffer_is_empty_uint8(&buffer)) {
       *outsetflags = POLLHUP;
     } else {

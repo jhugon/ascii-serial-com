@@ -236,8 +236,10 @@ circular_buffer_delete_first_block_uint8(circular_buffer_uint8 *circ_buf) {
 }
 
 size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
-                                             size_t (*fRead)(uint8_t *,
-                                                             size_t)) {
+                                             size_t (*fRead)(uint8_t *, size_t,
+                                                             void *),
+                                             void *fReadState) {
+  printf("In circular_buffer_push_back_block_uint8!\n");
   size_t nReadTotal = 0;
   size_t nRead = 255;
   size_t block_size_available;
@@ -248,7 +250,7 @@ size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
     } else {
       block_size_available = circ_buf->iStart - circ_buf->iStop;
     }
-    nRead = fRead(block_start, block_size_available);
+    nRead = fRead(block_start, block_size_available, fReadState);
     circ_buf->iStop = (circ_buf->iStop + nRead) % circ_buf->capacity;
     circ_buf->size += nRead;
     nReadTotal += nRead;

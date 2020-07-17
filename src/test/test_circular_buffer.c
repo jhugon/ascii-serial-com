@@ -5,9 +5,10 @@
 static uint8_t buf_mock[100];
 static size_t buf_mock_iStart = 0;
 static size_t buf_mock_size = 0;
-size_t fRead_mock(uint8_t *buf, size_t size);
+size_t fRead_mock(uint8_t *buf, size_t size, void *);
 
-size_t fRead_mock(uint8_t *buf, size_t size) {
+size_t fRead_mock(uint8_t *buf, size_t size,
+                  void *unused __attribute__((unused))) {
   size_t write_size = buf_mock_size;
   if (size < write_size) {
     write_size = size;
@@ -615,7 +616,7 @@ void test_circular_buffer_push_back_block_uint8(void) {
   }
 
   // circular_buffer_print_uint8(&cb);
-  size_t nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  size_t nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock, NULL);
   // circular_buffer_print_uint8(&cb);
   TEST_ASSERT_EQUAL(5, nPushed);
   TEST_ASSERT_EQUAL(5, circular_buffer_get_size_uint8(&cb));
@@ -625,7 +626,7 @@ void test_circular_buffer_push_back_block_uint8(void) {
   for (uint8_t i = 0; i < buf_mock_size; i++) {
     buf_mock[i] = i;
   }
-  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock, NULL);
   // circular_buffer_print_uint8(&cb);
   TEST_ASSERT_EQUAL(2, nPushed);
   TEST_ASSERT_EQUAL(7, circular_buffer_get_size_uint8(&cb));
@@ -635,7 +636,7 @@ void test_circular_buffer_push_back_block_uint8(void) {
   for (uint8_t i = 0; i < buf_mock_size; i++) {
     buf_mock[i] = i;
   }
-  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock, NULL);
   // circular_buffer_print_uint8(&cb);
   TEST_ASSERT_EQUAL(3, nPushed);
   TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
@@ -646,7 +647,7 @@ void test_circular_buffer_push_back_block_uint8(void) {
   for (uint8_t i = 0; i < buf_mock_size; i++) {
     buf_mock[i] = i;
   }
-  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock, NULL);
   // circular_buffer_print_uint8(&cb);
   TEST_ASSERT_EQUAL(0, nPushed);
   TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
@@ -659,7 +660,7 @@ void test_circular_buffer_push_back_block_uint8(void) {
   for (uint8_t i = 0; i < buf_mock_size; i++) {
     buf_mock[i] = i;
   }
-  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock, NULL);
   // circular_buffer_print_uint8(&cb);
   TEST_ASSERT_EQUAL(1, nPushed);
   TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
@@ -672,7 +673,7 @@ void test_circular_buffer_push_back_block_uint8(void) {
   for (uint8_t i = 0; i < buf_mock_size; i++) {
     buf_mock[i] = i;
   }
-  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock, NULL);
   // circular_buffer_print_uint8(&cb);
   TEST_ASSERT_EQUAL(1, nPushed);
   TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
@@ -690,7 +691,7 @@ void test_circular_buffer_push_back_block_uint8(void) {
   for (uint8_t i = 0; i < buf_mock_size; i++) {
     buf_mock[i] = i;
   }
-  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock);
+  nPushed = circular_buffer_push_back_block_uint8(&cb, fRead_mock, NULL);
   // circular_buffer_print_uint8(&cb);
   TEST_ASSERT_EQUAL(4, nPushed);
   TEST_ASSERT_EQUAL(4, circular_buffer_get_size_uint8(&cb));
