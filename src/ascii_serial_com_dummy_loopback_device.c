@@ -98,8 +98,10 @@ int main(int argc, char *argv[]) {
 
   circular_buffer_init_uint8(&buffer, bufCap, buffer_raw);
 
-  ascii_serial_com_init(&asc, readFromFileDescriptor, writeToFileDescriptor,
-                        &infileno, &outfileno);
+  ascii_serial_com_init(&asc);
+  circular_buffer_uint8 *asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
+  // circular_buffer_uint8* asc_out_buf =
+  // ascii_serial_com_get_output_buffer(&asc);
 
   while (true) {
     int ready = poll(fds, 2, -1);
@@ -159,10 +161,11 @@ int main(int argc, char *argv[]) {
           }
         }
       } else { // if rawLoopback
+        circular_buffer_push_back_from_fd_uint8(asc_in_buf, infileno);
         char ascVersion, appVersion, command;
         size_t dataLen;
-        ascii_serial_com_receive(&asc, &ascVersion, &appVersion, &command,
-                                 dataBuffer, &dataLen);
+        ascii_serial_com_get_message_from_input_buffer(
+            &asc, &ascVersion, &appVersion, &command, dataBuffer, &dataLen);
         if (command != '\0') {
           fprintf(stderr,
                   "Received message:\n  asc and app versions: %c %c, command: "

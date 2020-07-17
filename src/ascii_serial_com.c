@@ -7,95 +7,16 @@
 #include <stdio.h>
 #include <unistd.h>
 
-size_t readFromFileDescriptor(char *buffer, size_t bufferSize,
-                              void *fdPtrVoid) {
-  printf("In readFromFileDescriptor!\n");
-  assert(!(fdPtrVoid == NULL));
-  int *fdPtr = fdPtrVoid;
-  errno = 0;
-  const ssize_t nBytesRead = read(*fdPtr, buffer, bufferSize);
-  if (nBytesRead < 0) {
-    perror("Error in read in readFromFileDescriptor");
-    exit(1);
-  }
-  printf("readFromFileDescriptor: returning %zd\n", nBytesRead);
-  return nBytesRead;
-}
+void ascii_serial_com_init(ascii_serial_com *asc) {
 
-size_t writeToFileDescriptor(const char *buffer, size_t bufferSize,
-                             void *fdPtrVoid) {
-  assert(!(fdPtrVoid == NULL));
-  int *fdPtr = fdPtrVoid;
-  const ssize_t nBytesWritten = write(*fdPtr, buffer, bufferSize);
-  if (nBytesWritten < 0) {
-    perror("Error in write in writeToFileDescriptor");
-    exit(1);
-  }
-  return nBytesWritten;
-}
-
-///////////////////////////////////////////////////////////////////////////
-
-void ascii_serial_com_init(ascii_serial_com *asc,
-                           size_t (*fRead)(char *, size_t, void *),
-                           size_t (*fWrite)(const char *, size_t, void *),
-                           void *fReadState, void *fWriteState) {
-
-  asc->fRead = fRead;
-  asc->fWrite = fWrite;
-  asc->fReadState = fReadState;
-  asc->fWriteState = fWriteState;
   circular_buffer_init_uint8(&(asc->in_buf), MAXMESSAGELEN, asc->raw_buffer);
   circular_buffer_init_uint8(&(asc->out_buf), MAXMESSAGELEN,
                              asc->raw_buffer + MAXMESSAGELEN);
 }
 
-void ascii_serial_com_send(ascii_serial_com *asc, char ascVersion,
-                           char appVersion, char command, const char *data,
-                           size_t dataLen) {
-  ascii_serial_com_pack_message_push_out(asc, ascVersion, appVersion, command,
-                                         data, dataLen);
-  size_t nToWrite;
-  const uint8_t *buf = NULL;
-  while (true) {
-    nToWrite = circular_buffer_get_first_block_uint8(&asc->out_buf, &buf);
-    if (nToWrite > 0) {
-      while (true) {
-        size_t nWritten =
-            asc->fWrite((const char *)buf, nToWrite, asc->fWriteState);
-        for (size_t iWritten = 0; iWritten < nWritten; iWritten++) {
-          circular_buffer_pop_front_uint8(&asc->out_buf);
-        }
-        nToWrite -= nWritten;
-        if (nToWrite > 0) {
-          buf += nWritten;
-        } else {
-          break;
-        }
-      }
-    } else {
-      break;
-    }
-  }
-}
-
-void ascii_serial_com_receive(ascii_serial_com *asc, char *ascVersion,
-                              char *appVersion, char *command, char *data,
-                              size_t *dataLen) {
-  printf("In ascii_serial_com_receive!\n");
-  circular_buffer_push_back_block_uint8(
-      &asc->in_buf, (size_t(*)(uint8_t *, size_t, void *))asc->fRead,
-      asc->fReadState);
-  printf("in_buf content after circular_buffer_push_back_block_uint8:\n");
-  circular_buffer_print_uint8(&asc->in_buf);
-  ascii_serial_com_pop_in_unpack(asc, ascVersion, appVersion, command, data,
-                                 dataLen);
-}
-
-void ascii_serial_com_pack_message_push_out(ascii_serial_com *asc,
-                                            char ascVersion, char appVersion,
-                                            char command, const char *data,
-                                            size_t dataLen) {
+void ascii_serial_com_put_message_in_output_buffer(
+    ascii_serial_com *asc, char ascVersion, char appVersion, char command,
+    const char *data, size_t dataLen) {
   assert(dataLen < MAXMESSAGELEN);
   circular_buffer_push_back_uint8(&asc->out_buf, '>');
   circular_buffer_push_back_uint8(&asc->out_buf, ascVersion);
@@ -113,9 +34,11 @@ void ascii_serial_com_pack_message_push_out(ascii_serial_com *asc,
   circular_buffer_push_back_uint8(&asc->out_buf, '\n');
 }
 
-void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
-                                    char *appVersion, char *command, char *data,
-                                    size_t *dataLen) {
+void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
+                                                    char *ascVersion,
+                                                    char *appVersion,
+                                                    char *command, char *data,
+                                                    size_t *dataLen) {
   char computeChecksum[NCHARCHECKSUM];
   circular_buffer_remove_front_to_uint8(&asc->in_buf, '>', false);
   size_t buf_size = circular_buffer_get_size_uint8(&asc->in_buf);
@@ -195,6 +118,16 @@ void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
   }
   circular_buffer_pop_front_uint8(&asc->in_buf); // pop off trailing '\n'
   return;                                        // success!
+}
+
+circular_buffer_uint8 *
+ascii_serial_com_get_input_buffer(ascii_serial_com *asc) {
+  return &asc->in_buf;
+}
+
+circular_buffer_uint8 *
+ascii_serial_com_get_output_buffer(ascii_serial_com *asc) {
+  return &asc->out_buf;
 }
 
 bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,

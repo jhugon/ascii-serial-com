@@ -270,6 +270,20 @@ size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
                                                              void *),
                                              void *fReadState);
 
+/** \brief circular buffer push back reading from file descriptor
+ *
+ *  Calls POSIX read once into the circular buffer
+ *
+ *  Won't necessarily fill up the buffer, even if there are bytes to read
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *
+ *  \return total number of elements pushed onto buffer (and read from file)
+ *
+ */
+size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,
+                                               const int fd);
+
 /** \brief circular buffer clear
  *
  *  Resets the circular buffer to empty and starting from the beginning of the

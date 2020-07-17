@@ -14,33 +14,6 @@
 
 ////////////////////////////////////////////////////
 ////////////////////////////////////////////////////
-//////////////// Associated Functions //////////////
-////////////////////////////////////////////////////
-////////////////////////////////////////////////////
-
-/** \brief Example fRead function for use with file descriptors
- *
- *  Reads data from the file-like object
- *
- *  The fReadState passed to ascii_serial_com_init should be a pointer to an
- * open file desciptor (int *)
- *
- */
-size_t readFromFileDescriptor(char *buffer, size_t bufferSize, void *fdPtr);
-
-/** \brief Example fWrite function for use with file descriptors
- *
- *  Writes data from the file-like object
- *
- *  The fWriteState passed to ascii_serial_com_init should be a pointer to an
- * open file desciptor (int *)
- *
- */
-size_t writeToFileDescriptor(const char *buffer, size_t bufferSize,
-                             void *fdPtr);
-
-////////////////////////////////////////////////////
-////////////////////////////////////////////////////
 //////////////// Public Interface //////////////////
 ////////////////////////////////////////////////////
 ////////////////////////////////////////////////////
@@ -49,19 +22,32 @@ size_t writeToFileDescriptor(const char *buffer, size_t bufferSize,
  *
  *  Keeps track of the state of the ASCII Serial Com interface
  *
+ *  Normally, for a device, usage would go something like:
+ *
+ *  1) allocate the ascii_serial_com
+ *
+ *  2) initialize it with ascii_serial_com_init
+ *
+ *  3) Get the input buffer with ascii_serial_com_get_input_buffer and output
+ * buffer with ascii_serial_com_get_output_buffer
+ *
+ *  4) poll on the input stream/file/peripheral (and output
+ * stream/file/peripheral if the output buffer is not empty)
+ *
+ *  5) read from the input stream/file/peripheral
+ *
+ *  6) push_back or push_back_block what is read to the input_buffer
+ *
+ *  7) run ascii_serial_com_get_message_from_input_buffer, if a message is
+ * received (unpacked) then act on it (possibly reply with
+ * ascii_serial_com_put_message_in_output_buffer)
+ *
+ *  8) pop from output_buffer and write to output stream/file/peripheral
+ *
+ *  9) go back to 4)
+ *
  */
 typedef struct ascii_serial_com_struct {
-  size_t (*fRead)(
-      char *, size_t,
-      void *); /**< Function to read from serial link, a writable buffer is
-                  passed in with the buffer size, and a pointer to fReadState,
-                  the size written is returned */
-  size_t (*fWrite)(const char *, size_t,
-                   void *); /**< Function to write to serial link, a readable
-                               buffer is passed in with it's size, and a pointer
-                               to fWriteState. The size read is returned */
-  void *fReadState;         /**< Passed to fRead */
-  void *fWriteState;        /**< Passed to fWrite */
   circular_buffer_uint8 in_buf;  /**< Input buffer */
   circular_buffer_uint8 out_buf; /**< Output buffer */
   uint8_t
@@ -74,76 +60,8 @@ typedef struct ascii_serial_com_struct {
  *
  *  \param asc is a pointer to an uninitialized ascii_serial_com struct
  *
- *  \param fread: the function to use to read from the serial port. A writable
- * buffer is passed in with the buffer size, and a pointer to fReadState. The
- * size written is returned.
- *
- *  \param fwrite: the function to use to write to the serial port. A readable
- * buffer is passed in with it's size, and a pointer to fWriteState. The size
- * read is returned.
- *
- *  \param fReadState: the pointer passed as the last argument to fRead
- *
- *  \param fWriteState: the pointer passed as the last argument to fWrite
- *
  */
-void ascii_serial_com_init(ascii_serial_com *asc,
-                           size_t (*fRead)(char *, size_t, void *),
-                           size_t (*fWrite)(const char *, size_t, void *),
-                           void *fReadState, void *fWriteState);
-
-/** \brief ASCII Serial Com send message
- *
- *  Send a message
- *
- *  \param asc is a pointer to an initialized ascii_serial_com struct
- *
- *  \param ascVersion: the single char ASCII Serial Com version (probably '0')
- *
- *  \param appVersion: the single char application version (user application
- * info)
- *
- *  \param command: a single letter command type
- *
- *  \param data: an array of data to send
- *
- *  \param dataLen: number of bytes of data to send
- *
- */
-void ascii_serial_com_send(ascii_serial_com *asc, char ascVersion,
-                           char appVersion, char command, const char *data,
-                           size_t dataLen);
-
-/** \brief ASCII Serial Com receive message
- *
- *  Receive a message
- *
- *  \param asc is a pointer to an initialized ascii_serial_com struct
- *
- *  \param ascVersion: the single char ASCII Serial Com version will be written
- *  to this byte
- *
- *  \param appVersion: the single char application version will be
- *  written to this byte
- *
- *  \param command: the single char command will be written
- *  to this byte. Will be '\0' if no message in read
- *
- *  \param data: Data will be written to this buffer (The data
- *  written can be up to MAXDATALEN bytes long, so allocate MAXDATALEN bytes)
- *
- *  \param dataLen: The length of the data astually written
- *
- */
-void ascii_serial_com_receive(ascii_serial_com *asc, char *ascVersion,
-                              char *appVersion, char *command, char *data,
-                              size_t *dataLen);
-
-////////////////////////////////////////////////////
-////////////////////////////////////////////////////
-//////////////// Private Methods ///////////////////
-////////////////////////////////////////////////////
-////////////////////////////////////////////////////
+void ascii_serial_com_init(ascii_serial_com *asc);
 
 /** \brief ASCII Serial Com Pack and put message in output buffer
  *
@@ -164,10 +82,9 @@ void ascii_serial_com_receive(ascii_serial_com *asc, char *ascVersion,
  *
  *  \param dataLen: The length of the data
  */
-void ascii_serial_com_pack_message_push_out(ascii_serial_com *asc,
-                                            char ascVersion, char appVersion,
-                                            char command, const char *data,
-                                            size_t dataLen);
+void ascii_serial_com_put_message_in_output_buffer(
+    ascii_serial_com *asc, char ascVersion, char appVersion, char command,
+    const char *data, size_t dataLen);
 
 /** \brief ASCII Serial Com pop message from input buffer and unpack
  *
@@ -191,9 +108,38 @@ void ascii_serial_com_pack_message_push_out(ascii_serial_com *asc,
  *
  * \param dataLen: The length of the data put in data
  */
-void ascii_serial_com_pop_in_unpack(ascii_serial_com *asc, char *ascVersion,
-                                    char *appVersion, char *command, char *data,
-                                    size_t *dataLen);
+void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
+                                                    char *ascVersion,
+                                                    char *appVersion,
+                                                    char *command, char *data,
+                                                    size_t *dataLen);
+
+/** \brief ASCII Serial Com get input buffer
+ *
+ *  Get a pointer to the input buffer.
+ *
+ *  \param asc is a pointer to an initialized ascii_serial_com struct
+ *
+ *  \return a pointer to the input buffer.
+ */
+circular_buffer_uint8 *ascii_serial_com_get_input_buffer(ascii_serial_com *asc);
+
+/** \brief ASCII Serial Com get output buffer
+ *
+ *  Get a pointer to the output buffer.
+ *
+ *  \param asc is a pointer to an initialized ascii_serial_com struct
+ *
+ *  \return a pointer to the output buffer.
+ */
+circular_buffer_uint8 *
+ascii_serial_com_get_output_buffer(ascii_serial_com *asc);
+
+////////////////////////////////////////////////////
+////////////////////////////////////////////////////
+//////////////// Private Methods ///////////////////
+////////////////////////////////////////////////////
+////////////////////////////////////////////////////
 
 /** \brief ASCII Serial Com compute checksum of message
  *

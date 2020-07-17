@@ -1,6 +1,9 @@
 #include "circular_buffer.h"
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 // Private helper functions
 
@@ -256,6 +259,26 @@ size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
     nReadTotal += nRead;
   }
   return nReadTotal;
+}
+
+size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,
+                                               int fd) {
+  size_t block_size_available;
+  uint8_t *block_start = circ_buf->buffer + circ_buf->iStop;
+  if (circ_buf->iStop >= circ_buf->iStart) {
+    block_size_available = circ_buf->capacity - circ_buf->iStop;
+  } else {
+    block_size_available = circ_buf->iStart - circ_buf->iStop;
+  }
+  ssize_t nRead = read(fd, block_start, block_size_available);
+  if (nRead < 0) {
+    perror("circular_buffer_push_back_from_fd_uint8 error while reading from "
+           "file");
+    _exit(1);
+  }
+  circ_buf->iStop = (circ_buf->iStop + nRead) % circ_buf->capacity;
+  circ_buf->size += nRead;
+  return nRead;
 }
 
 void circular_buffer_clear_uint8(circular_buffer_uint8 *circ_buf) {
