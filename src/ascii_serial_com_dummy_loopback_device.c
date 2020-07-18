@@ -167,14 +167,16 @@ int main(int argc, char *argv[]) {
         ascii_serial_com_get_message_from_input_buffer(
             &asc, &ascVersion, &appVersion, &command, dataBuffer, &dataLen);
         if (command != '\0') {
-          fprintf(stderr,
-                  "Received message:\n  asc and app versions: %c %c, command: "
-                  "%c\n  data: ",
-                  ascVersion, appVersion, command);
+          fprintf(
+              stderr,
+              "Received message:\n  asc and app versions: %c %c\n  command: "
+              "%c dataLen: %zu\n  data: ",
+              ascVersion, appVersion, command, dataLen);
           for (size_t iData = 0; iData < dataLen; iData++) {
-            fprintf(stderr, "%c", dataBuffer[dataLen]);
+            fprintf(stderr, "%c", dataBuffer[iData]);
           }
           fprintf(stderr, "\n");
+          fflush(stderr);
         }
       } // else with if raw Loopback
     }   // if inflags POLLIN

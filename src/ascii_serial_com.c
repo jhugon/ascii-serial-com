@@ -74,6 +74,7 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
     *dataLen = 0;
     return;
   }
+  // circular_buffer_print_uint8(&asc->in_buf);
   circular_buffer_pop_front_uint8(&asc->in_buf); // pop off starting '>'
   *ascVersion = circular_buffer_pop_front_uint8(&asc->in_buf);
   *appVersion = circular_buffer_pop_front_uint8(&asc->in_buf);
