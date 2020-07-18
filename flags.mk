@@ -16,6 +16,9 @@ ifneq (,$(findstring gcc,$(CC)))
     ifneq (,$(findstring avr,$(CC)))
     else
       CFLAGS+=-fsanitize=address -fsanitize=leak -fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fsanitize-address-use-after-scope -fstack-protector-all #-fsanitize=pointer-compare -fsanitize=pointer-subtract
+	  ifdef coverage
+		CFLAGS+=--coverage
+	  endif
     endif
   else
     CFLAGS+=-O2 -flto -Wstrict-aliasing -fstrict-aliasing
@@ -30,6 +33,9 @@ ifneq (,$(findstring clang,$(CC)))
   CXXFLAGS=$(CLANGFLAGS) -std=gnu++14 -Wsuggest-override -Wplacement-new=2
   ifeq ($(build_type),debug)
     CFLAGS+=-g -Og -fsanitize=address -fsanitize=leak -fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fsanitize-address-use-after-scope -fstack-protector-all #-fsanitize=pointer-compare -fsanitize=pointer-subtract
+	ifdef coverage
+	  CFLAGS+=--coverage
+	endif
   else
     CFLAGS+=-O2
   endif

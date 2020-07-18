@@ -5,3 +5,5 @@
 *.a
 build_*
 tags
+*.gcno
+*.gcda

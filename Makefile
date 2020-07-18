@@ -79,9 +79,16 @@ $(runouttestexes): %_runTest: %
 
 ######################################
 
+allgcno := $(addsuffix .gcno, $(basename $(allobjs)))
+allgcda := $(addsuffix .gcda, $(basename $(allobjs)))
+#allgcov := $(addsuffix .gcov, $(basename $(allobjs)))
+
 .PHONY: clean
 clean:
 	rm -rf $(allobjs)
 	rm -rf $(alllibs)
 	rm -rf $(exes)
 	rm -rf $(testexes)
+	rm -rf $(allgcno)
+	rm -rf $(allgcda)
+	#rm -rf $(allgcov)

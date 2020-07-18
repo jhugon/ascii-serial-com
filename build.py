@@ -7,11 +7,13 @@ import subprocess
 import sys
 
 
-def run_make(arch, CC, build_type, args):
+def run_make(platform, CC, build_type, args):
     env = os.environ.copy()
-    env.update({"arch": arch, "CC": CC, "build_type": build_type})
+    env.update({"platform": platform, "CC": CC, "build_type": build_type})
+    if args.coverage and platform == "native" and build_type == "debug":
+        env["coverage"] = "TRUE"
 
-    outdir = "build_{}_{}_{}".format(arch, CC, build_type)
+    outdir = "build_{}_{}_{}".format(platform, CC, build_type)
     outdir = os.path.abspath(outdir)
 
     try:
@@ -41,9 +43,34 @@ def run_make(arch, CC, build_type, args):
                 stdout += (
                     "\n==========================================================\n\n"
                 )
-                stdout += "build_{}_{}_{}/{}\n\n".format(arch, CC, build_type, fn)
+                stdout += "build_{}_{}_{}/{}\n\n".format(platform, CC, build_type, fn)
                 stdout += cmpltProc.stdout
                 success = success and (cmpltProc.returncode == 0)
+        if args.coverage and platform == "native" and build_type == "debug":
+            coverage_dir = os.path.join(outdir, "coverage")
+            try:
+                os.mkdir(coverage_dir)
+            except FileExistsError:
+                pass
+            coverage_html_base = os.path.join(coverage_dir, "index.html")
+            coverage_text = os.path.join(coverage_dir, "coverage.txt")
+            subprocess.run(
+                ["gcovr", "-o", coverage_text, "-e", "src/externals/.*"],
+                env=env,
+                check=True,
+            )
+            subprocess.run(
+                [
+                    "gcovr",
+                    "--html-details",
+                    "-o",
+                    coverage_html_base,
+                    "-e",
+                    "src/externals/.*",
+                ],
+                env=env,
+                check=True,
+            )
         return success, stdout
     return None, None
 
@@ -63,7 +90,13 @@ def main():
         choices=available_targets,
     )
     parser.add_argument(
-        "--unittest", "-u", help="Targets to build", action="store_true"
+        "--unittest", "-u", help="Perform unittests after building", action="store_true"
+    )
+    parser.add_argument(
+        "--coverage",
+        "-c",
+        help="Collect coverage info when unittests are performed (sets -u)",
+        action="store_true",
     )
     args = parser.parse_args()
 
@@ -72,15 +105,18 @@ def main():
         targets = available_targets
         targets.remove("all")
 
+    if args.coverage:
+        args.unittest = True
+
     testOutBuffer = ""
     testsAllPass = True
     for target in targets:
         target_list = target.split("_")
         assert len(target_list) == 2
-        arch = target_list[0]
+        platform = target_list[0]
         CC = target_list[1]
         for build_type in ["debug", "opt"]:
-            testPass, testOutput = run_make(arch, CC, build_type, args)
+            testPass, testOutput = run_make(platform, CC, build_type, args)
             if args.unittest:
                 testOutBuffer += testOutput
                 testsAllPass = testsAllPass and testPass
