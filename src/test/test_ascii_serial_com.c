@@ -2,82 +2,8 @@
 #include "externals/unity.h"
 #include <stdio.h>
 
-static uint8_t fRead_mock_buf[100];
-static size_t fRead_mock_iStart = 0;
-static size_t fRead_mock_size = 0;
-size_t fRead_mock(char *buf, size_t size, void *);
-size_t put_string_in_fRead_mock_buf(const char *buf);
-
-#define fWrite_CAPACITY_MAX 100
-static size_t fWrite_CAPACITY = fWrite_CAPACITY_MAX;
-static uint8_t fWrite_mock_buf[fWrite_CAPACITY_MAX];
-static size_t fWrite_mock_iStart = 0;
-static size_t fWrite_mock_size = 0;
-size_t fWrite_mock(const char *buf, size_t size, void *);
-
-size_t fRead_mock(char *buf, size_t size,
-                  void *unused __attribute__((unused))) {
-  // printf("fRead_mock called with: %p and %zu\n", buf, size);
-  // printf("fRead_mock_iStart: %zu fRead_mock_size: %zu\n", fRead_mock_iStart,
-  // fRead_mock_size);
-  size_t write_size = fRead_mock_size;
-  if (size < write_size) {
-    write_size = size;
-  }
-  for (size_t iElement = 0; iElement < write_size; iElement++) {
-    buf[iElement] = fRead_mock_buf[iElement + fRead_mock_iStart];
-  }
-  fRead_mock_iStart += write_size;
-  fRead_mock_size -= write_size;
-  // printf("fRead_mock returning write_size: %zu\n", write_size);
-  return write_size;
-}
-
-size_t fWrite_mock(const char *buf, size_t size,
-                   void *unused __attribute__((unused))) {
-  // printf("fWrite_mock called with: %p and %zu\n",buf,size);
-  // printf("fWrite_mock_iStart: %zu fWrite_CAPACITY: %u fWrite_CAPACITY_MAX:
-  // %u\n",fWrite_mock_iStart, (unsigned) fWrite_CAPACITY, (unsigned)
-  // fWrite_CAPACITY_MAX);
-  size_t write_size = size;
-  if (size >= fWrite_CAPACITY - fWrite_mock_iStart) {
-    write_size = fWrite_CAPACITY - fWrite_mock_iStart;
-  }
-  if (size >= fWrite_CAPACITY_MAX - fWrite_mock_iStart) {
-    write_size = fWrite_CAPACITY_MAX - fWrite_mock_iStart;
-  }
-  for (size_t iElement = 0; iElement < write_size; iElement++) {
-    fWrite_mock_buf[fWrite_mock_iStart + iElement] = buf[iElement];
-  }
-  fWrite_mock_iStart += write_size;
-  fWrite_mock_size += write_size;
-  // printf("fWrite_mock returning: %zu\n",write_size);
-  return write_size;
-}
-
-size_t put_string_in_fRead_mock_buf(const char *string) {
-  fRead_mock_iStart = 0;
-  fRead_mock_size = 0;
-  while (true) {
-    const char *pChar = string + fRead_mock_size;
-    if (*pChar == '\0') {
-      break;
-    }
-    fRead_mock_buf[fRead_mock_size] = *pChar;
-    fRead_mock_size++;
-  }
-  return fRead_mock_size;
-}
-
 void setUp(void) {
   // set stuff up here
-
-  fRead_mock_iStart = 0;
-  fRead_mock_size = 0;
-
-  fWrite_CAPACITY = fWrite_CAPACITY_MAX;
-  fWrite_mock_iStart = 0;
-  fWrite_mock_size = 0;
 }
 
 void tearDown(void) {
@@ -152,7 +78,7 @@ void test_convert_uint32_to_hex(void) {
 
 void test_ascii_serial_com_compute_checksum(void) {
   ascii_serial_com asc;
-  ascii_serial_com_init(&asc, fRead_mock, fWrite_mock, NULL, NULL);
+  ascii_serial_com_init(&asc);
 
   char checksumOut[5];
   checksumOut[4] = '\0'; // for easy printing
@@ -204,47 +130,49 @@ void test_ascii_serial_com_compute_checksum(void) {
   }
 }
 
-void test_ascii_serial_com_send(void) {
+void test_ascii_serial_com_put_message_in_output_buffer(void) {
   ascii_serial_com asc;
-  ascii_serial_com_init(&asc, fRead_mock, fWrite_mock, NULL, NULL);
+  ascii_serial_com_init(&asc);
+  circular_buffer_uint8 *out_buf = ascii_serial_com_get_output_buffer(&asc);
 
-  fWrite_mock_iStart = 0;
-  fWrite_mock_size = 0;
-  ascii_serial_com_send(&asc, '0', '0', 'w', "", 0);
-  // printf("fWrite_mock_size: %zu fRead_mock_size: %zu\n", fWrite_mock_size,
-  // fRead_mock_size);
-  TEST_ASSERT_EQUAL_size_t(10, fWrite_mock_size);
-  // fWrite_mock_buf[10] = '\0';
-  // printf("%s\n",fWrite_mock_buf);
-  TEST_ASSERT_EQUAL_MEMORY(">00w.23A6\n", fWrite_mock_buf, 10);
+  const char *message1 = ">00w.23A6\n";
+  size_t messageLen = 10;
+  ascii_serial_com_put_message_in_output_buffer(&asc, '0', '0', 'w', "", 0);
+  TEST_ASSERT_EQUAL_size_t(messageLen, circular_buffer_get_size_uint8(out_buf));
+  for (size_t i = 0; i < messageLen; i++) {
+    TEST_ASSERT_EQUAL_UINT8(message1[i],
+                            circular_buffer_get_element_uint8(out_buf, i));
+  }
+  circular_buffer_clear_uint8(out_buf);
 
-  fWrite_mock_iStart = 0;
-  fWrite_mock_size = 0;
-  ascii_serial_com_send(&asc, '0', '0', 'w', "FFFF", 4);
-  // printf("fWrite_mock_size: %zu fRead_mock_size: %zu\n", fWrite_mock_size,
-  // fRead_mock_size);
-  TEST_ASSERT_EQUAL_size_t(14, fWrite_mock_size);
-  // fWrite_mock_buf[14] = '\0';
-  // printf("%s\n",fWrite_mock_buf);
-  TEST_ASSERT_EQUAL_MEMORY(">00wFFFF.9F3B\n", fWrite_mock_buf, 14);
+  const char *message2 = ">00wFFFF.9F3B\n";
+  messageLen = 14;
+  ascii_serial_com_put_message_in_output_buffer(&asc, '0', '0', 'w', "FFFF", 4);
+  TEST_ASSERT_EQUAL_size_t(messageLen, circular_buffer_get_size_uint8(out_buf));
+  for (size_t i = 0; i < messageLen; i++) {
+    TEST_ASSERT_EQUAL_UINT8(message2[i],
+                            circular_buffer_get_element_uint8(out_buf, i));
+  }
+  circular_buffer_clear_uint8(out_buf);
 
-  const char solnbuf[64] =
+  const char *message3 =
       ">345666666666666666666666666666666666666666666666666666666.C7FB\n";
-  const char *databuf = solnbuf + 4;
-  fWrite_mock_iStart = 0;
-  fWrite_mock_size = 0;
-  ascii_serial_com_send(&asc, '3', '4', '5', databuf, MAXDATALEN);
-  // printf("fWrite_mock_size: %zu fRead_mock_size: %zu\n", fWrite_mock_size,
-  // fRead_mock_size);
-  TEST_ASSERT_EQUAL_size_t(64, fWrite_mock_size);
-  // fWrite_mock_buf[14] = '\0';
-  // printf("%s\n",fWrite_mock_buf);
-  TEST_ASSERT_EQUAL_MEMORY(solnbuf, fWrite_mock_buf, 64);
+  const char *databuf = message3 + 4;
+  messageLen = 64;
+  ascii_serial_com_put_message_in_output_buffer(&asc, '3', '4', '5', databuf,
+                                                MAXDATALEN);
+  TEST_ASSERT_EQUAL_size_t(messageLen, circular_buffer_get_size_uint8(out_buf));
+  for (size_t i = 0; i < messageLen; i++) {
+    TEST_ASSERT_EQUAL_UINT8(message3[i],
+                            circular_buffer_get_element_uint8(out_buf, i));
+  }
+  circular_buffer_clear_uint8(out_buf);
 }
 
-void test_ascii_serial_com_receive(void) {
+void test_ascii_serial_com_get_message_from_input_buffer(void) {
   ascii_serial_com asc;
-  ascii_serial_com_init(&asc, fRead_mock, fWrite_mock, NULL, NULL);
+  ascii_serial_com_init(&asc);
+  circular_buffer_uint8 *in_buf = ascii_serial_com_get_input_buffer(&asc);
 
   char ascVersion = '\0';
   char appVersion = '\0';
@@ -256,9 +184,9 @@ void test_ascii_serial_com_receive(void) {
   size_t dataLen = 0;
 
   const char *message = ">abc.C103\n";
-  /*size_t message_len = */ put_string_in_fRead_mock_buf(message);
-  ascii_serial_com_receive(&asc, &ascVersion, &appVersion, &command, data,
-                           &dataLen);
+  circular_buffer_push_back_string_uint8(in_buf, message);
+  ascii_serial_com_get_message_from_input_buffer(&asc, &ascVersion, &appVersion,
+                                                 &command, data, &dataLen);
   // printf("Message: \"%s\" ascVersion: %c appVersion: %c command: %c data: %s
   // dataLen: %zu\n", message, ascVersion, appVersion, command, data, dataLen);
   TEST_ASSERT_EQUAL_UINT8('a', ascVersion);
@@ -268,9 +196,9 @@ void test_ascii_serial_com_receive(void) {
 
   const char *message2 =
       ">defxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.350F\n";
-  /*size_t message_len = */ put_string_in_fRead_mock_buf(message2);
-  ascii_serial_com_receive(&asc, &ascVersion, &appVersion, &command, data,
-                           &dataLen);
+  circular_buffer_push_back_string_uint8(in_buf, message2);
+  ascii_serial_com_get_message_from_input_buffer(&asc, &ascVersion, &appVersion,
+                                                 &command, data, &dataLen);
   // printf("Message: \"%s\" ascVersion: %c appVersion: %c command: %c data: %s
   // dataLen: %zu\n", message2, ascVersion, appVersion, command, data, dataLen);
   TEST_ASSERT_EQUAL_UINT8('d', ascVersion);
@@ -282,9 +210,9 @@ void test_ascii_serial_com_receive(void) {
   }
 
   const char *message3 = ">AFw0123456789.A86F\n";
-  /*size_t message_len = */ put_string_in_fRead_mock_buf(message3);
-  ascii_serial_com_receive(&asc, &ascVersion, &appVersion, &command, data,
-                           &dataLen);
+  circular_buffer_push_back_string_uint8(in_buf, message3);
+  ascii_serial_com_get_message_from_input_buffer(&asc, &ascVersion, &appVersion,
+                                                 &command, data, &dataLen);
   // printf("Message: \"%s\" ascVersion: %c appVersion: %c command: %c data: %s
   // dataLen: %zu\n", message3, ascVersion, appVersion, command, data, dataLen);
   TEST_ASSERT_EQUAL_UINT8('A', ascVersion);
@@ -302,7 +230,7 @@ int main(void) {
   RUN_TEST(test_convert_uint16_to_hex);
   RUN_TEST(test_convert_uint32_to_hex);
   RUN_TEST(test_ascii_serial_com_compute_checksum);
-  RUN_TEST(test_ascii_serial_com_send);
-  RUN_TEST(test_ascii_serial_com_receive);
+  RUN_TEST(test_ascii_serial_com_put_message_in_output_buffer);
+  RUN_TEST(test_ascii_serial_com_get_message_from_input_buffer);
   return UNITY_END();
 }

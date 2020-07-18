@@ -250,25 +250,40 @@ circular_buffer_delete_first_block_uint8(circular_buffer_uint8 *circ_buf);
 
 /** \brief circular buffer push a block of memory on back
  *
- *  Pushes a block of memory onto back until full or no bytes read from fRead
+ *  Pushes a block of memory onto back
  *
- *  ASSUMES fRead DOESN'T BLOCK, just reads from another buffer or something
+ *  Will wrap around and overrite front if buffer gets full
  *
  *  \param circ_buf is a pointer to an initialized circular buffer struct
  *
- *  \param fRead: function that writes data into it's first argument of
- *     size <= the second argument. The function returns the number of
- *     bytes actually written (<= 2nd arg)
+ *  \param source is the start of the source memory block
  *
- *  \param fReadState: state info passed to fRead
- *
- *  \return total number of elements pushed onto buffer (and read from function)
+ *  \param source_size is the size of the source memory block
  *
  */
-size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
-                                             size_t (*fRead)(uint8_t *, size_t,
-                                                             void *),
-                                             void *fReadState);
+void circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
+                                           const uint8_t *source,
+                                           size_t source_size);
+
+/** \brief circular buffer pop from front into a block of memory
+ *
+ *  Pops elements from front into a block of memory
+ *
+ *  Will either pop all of the elements or fill up the memory block,
+ *  whichever is smaller
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *
+ *  \param destination is the start of the destination memory block
+ *
+ *  \param source_size is the size of the destination memory block
+ *
+ *  \return total number of elements popped from buffer (and written to block)
+ *
+ */
+size_t circular_buffer_pop_front_block_uint8(circular_buffer_uint8 *circ_buf,
+                                             uint8_t *destination,
+                                             size_t dest_size);
 
 /** \brief circular buffer push back reading from file descriptor
  *
@@ -283,6 +298,21 @@ size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
  */
 size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,
                                                const int fd);
+
+/** \brief circular buffer pop front writing to file descriptor
+ *
+ *  Calls POSIX write once from the circular buffer
+ *
+ *  Won't necessarily empty the buffer, even if the file is available for
+ *  writing
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *
+ *  \return total number of elements popped from buffer (and written to file)
+ *
+ */
+size_t circular_buffer_pop_front_to_fd_uint8(circular_buffer_uint8 *circ_buf,
+                                             const int fd);
 
 /** \brief circular buffer clear
  *

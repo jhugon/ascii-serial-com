@@ -238,27 +238,25 @@ circular_buffer_delete_first_block_uint8(circular_buffer_uint8 *circ_buf) {
   }
 }
 
-size_t circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
-                                             size_t (*fRead)(uint8_t *, size_t,
-                                                             void *),
-                                             void *fReadState) {
-  printf("In circular_buffer_push_back_block_uint8!\n");
-  size_t nReadTotal = 0;
-  size_t nRead = 255;
-  size_t block_size_available;
-  while (nRead != 0 && circ_buf->size != circ_buf->capacity) {
-    uint8_t *block_start = circ_buf->buffer + circ_buf->iStop;
-    if (circ_buf->iStop >= circ_buf->iStart) {
-      block_size_available = circ_buf->capacity - circ_buf->iStop;
-    } else {
-      block_size_available = circ_buf->iStart - circ_buf->iStop;
-    }
-    nRead = fRead(block_start, block_size_available, fReadState);
-    circ_buf->iStop = (circ_buf->iStop + nRead) % circ_buf->capacity;
-    circ_buf->size += nRead;
-    nReadTotal += nRead;
+void circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
+                                           const uint8_t *source,
+                                           size_t source_size) {
+  for (size_t iElement = 0; iElement < source_size; iElement++) {
+    circular_buffer_push_back_uint8(circ_buf, source[iElement]);
   }
-  return nReadTotal;
+}
+
+size_t circular_buffer_pop_front_block_uint8(circular_buffer_uint8 *circ_buf,
+                                             uint8_t *destination,
+                                             size_t dest_size) {
+  size_t nPopped = circular_buffer_get_size_uint8(circ_buf);
+  if (nPopped > dest_size) {
+    nPopped = dest_size;
+  }
+  for (size_t iElement = 0; iElement < nPopped; iElement++) {
+    destination[iElement] = circular_buffer_pop_front_uint8(circ_buf);
+  }
+  return nPopped;
 }
 
 size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,
@@ -274,11 +272,29 @@ size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,
   if (nRead < 0) {
     perror("circular_buffer_push_back_from_fd_uint8 error while reading from "
            "file");
-    _exit(1);
+    exit(1);
   }
   circ_buf->iStop = (circ_buf->iStop + nRead) % circ_buf->capacity;
   circ_buf->size += nRead;
   return nRead;
+}
+
+size_t circular_buffer_pop_front_to_fd_uint8(circular_buffer_uint8 *circ_buf,
+                                             const int fd) {
+  uint8_t *outBlock = circ_buf->buffer + circ_buf->iStart;
+  size_t nBlock;
+  if (circ_buf->iStart + circ_buf->size > circ_buf->capacity) { // wraps
+    nBlock = circ_buf->capacity - circ_buf->iStart;
+  } else { // doesn't wrap
+    nBlock = circ_buf->size;
+  }
+  ssize_t nWritten = write(fd, outBlock, nBlock);
+  if (nWritten < 0) {
+    perror("circular_buffer_pop_front_to_fd_uint8 error while writing to "
+           "file");
+    exit(1);
+  }
+  return nWritten;
 }
 
 void circular_buffer_clear_uint8(circular_buffer_uint8 *circ_buf) {
