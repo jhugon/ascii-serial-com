@@ -54,7 +54,7 @@ $(builddir):
 $(outexes): $(builddir)%: src/native/% | $(builddir)
 	cp $^ $(builddir)
 
-$(outtestexes): $(builddir)%: src/test/% | $(builddir)
+$(outtestexes): $(builddir)%: src/unit_test/% | $(builddir)
 	cp $^ $(builddir)
 
 $(builddir)/libasciiserialcom.a: src/libasciiserialcom.a | $(builddir)

@@ -1,4 +1,4 @@
-testcfiles := $(wildcard src/test/*.c)
+testcfiles := $(wildcard src/unit_test/*.c)
 testobjs := $(addsuffix .o,$(basename $(testcfiles)))
 testexes := $(basename $(testcfiles))
 

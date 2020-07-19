@@ -10,5 +10,5 @@ src/libasciiserialcom.a: $(srcobjs)
 include src/externals/Makefile
 ifeq ($(platform),native)
   include src/native/Makefile
-  include src/test/Makefile
+  include src/unit_test/Makefile
 endif
