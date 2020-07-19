@@ -46,3 +46,7 @@ Will involve fread or read and fwrite or write. Maybe poll or select.
 Maybe poll flags are set on the input and output streams depending on the state
 of the ASCII-Serial-Com buffers. Would then need to check if the receive buffer
 needs to be parsed after input reads.
+
+## Required Software
+
+gcc, clang, gcovr, python 3.5+

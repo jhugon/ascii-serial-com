@@ -51,7 +51,7 @@ outtestexes := $(addprefix $(builddir),$(notdir $(testexes)))
 $(builddir):
 	mkdir -p $(builddir)
 
-$(outexes): $(builddir)%: src/% | $(builddir)
+$(outexes): $(builddir)%: src/native/% | $(builddir)
 	cp $^ $(builddir)
 
 $(outtestexes): $(builddir)%: src/test/% | $(builddir)
