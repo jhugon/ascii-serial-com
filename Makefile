@@ -21,7 +21,7 @@ endif
 target_type := $(platform)_$(CC)_$(build_type)
 $(info target_type is ${target_type})
 
-builddir := build_$(target_type)/
+builddir := build/$(target_type)/
 $(info builddir is ${builddir})
 
 .PHONY: all

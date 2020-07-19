@@ -13,7 +13,7 @@ def run_make(platform, CC, build_type, args):
     if args.coverage and platform == "native" and build_type == "debug":
         env["coverage"] = "TRUE"
 
-    outdir = "build_{}_{}_{}".format(platform, CC, build_type)
+    outdir = "build/{}_{}_{}".format(platform, CC, build_type)
     outdir = os.path.abspath(outdir)
 
     try:
@@ -43,7 +43,7 @@ def run_make(platform, CC, build_type, args):
                 stdout += (
                     "\n==========================================================\n\n"
                 )
-                stdout += "build_{}_{}_{}/{}\n\n".format(platform, CC, build_type, fn)
+                stdout += "build/{}_{}_{}/{}\n\n".format(platform, CC, build_type, fn)
                 stdout += cmpltProc.stdout
                 success = success and (cmpltProc.returncode == 0)
         if args.coverage and platform == "native" and build_type == "debug":

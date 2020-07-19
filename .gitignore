@@ -3,7 +3,7 @@
 .*.un~
 *.o
 *.a
-build_*
+build/
 tags
 *.gcno
 *.gcda
