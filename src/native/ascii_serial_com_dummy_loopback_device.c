@@ -170,6 +170,8 @@ int main(int argc, char *argv[]) {
       } // else with if raw Loopback
     }   // if inflags POLLIN
     if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
+      // fprintf(stderr,"About to try to receive message:\n");
+      // circular_buffer_print_uint8(asc_in_buf,stderr);
       char ascVersion, appVersion, command;
       size_t dataLen;
       ascii_serial_com_get_message_from_input_buffer(
@@ -184,6 +186,7 @@ int main(int argc, char *argv[]) {
         }
         fprintf(stderr, "\n");
         fflush(stderr);
+        // circular_buffer_print_uint8(asc_out_buf, stderr);
         ascii_serial_com_put_message_in_output_buffer(
             &asc, ascVersion, appVersion, command, dataBuffer, dataLen);
       }
@@ -214,11 +217,12 @@ int main(int argc, char *argv[]) {
           }
         }
       } else { // if rawLoopback
-        circular_buffer_print_uint8(asc_out_buf, stderr);
-        size_t nBytes =
-            circular_buffer_pop_front_to_fd_uint8(asc_out_buf, outfileno);
-        fprintf(stderr, "circular_buffer_pop_front_to_fd_uint8: %zu bytes\n",
-                nBytes);
+               // circular_buffer_print_uint8(asc_out_buf, stderr);
+        /*size_t nBytes =*/
+        circular_buffer_pop_front_to_fd_uint8(asc_out_buf, outfileno);
+        // fprintf(stderr, "circular_buffer_pop_front_to_fd_uint8: %zu bytes\n",
+        //        nBytes);
+        // circular_buffer_print_uint8(asc_out_buf, stderr);
       }
     } // if outflags & POLLHUP
     // Should output POLLHUP?

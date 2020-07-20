@@ -17,6 +17,10 @@ void ascii_serial_com_init(ascii_serial_com *asc) {
 void ascii_serial_com_put_message_in_output_buffer(
     ascii_serial_com *asc, char ascVersion, char appVersion, char command,
     const char *data, size_t dataLen) {
+  // fprintf(stderr,"ascii_serial_com_put_message_in_output_buffer called with
+  // ascVer: %c appVer: %c command: %c datalen: %zu\n",ascVersion, appVersion,
+  // command, dataLen); fprintf(stderr,"in_buf: %p\n",asc->in_buf.buffer);
+  // fprintf(stderr,"out_buf: %p\n",asc->out_buf.buffer);
   assert(dataLen < MAXMESSAGELEN);
   circular_buffer_push_back_uint8(&asc->out_buf, '>');
   circular_buffer_push_back_uint8(&asc->out_buf, ascVersion);
@@ -148,16 +152,26 @@ bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
     iStop = circular_buffer_find_first_uint8(circ_buf, '.');
   }
   if (iStart >= size) {
+    fprintf(stderr, "Error: ascii_serial_com_compute_checksum: couldn't find "
+                    "frame start\n");
+    circular_buffer_print_uint8(circ_buf, stderr);
     return false;
   }
   if (iStop >= size) {
+    fprintf(
+        stderr,
+        "Error: ascii_serial_com_compute_checksum: couldn't find frame end\n");
+    circular_buffer_print_uint8(circ_buf, stderr);
     return false;
   }
   if (iStop <= iStart || iStop - iStart < 4) {
+    fprintf(stderr,
+            "Error: ascii_serial_com_compute_checksum: malformed frame\n");
+    circular_buffer_print_uint8(circ_buf, stderr);
     return false;
   }
   for (size_t iElement = iStart; iElement <= iStop; iElement++) {
-    checksumbuffer[iElement] =
+    checksumbuffer[iElement - iStart] =
         circular_buffer_get_element_uint8(circ_buf, iElement);
   }
   uint16_t resultInt =

@@ -78,7 +78,7 @@ void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
   fprintf(outfile, "  Content as string: ");
   for (size_t i = 0; i < circ_buf->size; i++) {
     uint8_t thisChar = circular_buffer_get_element_uint8(circ_buf, i);
-    if (thisChar < 0x20 || thisChar == 0x7F) { // is control char
+    if (thisChar < 0x20 || thisChar >= 0x7F) { // is control char
       fprintf(outfile, "\\x%02" PRIX8, thisChar);
     } else { // is printable
       fprintf(outfile, "%c", thisChar);
@@ -88,7 +88,7 @@ void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
   fprintf(outfile, "  Raw memory as string: ");
   for (size_t i = 0; i < circ_buf->capacity; i++) {
     uint8_t thisChar = *(circ_buf->buffer + i);
-    if (thisChar < 0x20 || thisChar == 0x7F) { // is control char
+    if (thisChar < 0x20 || thisChar >= 0x7F) { // is control char
       fprintf(outfile, "\\x%02" PRIX8, thisChar);
     } else { // is printable
       fprintf(outfile, "%c", thisChar);
@@ -298,8 +298,13 @@ size_t circular_buffer_pop_front_to_fd_uint8(circular_buffer_uint8 *circ_buf,
     exit(1);
   }
   inc_iStart_uint8(circ_buf);
-  circ_buf->iStart = (circ_buf->iStart + nWritten) % circ_buf->capacity;
   circ_buf->size -= nWritten;
+  if (circ_buf->size == 0) {
+    circ_buf->iStart = 0;
+    circ_buf->iStop = 0;
+  } else {
+    circ_buf->iStart = (circ_buf->iStart + nWritten) % circ_buf->capacity;
+  }
   return nWritten;
 }
 
