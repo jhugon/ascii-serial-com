@@ -69,6 +69,8 @@ class TestASCLoopback(unittest.TestCase):
             intexts[2] * 5,
         ]
         for intext in intexts:
+            print("Input:")
+            print(intext.decode("ASCII"))
             with subprocess.Popen(
                 [self.exe],
                 env=self.env,
@@ -79,13 +81,15 @@ class TestASCLoopback(unittest.TestCase):
                 stdout = b""
                 stderr = b""
                 try:
-                    stdout, stderr = proc.communicate(intext, 0.1)
+                    stdout, stderr = proc.communicate(intext, 0.5)
                 except subprocess.TimeoutExpired as e:
+                    print("TimeoutExpired!")
                     stdout = e.stdout
                     stderr = e.stderr
                 print("Output:")
-                print(stdout)
-                print(stderr)
+                print(stdout.decode("ASCII"))
+                print("Stderr:")
+                print(stderr.decode("ASCII"))
                 stderrAll += stderr
                 self.assertEqual(intext, stdout)
                 proc.terminate()

@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 /** \brief circular buffer struct
  *
@@ -70,8 +71,11 @@ bool circular_buffer_is_empty_uint8(const circular_buffer_uint8 *circ_buf);
  *
  *  Use this for debugging
  *
+ *  outfile is usually stderr or stdout
+ *
  */
-void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf);
+void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
+                                 FILE *outfile);
 
 /** \brief circular buffer get element
  *

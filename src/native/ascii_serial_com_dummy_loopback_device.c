@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
     }
     if (*inflags & POLLIN) {
       // read
-      // fprintf(stderr,"Something to read!\n");
+      fprintf(stderr, "Something to read!\n");
       if (rawLoopback) {
         if (circular_buffer_is_full_uint8(&buffer)) {
           if (!usleep(1000)) {
@@ -167,31 +167,32 @@ int main(int argc, char *argv[]) {
         }
       } else { // if rawLoopback
         circular_buffer_push_back_from_fd_uint8(asc_in_buf, infileno);
-        char ascVersion, appVersion, command;
-        size_t dataLen;
-        ascii_serial_com_get_message_from_input_buffer(
-            &asc, &ascVersion, &appVersion, &command, dataBuffer, &dataLen);
-        if (command != '\0') {
-          fprintf(
-              stderr,
-              "Received message:\n  asc and app versions: %c %c\n  command: "
-              "%c dataLen: %zu\n  data: ",
-              ascVersion, appVersion, command, dataLen);
-          for (size_t iData = 0; iData < dataLen; iData++) {
-            fprintf(stderr, "%c", dataBuffer[iData]);
-          }
-          fprintf(stderr, "\n");
-          fflush(stderr);
-          ascii_serial_com_put_message_in_output_buffer(
-              &asc, ascVersion, appVersion, command, dataBuffer, dataLen);
-        }
       } // else with if raw Loopback
     }   // if inflags POLLIN
+    if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
+      char ascVersion, appVersion, command;
+      size_t dataLen;
+      ascii_serial_com_get_message_from_input_buffer(
+          &asc, &ascVersion, &appVersion, &command, dataBuffer, &dataLen);
+      if (command != '\0') {
+        fprintf(stderr,
+                "Received message:\n  asc and app versions: %c %c\n  command: "
+                "%c dataLen: %zu\n  data: ",
+                ascVersion, appVersion, command, dataLen);
+        for (size_t iData = 0; iData < dataLen; iData++) {
+          fprintf(stderr, "%c", dataBuffer[iData]);
+        }
+        fprintf(stderr, "\n");
+        fflush(stderr);
+        ascii_serial_com_put_message_in_output_buffer(
+            &asc, ascVersion, appVersion, command, dataBuffer, dataLen);
+      }
+    }
     // fprintf(stderr,"inflags: %hu outflags: %hu, buffer size: %zu\n",
     // *inflags, *outflags, circular_buffer_get_size_uint8(&buffer));
     if (*outflags & POLLOUT) {
       // write
-      // fprintf(stderr,"File ready to write!\n");
+      fprintf(stderr, "File ready to write!\n");
       if (rawLoopback) {
         if (circular_buffer_is_empty_uint8(&buffer)) {
           if (usleep(1000)) {
@@ -207,12 +208,17 @@ int main(int argc, char *argv[]) {
             }
             if (fflush(outfile) == EOF) {
               perror("Error flushing after write");
+              fprintf(stderr, "Exiting.\n");
               return 1;
             }
           }
         }
       } else { // if rawLoopback
-        circular_buffer_pop_front_to_fd_uint8(asc_out_buf, outfileno);
+        circular_buffer_print_uint8(asc_out_buf, stderr);
+        size_t nBytes =
+            circular_buffer_pop_front_to_fd_uint8(asc_out_buf, outfileno);
+        fprintf(stderr, "circular_buffer_pop_front_to_fd_uint8: %zu bytes\n",
+                nBytes);
       }
     } // if outflags & POLLHUP
     // Should output POLLHUP?

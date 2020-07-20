@@ -1,7 +1,6 @@
 #include "circular_buffer.h"
 #include <assert.h>
 #include <errno.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -57,41 +56,45 @@ bool circular_buffer_is_empty_uint8(const circular_buffer_uint8 *circ_buf) {
   return circular_buffer_get_size_uint8(circ_buf) == 0;
 }
 
-void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf) {
+void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
+                                 FILE *outfile) {
 
-  printf("circular_buffer_uint8, capacity: %zu\n", circ_buf->capacity);
-  printf("  size: %zu iStart: %zu iStop %zu buffer: %p\n", circ_buf->size,
-         circ_buf->iStart, circ_buf->iStop, (void *)circ_buf->buffer);
-  printf("  Content: [ ");
+  fprintf(outfile, "circular_buffer_uint8, capacity: %zu\n",
+          circ_buf->capacity);
+  fprintf(outfile, "  size: %zu iStart: %zu iStop %zu buffer: %p\n",
+          circ_buf->size, circ_buf->iStart, circ_buf->iStop,
+          (void *)circ_buf->buffer);
+  fprintf(outfile, "  Content: [ ");
   for (size_t i = 0; i < circ_buf->size; i++) {
-    printf("%" PRIu8 " ", circular_buffer_get_element_uint8(circ_buf, i));
+    fprintf(outfile, "%" PRIu8 " ",
+            circular_buffer_get_element_uint8(circ_buf, i));
   }
-  printf("]\n");
-  printf("  Raw Memory: [ ");
+  fprintf(outfile, "]\n");
+  fprintf(outfile, "  Raw Memory: [ ");
   for (size_t i = 0; i < circ_buf->capacity; i++) {
-    printf("%" PRIu8 " ", *(circ_buf->buffer + i));
+    fprintf(outfile, "%" PRIu8 " ", *(circ_buf->buffer + i));
   }
-  printf("]\n");
-  printf("  Content as string: ");
+  fprintf(outfile, "]\n");
+  fprintf(outfile, "  Content as string: ");
   for (size_t i = 0; i < circ_buf->size; i++) {
     uint8_t thisChar = circular_buffer_get_element_uint8(circ_buf, i);
     if (thisChar < 0x20 || thisChar == 0x7F) { // is control char
-      printf("\\x%02" PRIX8, thisChar);
+      fprintf(outfile, "\\x%02" PRIX8, thisChar);
     } else { // is printable
-      printf("%c", thisChar);
+      fprintf(outfile, "%c", thisChar);
     }
   }
-  printf("\n");
-  printf("  Raw memory as string: ");
+  fprintf(outfile, "\n");
+  fprintf(outfile, "  Raw memory as string: ");
   for (size_t i = 0; i < circ_buf->capacity; i++) {
     uint8_t thisChar = *(circ_buf->buffer + i);
     if (thisChar < 0x20 || thisChar == 0x7F) { // is control char
-      printf("\\x%02" PRIX8, thisChar);
+      fprintf(outfile, "\\x%02" PRIX8, thisChar);
     } else { // is printable
-      printf("%c", thisChar);
+      fprintf(outfile, "%c", thisChar);
     }
   }
-  printf("\n");
+  fprintf(outfile, "\n");
 }
 
 uint8_t circular_buffer_get_element_uint8(const circular_buffer_uint8 *circ_buf,
