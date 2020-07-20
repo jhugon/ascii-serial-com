@@ -106,8 +106,7 @@ int main(int argc, char *argv[]) {
 
   ascii_serial_com_init(&asc);
   circular_buffer_uint8 *asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
-  // circular_buffer_uint8* asc_out_buf =
-  // ascii_serial_com_get_output_buffer(&asc);
+  circular_buffer_uint8 *asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
 
   while (true) {
     int ready = poll(fds, 2, -1);
@@ -183,37 +182,52 @@ int main(int argc, char *argv[]) {
           }
           fprintf(stderr, "\n");
           fflush(stderr);
+          ascii_serial_com_put_message_in_output_buffer(
+              &asc, ascVersion, appVersion, command, dataBuffer, dataLen);
         }
       } // else with if raw Loopback
     }   // if inflags POLLIN
     // fprintf(stderr,"inflags: %hu outflags: %hu, buffer size: %zu\n",
     // *inflags, *outflags, circular_buffer_get_size_uint8(&buffer));
-    if (rawLoopback && (*outflags & POLLOUT)) {
+    if (*outflags & POLLOUT) {
       // write
       // fprintf(stderr,"File ready to write!\n");
-      if (circular_buffer_is_empty_uint8(&buffer)) {
-        if (usleep(1000)) {
-          perror("Error while sleeping waiting for write");
-          fprintf(stderr, "Exiting.\n");
-          return 1;
-        }
-      } else {
-        while (!circular_buffer_is_empty_uint8(&buffer)) {
-          const uint8_t c = circular_buffer_pop_front_uint8(&buffer);
-          if (fputc(c, outfile) == EOF) {
-            break;
-          }
-          if (fflush(outfile) == EOF) {
-            perror("Error flushing after write");
+      if (rawLoopback) {
+        if (circular_buffer_is_empty_uint8(&buffer)) {
+          if (usleep(1000)) {
+            perror("Error while sleeping waiting for write");
+            fprintf(stderr, "Exiting.\n");
             return 1;
           }
+        } else {
+          while (!circular_buffer_is_empty_uint8(&buffer)) {
+            const uint8_t c = circular_buffer_pop_front_uint8(&buffer);
+            if (fputc(c, outfile) == EOF) {
+              break;
+            }
+            if (fflush(outfile) == EOF) {
+              perror("Error flushing after write");
+              return 1;
+            }
+          }
         }
+      } else { // if rawLoopback
+        circular_buffer_pop_front_to_fd_uint8(asc_out_buf, outfileno);
       }
-    } // if rawLoopback and outflags & POLLHUP
-    if (circular_buffer_is_empty_uint8(&buffer)) {
-      *outsetflags = POLLHUP;
+    } // if outflags & POLLHUP
+    // Should output POLLHUP?
+    if (rawLoopback) {
+      if (circular_buffer_is_empty_uint8(&buffer)) {
+        *outsetflags = POLLHUP;
+      } else {
+        *outsetflags = POLLOUT | POLLHUP;
+      }
     } else {
-      *outsetflags = POLLOUT | POLLHUP;
+      if (circular_buffer_is_empty_uint8(asc_out_buf)) {
+        *outsetflags = POLLHUP;
+      } else {
+        *outsetflags = POLLOUT | POLLHUP;
+      }
     }
   }
 
