@@ -75,6 +75,37 @@ def run_make(platform, CC, build_type, args):
     return None, None
 
 
+def run_integration_tests():
+    env = os.environ.copy()
+
+    test_dir = "integration_tests"
+    tests = os.listdir(test_dir)
+    success = True
+    stdout = ""
+    for test in tests:
+        if test[-3:] != ".py":
+            continue
+        testfn = os.path.join(test_dir, test)
+        cmpltProc = subprocess.run(
+            ["python3", "-m", "unittest", testfn],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        success = success and (cmpltProc.returncode == 0)
+        stdout += cmpltProc.stdout
+    print()
+    print("========== Integration Tests =============")
+    print()
+    print(stdout)
+    if success:
+        print("Integration Tests All Pass!")
+    else:
+        print("Integration Test Failure")
+    return success, stdout
+
+
 def main():
 
     available_targets = ["all", "native_gcc", "native_clang"]
@@ -91,6 +122,12 @@ def main():
     )
     parser.add_argument(
         "--unittest", "-u", help="Perform unittests after building", action="store_true"
+    )
+    parser.add_argument(
+        "--integrationtest",
+        "-i",
+        help="Perform integration tests after building",
+        action="store_true",
     )
     parser.add_argument(
         "--coverage",
@@ -130,9 +167,12 @@ def main():
         print(testOutBuffer)
 
         if testsAllPass:
-            print("Tests All Pass!")
+            print("Unit Tests All Pass!")
         else:
-            print("Tests Failure")
+            print("Unit Test Failure")
+
+    if args.integrationtest:
+        testPass, testOutput = run_integration_tests()
 
 
 if __name__ == "__main__":
