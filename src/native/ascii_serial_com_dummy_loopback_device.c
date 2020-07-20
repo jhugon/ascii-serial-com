@@ -22,28 +22,33 @@ int main(int argc, char *argv[]) {
   bool rawLoopback = false;
   if (argc > 1) {
     if (strncmp("-h", argv[1], 2) == 0) {
-      printf("\n  ascii_serial_com_dummy_loopback_device [-h] [-l] <infile> "
-             "<outfile>\n\n");
-      printf("  If no filenames are provided, then stdin and stdout are used\n"
-             "  -h: show help and exit\n"
-             "  -l: Raw loopback mode, ASCII Serial Com will not be used\n"
-             "\n");
+      fprintf(stderr,
+              "\n  ascii_serial_com_dummy_loopback_device [-h] [-l] <infile> "
+              "<outfile>\n\n");
+      fprintf(stderr,
+              "  If no filenames are provided, then stdin and stdout are used\n"
+              "  -h: show help and exit\n"
+              "  -l: Raw loopback mode, ASCII Serial Com will not be used\n"
+              "\n");
       return 0;
     }
     if (strncmp("-l", argv[1], 2) == 0) {
-      printf("\nRaw loopback mode enabled, ASCII Serial Com will not be "
-             "used.\n\n");
+      fprintf(stderr,
+              "\nRaw loopback mode enabled, ASCII Serial Com will not be "
+              "used.\n\n");
       rawLoopback = true;
     }
   }
   if (argc == 2 && !rawLoopback) {
-    printf("Error: either 0 or 2 arguments required:\n");
-    printf("\n  ascii_serial_com_dummy_loopback_device [-h] [-l] <infile> "
-           "<outfile>\n\n");
-    printf("  If no filenames are provided, then stdin and stdout are used\n"
-           "  -h: show help and exit\n"
-           "  -l: Raw loopback mode, ASCII Serial Com will not be used\n"
-           "\n");
+    fprintf(stderr, "Error: either 0 or 2 arguments required:\n");
+    fprintf(stderr,
+            "\n  ascii_serial_com_dummy_loopback_device [-h] [-l] <infile> "
+            "<outfile>\n\n");
+    fprintf(stderr,
+            "  If no filenames are provided, then stdin and stdout are used\n"
+            "  -h: show help and exit\n"
+            "  -l: Raw loopback mode, ASCII Serial Com will not be used\n"
+            "\n");
     return 1;
   }
 
@@ -54,34 +59,35 @@ int main(int argc, char *argv[]) {
   if (argc == 3) {
     const char *infilename = argv[1];
     const char *outfilename = argv[2];
-    printf("infile: %s\noutfile: %s\n", infilename, outfilename);
+    fprintf(stdout, "infile: %s\noutfile: %s\n", infilename, outfilename);
 
     infile = fopen(infilename, "r");
     if (!infile) {
       perror("Error opening input file");
-      printf("Exiting.\n");
+      fprintf(stderr, "Exiting.\n");
       return 1;
     }
     infileno = fileno(infile);
     if (infileno < 0) {
       perror("Error getting infile descriptor");
-      printf("Exiting.\n");
+      fprintf(stderr, "Exiting.\n");
       return 1;
     }
     outfile = fopen(outfilename, "a+");
     if (!outfile) {
       perror("Error opening output file");
-      printf("Exiting.\n");
+      fprintf(stderr, "Exiting.\n");
       return 1;
     }
     outfileno = fileno(outfile);
     if (outfileno < 0) {
       perror("Error getting infile descriptor");
-      printf("Exiting.\n");
+      fprintf(stderr, "Exiting.\n");
       return 1;
     }
 
   } else { // no args
+    fprintf(stderr, "infile: stdin\noutfile: stdout\n");
     infile = stdin;
     outfile = stdout;
     infileno = STDIN_FILENO;
@@ -89,7 +95,7 @@ int main(int argc, char *argv[]) {
   }
 
   struct pollfd fds[2] = {
-      {infileno, POLLIN | POLLHUP, 0},
+      {infileno, POLLIN /*| POLLHUP*/, 0},
       {outfileno, POLLHUP, 0},
   };
   short *inflags = &fds[0].revents;
@@ -107,31 +113,31 @@ int main(int argc, char *argv[]) {
     int ready = poll(fds, 2, -1);
     if (ready < 0) {
       perror("Error while polling");
-      printf("Exiting.\n");
+      fprintf(stderr, "Exiting.\n");
       return 1;
     }
     if (*inflags & POLLERR) {
-      printf("Infile error, exiting.\n");
+      fprintf(stderr, "Infile error, exiting.\n");
       return 1;
     }
     if (*outflags & POLLERR) {
-      printf("Outfile error, exiting.\n");
+      fprintf(stderr, "Outfile error, exiting.\n");
       return 1;
     }
-    if (*inflags & POLLHUP) {
-      printf("Infile hung up, exiting.\n");
-      return 1;
-    }
+    // if (*inflags & POLLHUP) {
+    //  fprintf(stderr,"Infile hung up, exiting.\n");
+    //  return 1;
+    //}
     if (*outflags & POLLHUP) {
-      printf("Outfile hung up, exiting.\n");
+      fprintf(stderr, "Outfile hung up, exiting.\n");
       return 1;
     }
     if (*inflags & POLLNVAL) {
-      printf("Infile closed, exiting.\n");
+      fprintf(stderr, "Infile closed, exiting.\n");
       return 1;
     }
     if (*outflags & POLLNVAL) {
-      printf("Outfile closed, exiting.\n");
+      fprintf(stderr, "Outfile closed, exiting.\n");
       return 1;
     }
     if (*inflags & POLLIN) {
@@ -141,7 +147,7 @@ int main(int argc, char *argv[]) {
         if (circular_buffer_is_full_uint8(&buffer)) {
           if (!usleep(1000)) {
             perror("Error while sleeping waiting for read");
-            printf("Exiting.\n");
+            fprintf(stderr, "Exiting.\n");
             return 1;
           }
         } else {
@@ -150,7 +156,7 @@ int main(int argc, char *argv[]) {
           // fprintf(stderr,"Read %zd\n",nRead);
           if (nRead < 0) {
             perror("Error reading from infile");
-            printf("Exiting.\n");
+            fprintf(stderr, "Exiting.\n");
             return 1;
           }
           if (nRead == 0) {
@@ -188,7 +194,7 @@ int main(int argc, char *argv[]) {
       if (circular_buffer_is_empty_uint8(&buffer)) {
         if (usleep(1000)) {
           perror("Error while sleeping waiting for write");
-          printf("Exiting.\n");
+          fprintf(stderr, "Exiting.\n");
           return 1;
         }
       } else {
