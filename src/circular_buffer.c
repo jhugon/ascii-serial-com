@@ -297,7 +297,6 @@ size_t circular_buffer_pop_front_to_fd_uint8(circular_buffer_uint8 *circ_buf,
            "file");
     exit(1);
   }
-  inc_iStart_uint8(circ_buf);
   circ_buf->size -= nWritten;
   if (circ_buf->size == 0) {
     circ_buf->iStart = 0;
