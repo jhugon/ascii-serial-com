@@ -252,14 +252,25 @@ void circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
 size_t circular_buffer_pop_front_block_uint8(circular_buffer_uint8 *circ_buf,
                                              uint8_t *destination,
                                              size_t dest_size) {
-  size_t nPopped = circular_buffer_get_size_uint8(circ_buf);
-  if (nPopped > dest_size) {
-    nPopped = dest_size;
+  uint8_t *outBlock = circ_buf->buffer + circ_buf->iStart;
+  size_t nBlock;
+  if (circ_buf->iStart + circ_buf->size > circ_buf->capacity) { // wraps
+    nBlock = circ_buf->capacity - circ_buf->iStart;
+  } else { // doesn't wrap
+    nBlock = circ_buf->size;
   }
-  for (size_t iElement = 0; iElement < nPopped; iElement++) {
-    destination[iElement] = circular_buffer_pop_front_uint8(circ_buf);
+  const size_t nWritten = dest_size < nBlock ? dest_size : nBlock;
+  for (size_t iByte = 0; iByte < nWritten; iByte++) {
+    destination[iByte] = outBlock[iByte];
   }
-  return nPopped;
+  circ_buf->size -= nWritten;
+  if (circ_buf->size == 0) {
+    circ_buf->iStart = 0;
+    circ_buf->iStop = 0;
+  } else {
+    circ_buf->iStart = (circ_buf->iStart + nWritten) % circ_buf->capacity;
+  }
+  return nWritten;
 }
 
 size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,

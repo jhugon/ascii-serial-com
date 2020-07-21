@@ -273,8 +273,8 @@ void circular_buffer_push_back_block_uint8(circular_buffer_uint8 *circ_buf,
  *
  *  Pops elements from front into a block of memory
  *
- *  Will either pop all of the elements or fill up the memory block,
- *  whichever is smaller
+ *  Won't pop all elements if circular buffer wraps around it's internal
+ *  memory or there isn't enough source size
  *
  *  \param circ_buf is a pointer to an initialized circular buffer struct
  *
