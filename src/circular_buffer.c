@@ -290,6 +290,14 @@ size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,
   }
   circ_buf->iStop = (circ_buf->iStop + nRead) % circ_buf->capacity;
   circ_buf->size += nRead;
+  if (circ_buf->size >= circ_buf->capacity) {
+    circ_buf->iStart =
+        (circ_buf->iStart + circ_buf->size - circ_buf->capacity) %
+        circ_buf->capacity;
+    circ_buf->size = circ_buf->capacity;
+  }
+  // printf("circular_buffer_push_back_from_fd_uint8: block_size_available: %zu
+  // nRead: %zd\n",block_size_available,nRead);
   return nRead;
 }
 

@@ -293,6 +293,9 @@ size_t circular_buffer_pop_front_block_uint8(circular_buffer_uint8 *circ_buf,
  *
  *  Calls POSIX read once into the circular buffer
  *
+ *  Doesn't overwrite the front of the buffer like the normal push_back
+ *  does. Stops when full.
+ *
  *  Won't necessarily fill up the buffer, even if there are bytes to read
  *
  *  \param circ_buf is a pointer to an initialized circular buffer struct

@@ -1,6 +1,10 @@
 #include "circular_buffer.h"
 #include "externals/unity.h"
+#include <fcntl.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 static uint8_t buf_mock[100];
 static size_t buf_mock_size = 0;
@@ -842,9 +846,7 @@ void test_circular_buffer_pop_front_block_uint8(void) {
     TEST_ASSERT_EQUAL_UINT8(i + 5, outputBuffer[i]);
   }
   TEST_ASSERT_EQUAL(5, circular_buffer_get_size_uint8(&cb));
-  circular_buffer_print_uint8(&cb, stdout);
   nPopped = circular_buffer_pop_front_block_uint8(&cb, outputBuffer, 4);
-  circular_buffer_print_uint8(&cb, stdout);
   TEST_ASSERT_EQUAL(4, nPopped);
   for (uint8_t i = 0; i < 4; i++) {
     TEST_ASSERT_EQUAL_UINT8(i + 10, outputBuffer[i]);
@@ -857,6 +859,134 @@ void test_circular_buffer_pop_front_block_uint8(void) {
   nPopped = circular_buffer_pop_front_block_uint8(&cb, outputBuffer, 5);
   TEST_ASSERT_EQUAL(0, nPopped);
   TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+}
+
+void test_circular_buffer_push_back_from_fd_uint8(void) {
+
+  circular_buffer_uint8 cb;
+  const size_t capacity = 10;
+  uint8_t buf[capacity];
+  circular_buffer_init_uint8(&cb, capacity, (uint8_t *)(&buf));
+
+  const int infd = open("/dev/zero", O_RDONLY);
+  if (infd == -1) {
+    perror("Couldn't open /dev/zero");
+    TEST_FAIL_MESSAGE("Couldn't open input file /dev/zero");
+  }
+
+  size_t nRead = circular_buffer_push_back_from_fd_uint8(&cb, infd);
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
+  TEST_ASSERT_EQUAL(10, nRead);
+  for (uint8_t i = 0; i < 10; i++) {
+    TEST_ASSERT_EQUAL_UINT8(0, circular_buffer_pop_front_uint8(&cb));
+  }
+
+  for (uint8_t i = 0; i < 5; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+  }
+  nRead = circular_buffer_push_back_from_fd_uint8(&cb, infd);
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
+  TEST_ASSERT_EQUAL(5, nRead);
+  for (uint8_t i = 0; i < 5; i++) {
+    TEST_ASSERT_EQUAL_UINT8(i, circular_buffer_pop_front_uint8(&cb));
+  }
+  for (uint8_t i = 0; i < 5; i++) {
+    TEST_ASSERT_EQUAL_UINT8(0, circular_buffer_pop_front_uint8(&cb));
+  }
+
+  for (uint8_t i = 0; i < 15; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+  }
+  nRead = circular_buffer_push_back_from_fd_uint8(&cb, infd);
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
+  TEST_ASSERT_EQUAL(5, nRead);
+  for (uint8_t i = 0; i < 5; i++) {
+    TEST_ASSERT_EQUAL_UINT8(i + 10, circular_buffer_pop_front_uint8(&cb));
+  }
+  for (uint8_t i = 0; i < 5; i++) {
+    TEST_ASSERT_EQUAL_UINT8(0, circular_buffer_pop_front_uint8(&cb));
+  }
+
+  // setup so that iStart > iStop
+  for (uint8_t i = 0; i < 12; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+  }
+  for (uint8_t i = 0; i < 3; i++) {
+    circular_buffer_pop_front_uint8(&cb);
+  }
+  TEST_ASSERT_EQUAL(7, circular_buffer_get_size_uint8(&cb));
+  nRead = circular_buffer_push_back_from_fd_uint8(&cb, infd);
+  TEST_ASSERT_EQUAL(3, nRead);
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
+  for (uint8_t i = 0; i < 7; i++) {
+    TEST_ASSERT_EQUAL_UINT8(5 + i, circular_buffer_pop_front_uint8(&cb));
+  }
+  for (uint8_t i = 0; i < 3; i++) {
+    TEST_ASSERT_EQUAL_UINT8(0, circular_buffer_pop_front_uint8(&cb));
+  }
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+}
+
+void test_circular_buffer_pop_front_to_fd_uint8(void) {
+
+  circular_buffer_uint8 cb;
+  const size_t capacity = 10;
+  uint8_t buf[capacity];
+  circular_buffer_init_uint8(&cb, capacity, (uint8_t *)(&buf));
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+
+  const int outfd = open("/dev/null", O_WRONLY | O_APPEND);
+  if (outfd == -1) {
+    perror("Couldn't open /dev/null");
+    TEST_FAIL_MESSAGE("Couldn't open output file /dev/null");
+  }
+
+  size_t nWritten = circular_buffer_pop_front_to_fd_uint8(&cb, outfd);
+  TEST_ASSERT_EQUAL(0, nWritten);
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+
+  for (uint8_t i = 0; i < 1; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+  }
+  TEST_ASSERT_EQUAL(1, circular_buffer_get_size_uint8(&cb));
+  nWritten = circular_buffer_pop_front_to_fd_uint8(&cb, outfd);
+  TEST_ASSERT_EQUAL(1, nWritten);
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+
+  for (uint8_t i = 0; i < 10; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+  }
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
+  nWritten = circular_buffer_pop_front_to_fd_uint8(&cb, outfd);
+  TEST_ASSERT_EQUAL(10, nWritten);
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+
+  for (uint8_t i = 0; i < 15; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+  }
+  TEST_ASSERT_EQUAL(10, circular_buffer_get_size_uint8(&cb));
+  nWritten = circular_buffer_pop_front_to_fd_uint8(&cb, outfd);
+  TEST_ASSERT_EQUAL(5, nWritten);
+  TEST_ASSERT_EQUAL(5, circular_buffer_get_size_uint8(&cb));
+  for (uint8_t i = 0; i < 5; i++) {
+    TEST_ASSERT_EQUAL_UINT8(10 + i, circular_buffer_pop_front_uint8(&cb));
+  }
+
+  // setup so that iStart > iStop
+  circular_buffer_clear_uint8(&cb);
+  for (uint8_t i = 0; i < 12; i++) {
+    circular_buffer_push_back_uint8(&cb, i);
+  }
+  for (uint8_t i = 0; i < 3; i++) {
+    circular_buffer_pop_front_uint8(&cb);
+  }
+  TEST_ASSERT_EQUAL(7, circular_buffer_get_size_uint8(&cb));
+  nWritten = circular_buffer_pop_front_to_fd_uint8(&cb, outfd);
+  TEST_ASSERT_EQUAL(5, nWritten);
+  TEST_ASSERT_EQUAL(2, circular_buffer_get_size_uint8(&cb));
+  for (uint8_t i = 0; i < 2; i++) {
+    TEST_ASSERT_EQUAL_UINT8(10 + i, circular_buffer_pop_front_uint8(&cb));
+  }
 }
 
 int main(void) {
@@ -877,5 +1007,7 @@ int main(void) {
   RUN_TEST(test_circular_buffer_delete_first_block_uint8);
   RUN_TEST(test_circular_buffer_push_back_block_uint8);
   RUN_TEST(test_circular_buffer_pop_front_block_uint8);
+  RUN_TEST(test_circular_buffer_push_back_from_fd_uint8);
+  RUN_TEST(test_circular_buffer_pop_front_to_fd_uint8);
   return UNITY_END();
 }
