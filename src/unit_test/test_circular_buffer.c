@@ -30,6 +30,22 @@ void test_circular_buffer_init_uint8(void) {
   TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
 }
 
+void test_circular_buffer_print_uint8(void) {
+  circular_buffer_uint8 cb;
+  const size_t capacity = 10;
+  uint8_t buf[capacity];
+
+  circular_buffer_init_uint8(&cb, capacity, (uint8_t *)(&buf));
+
+  FILE *outfile = fopen("/dev/null", "a");
+  if (!outfile) {
+    perror("Couldn't open /dev/null");
+    TEST_FAIL_MESSAGE("Couldn't open output file /dev/null");
+  }
+
+  circular_buffer_print_uint8(&cb, outfile);
+}
+
 void test_circular_buffer_push_pop_back_uint8(void) {
   circular_buffer_uint8 cb;
   const size_t capacity = 10;
@@ -992,6 +1008,7 @@ void test_circular_buffer_pop_front_to_fd_uint8(void) {
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_circular_buffer_init_uint8);
+  RUN_TEST(test_circular_buffer_print_uint8);
   RUN_TEST(test_circular_buffer_push_pop_back_uint8);
   RUN_TEST(test_circular_buffer_push_overfull_pop_back_uint8);
   RUN_TEST(test_circular_buffer_push_pop_front_uint8);

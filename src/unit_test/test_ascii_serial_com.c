@@ -1,5 +1,6 @@
 #include "ascii_serial_com.h"
 #include "externals/unity.h"
+#include <inttypes.h>
 #include <stdio.h>
 
 void setUp(void) {
@@ -62,7 +63,7 @@ void test_convert_uint32_to_hex(void) {
     // printf("%zu: %s = %s\n",i,stdiostr,outstr);
     TEST_ASSERT_EQUAL_MEMORY(stdiostr, outstr, 8);
   }
-  for (uint64_t i = 0; i < 0x10010; i++) {
+  for (uint64_t i = 0; i < 0x1F000; i++) {
     uint32_t j = i;
     convert_uint32_to_hex(j, outstr, true);
     snprintf(stdiostr, 10, "%08" PRIX32, j);
@@ -73,6 +74,46 @@ void test_convert_uint32_to_hex(void) {
     snprintf(stdiostr, 10, "%08" PRIx32, j);
     // printf("%zu: %s = %s\n",i,stdiostr,outstr);
     TEST_ASSERT_EQUAL_MEMORY(stdiostr, outstr, 8);
+  }
+}
+
+void test_convert_hex_to_uint8(void) {
+  char instr[5] = "\0\0\0\0\0";
+  for (size_t i = 0; i < 0x100; i++) {
+    snprintf(instr, 4, "%02" PRIX8, (uint8_t)i);
+    // printf("%s    %02" PRIX8 "    %02"PRIX8"\n",instr, (uint8_t) instr[1],
+    // (uint8_t) instr[0]);
+    TEST_ASSERT_EQUAL_UINT8(i, convert_hex_to_uint8(instr));
+    snprintf(instr, 4, "%02" PRIx8, (uint8_t)i);
+    // printf("%s    %02" PRIX8 "    %02"PRIX8"\n",instr, (uint8_t) instr[1],
+    // (uint8_t) instr[0]);
+    TEST_ASSERT_EQUAL_UINT8(i, convert_hex_to_uint8(instr));
+  }
+}
+
+void test_convert_hex_to_uint16(void) {
+  char instr[6] = "\0\0\0\0\0";
+  for (size_t i = 0; i < 0x10000; i++) {
+    snprintf(instr, 6, "%04" PRIX16, (uint16_t)i);
+    TEST_ASSERT_EQUAL_UINT16(i, convert_hex_to_uint16(instr));
+    snprintf(instr, 6, "%04" PRIx16, (uint16_t)i);
+    TEST_ASSERT_EQUAL_UINT16(i, convert_hex_to_uint16(instr));
+  }
+}
+
+void test_convert_hex_to_uint32(void) {
+  char instr[10] = "\0\0\0\0\0\0\0\0\0\0";
+  for (uint64_t i = 0; i < 0x100000000; i += 0x100000) {
+    snprintf(instr, 10, "%08" PRIX32, (uint32_t)i);
+    TEST_ASSERT_EQUAL_UINT32(i, convert_hex_to_uint32(instr));
+    snprintf(instr, 10, "%08" PRIx32, (uint32_t)i);
+    TEST_ASSERT_EQUAL_UINT32(i, convert_hex_to_uint32(instr));
+  }
+  for (uint64_t i = 0; i < 0x1F000; i++) {
+    snprintf(instr, 10, "%08" PRIX32, (uint32_t)i);
+    TEST_ASSERT_EQUAL_UINT32(i, convert_hex_to_uint32(instr));
+    snprintf(instr, 10, "%08" PRIx32, (uint32_t)i);
+    TEST_ASSERT_EQUAL_UINT32(i, convert_hex_to_uint32(instr));
   }
 }
 
@@ -229,6 +270,9 @@ int main(void) {
   RUN_TEST(test_convert_uint8_to_hex);
   RUN_TEST(test_convert_uint16_to_hex);
   RUN_TEST(test_convert_uint32_to_hex);
+  RUN_TEST(test_convert_hex_to_uint8);
+  RUN_TEST(test_convert_hex_to_uint16);
+  RUN_TEST(test_convert_hex_to_uint32);
   RUN_TEST(test_ascii_serial_com_compute_checksum);
   RUN_TEST(test_ascii_serial_com_put_message_in_output_buffer);
   RUN_TEST(test_ascii_serial_com_get_message_from_input_buffer);

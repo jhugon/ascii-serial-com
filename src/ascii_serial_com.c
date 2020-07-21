@@ -216,8 +216,10 @@ uint8_t convert_hex_to_uint8(char *instr) {
     } else if (thischar >= 0x41 && thischar <= 0x46) {
       result |= (thischar - 0x41 + 10) << (i * 4);
     } else if (thischar >= 0x61 && thischar <= 0x66) {
-      result |= (thischar - 0x41 + 10) << (i * 4);
+      result |= (thischar - 0x61 + 10) << (i * 4);
     } else {
+      // printf("Problem char: %c %"PRIX8"\n",thischar,(uint8_t) thischar);
+      // fflush(stdout);
       assert(false);
     }
   }
