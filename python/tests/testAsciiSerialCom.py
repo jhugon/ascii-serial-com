@@ -1,10 +1,36 @@
 import unittest
 import unittest.mock
 from unittest.mock import patch
-from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
+from asciiserialcom.asciiSerialCom import Ascii_Serial_Com, FileReaderThread
 from asciiserialcom.ascErrors import *
 import crcmod
 import datetime
+import subprocess
+import os
+
+
+class TestFileReaderThread(unittest.TestCase):
+    def test(self):
+        with subprocess.Popen(
+            ["cat"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            bufsize=0,
+            close_fds=True,
+        ) as proc:
+            frt = FileReaderThread(proc.stdout)
+            frt.start()
+            for wdata in [b"", b"a", b"abcdefg", b"x" * 50]:
+                proc.stdin.write(wdata)
+                tstart = datetime.datetime.now()
+                data = bytearray()
+                while datetime.datetime.now() < tstart + datetime.timedelta(
+                    milliseconds=20
+                ):
+                    data += frt.get_data()
+                # print("Got data: '{}'".format(data.decode("UTF-8")),flush=True)
+                self.assertEqual(wdata, data)
+            proc.terminate()
 
 
 class TestConvert(unittest.TestCase):

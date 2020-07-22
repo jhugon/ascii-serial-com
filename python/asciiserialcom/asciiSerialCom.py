@@ -10,6 +10,62 @@ import selectors
 import crcmod
 from .ascErrors import *
 from .circularBuffer import Circular_Buffer_Bytes
+import threading
+import queue
+
+
+class FileReaderThread(threading.Thread):
+    """
+    Used to read from a file without blocking the main thread
+    In particular for reading from pipes and avoiding deadlocks
+
+    Assumes data is bytes
+
+    Uses a queue.Queue to buffer and pass data between threads
+
+    Usage:
+
+    1) Initialize with the file obj to be read from
+    2) call the start() method to start reading
+    3) periodically call the get_data() method to get the read data
+
+    """
+
+    def __init__(self, file_obj):
+        """
+        file_obj is a file object open for reading
+        """
+        super().__init__(daemon=True)
+        self.file_obj = file_obj
+        self.q = queue.Queue()
+
+    def run(self):
+        """
+        The code that will be run in another thread
+        """
+        while True:
+            # both put and read can block
+            try:
+                data = self.file_obj.read(32)
+            except ValueError:
+                return
+            # print("FileReaderThread: actually read something of length {}: {}".format(len(data),data.decode("UTF-8")),flush=True)
+            self.q.put(data)
+            # print("FileReaderThread: put the data in q",flush=True)
+
+    def get_data(self):
+        """
+        Call to get data read in the other thread
+        Will keep getting the data until the queue is empty
+        If there is no data in queue, then returns empty bytearray
+        """
+        result = bytearray()
+        try:
+            while True:
+                result += self.q.get_nowait()
+        except queue.Empty:
+            pass
+        return result
 
 
 class Ascii_Serial_Com(object):
