@@ -6,12 +6,13 @@ import sys
 import time
 import pty
 import unittest
-from asciiserialcom.asciiSerialCom import (
-    Ascii_Serial_Com,
+from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
+from asciiserialcom.ascErrors import *
+from asciiserialcom.asyncSubprocCom import (
+    Async_Subproc_Com,
     FileReaderThread,
     FileWriterThread,
 )
-from asciiserialcom.ascErrors import *
 
 
 class TestTrivialLoopback(unittest.TestCase):
