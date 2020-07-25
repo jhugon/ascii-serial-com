@@ -8,11 +8,7 @@ import pty
 import unittest
 from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
 from asciiserialcom.ascErrors import *
-from asciiserialcom.asyncSubprocCom import (
-    Async_Subproc_Com,
-    FileReaderThread,
-    FileWriterThread,
-)
+from asciiserialcom.comSubproc import Com_Subproc
 
 
 class TestTrivialLoopback(unittest.TestCase):
@@ -26,85 +22,29 @@ class TestTrivialLoopback(unittest.TestCase):
         self.exe = os.path.join(self.exedir, "ascii_serial_com_dummy_loopback_device")
 
     def test_just_device(self):
-        #        stderrAll = b""
-        #        for intext in [
-        #            b">abc.C103\n",
-        #            b">AFw0123456789.A86F\n",
-        #            b">defxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.350F\n",
-        #        ]:
-        #            with subprocess.Popen(
-        #                [self.exe, "-l"],
-        #                env=self.env,
-        #                stdin=subprocess.PIPE,
-        #                stdout=subprocess.PIPE,
-        #                stderr=subprocess.PIPE,
-        #            ) as proc:
-        #                stdout = b""
-        #                stderr = b""
-        #                try:
-        #                    stdout, stderr = proc.communicate(intext, 0.01)
-        #                except subprocess.TimeoutExpired as e:
-        #                    stdout = e.stdout
-        #                    stderr = e.stderr
-        #                stderrAll += stderr
-        #                self.assertEqual(intext, stdout)
-        #                proc.terminate()
 
-        return
-        with subprocess.Popen(
-            [self.exe, "-l"],
-            env=self.env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            bufsize=0,
-            close_fds=True,
-        ) as proc:
-            frt = FileReaderThread(proc.stdout)
-            frt.start()
-            for intext in [
-                b">abc.C103\n",
-                b">AFw0123456789.A86F\n",
-                b">defxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.350F\n",
-            ]:
-                proc.stdin.write(intext)
+        intexts = [
+            b">abc.C103\n",
+            b">AFw0123456789.A86F\n",
+            b">defxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.350F\n",
+        ]
+        intexts += [
+            intexts[0] * 2,
+            intexts[0] * 5,
+            intexts[0] * 20,
+        ]
+        with Com_Subproc([self.exe, "-l"], env=self.env) as comSubproc:
+            for intext in intexts:
+                comSubproc.send(intext)
                 tstart = datetime.datetime.now()
                 data = bytearray()
                 while datetime.datetime.now() < tstart + datetime.timedelta(
                     milliseconds=20
                 ):
-                    data += frt.get_data()
+                    data += comSubproc.receive()
                 # print("Got data: '{}'".format(data.decode("UTF-8")),flush=True)
                 self.assertEqual(intext, data)
-            proc.terminate()
-
-
-#    def test_python_and_device(self):
-#        devr, hostw = os.pipe()
-#        hostr, devw = os.pipe()
-#        with os.fdopen(hostw,"a") as hostwFile:
-#            with subprocess.Popen(
-#                [self.exe, "-l"],
-#                env=self.env,
-#                stdin=devr,
-#                #stdout=devw,
-#            ) as proc:
-#                hostw.write(b"abcdefg\n")
-#                print(devr,hostw,hostr,devw)
-#                print(type(devr))
-#                print(hostwFile)
-#                proc.terminate()
-#
-#
-#
-#        #asc = Ascii_Serial_Com(hostr,hostw,32)
-#        #with subprocess.Popen(
-#        #    [self.exe, "-l"],
-#        #    env=self.env,
-#        #    stdin=devr,
-#        #    stdout=devw,
-#        #) as proc:
-#        #    #asc.send_message(b"w",b"01010101")
-#        #    proc.terminate()
+            comSubproc.terminate()  # explicitly terminate since exe doesn't exit on file closes
 
 
 class TestASCLoopback(unittest.TestCase):
@@ -129,7 +69,9 @@ class TestASCLoopback(unittest.TestCase):
             intexts[0] * 5,
             intexts[0] * 20,
         ]
-        intexts = [intexts[4]]
+        # intexts = [intexts[4]]
+
+        ## Old way that works with communicate
         for intext in intexts:
             # print("Input:")
             # print(intext.decode("ASCII"))
@@ -156,51 +98,16 @@ class TestASCLoopback(unittest.TestCase):
                 self.assertEqual(intext, stdout)
                 proc.terminate()
 
-        for intext in intexts:
-            with subprocess.Popen(
-                [self.exe],
-                env=self.env,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                bufsize=0,
-                # close_fds=True,
-            ) as proc:
-                frt = FileReaderThread(proc.stdout)
-                fwt = FileWriterThread(proc.stdin)
-                frt.start()
-                fwt.start()
-                # proc.stdin.write(intext)
-                fwt.push_data(intext)
-                fwt.push_data(b"")
+        ## New way that doesn't work with Com_Subproc
+        with Com_Subproc([self.exe], env=self.env) as comSubproc:
+            for intext in intexts:
+                comSubproc.send(intext)
                 tstart = datetime.datetime.now()
                 data = bytearray()
                 while datetime.datetime.now() < tstart + datetime.timedelta(
-                    milliseconds=1000
+                    milliseconds=20
                 ):
-                    data += frt.get_data()
-                    time.sleep(0.1)
-                print("Got data: '{}'".format(data), flush=True)
+                    data += comSubproc.receive()
+                print("Got data: '{}'".format(data.decode("UTF-8")), flush=True)
                 self.assertEqual(intext, data)
-                # proc.terminate()
-
-        # with subprocess.Popen(
-        #    [self.exe],
-        #    env=self.env,
-        #    stdin=subprocess.PIPE,
-        #    stdout=subprocess.PIPE,
-        #    bufsize=0,
-        #    close_fds=True,
-        # ) as proc:
-        #    frt = FileReaderThread(proc.stdout)
-        #    frt.start()
-        #    for intext in intexts:
-        #        proc.stdin.write(intext)
-        #        tstart = datetime.datetime.now()
-        #        data = bytearray()
-        #        while datetime.datetime.now() < tstart + datetime.timedelta(
-        #            milliseconds=200
-        #        ):
-        #            data += frt.get_data()
-        #        # print("Got data: '{}'".format(data.decode("UTF-8")),flush=True)
-        #        self.assertEqual(intext, data)
-        #    proc.terminate()
+            comSubproc.terminate()  # explicitly terminate since exe doesn't exit on file closes

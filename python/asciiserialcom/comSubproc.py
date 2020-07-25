@@ -9,6 +9,55 @@ import os
 import subprocess
 
 
+class Com_Subproc(object):
+    """
+    Handle communication with a subprocess without deadlocking
+
+    Receives subproc output in another thread which puts it in a queue
+    """
+
+    def __init__(self, procargslist, env=None):
+        """
+        procargslist is a list of args to pass to Popen
+
+        env is a dict of the environment to pass to Popen
+        """
+        self.proc = subprocess.Popen(
+            procargslist,
+            env=env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            bufsize=0,
+            close_fds=True,
+        )
+        self.frt = FileReaderThread(self.proc.stdout)
+        # self.fwt.start()
+        self.frt.start()
+
+    def send(self, data):
+        """ Write to stdin of the subprocess """
+        self.proc.stdin.write(data)
+
+    def receive(self):
+        """
+        Read from stdout of the subprocess, with a 20 ms timout.
+
+        Returns empty bytearray on timeout
+        """
+        return self.frt.receive()
+
+    def terminate(self):
+        self.proc.terminate()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, value, traceback):
+        self.proc.stdout.close()
+        time.sleep(1e-2)
+        self.proc.__exit__(exc_type, value, traceback)
+
+
 class FileReaderThread(threading.Thread):
     """
     Used to read from a file without blocking the main thread
@@ -72,36 +121,3 @@ class FileReaderThread(threading.Thread):
             pass
         # print("get_data returning: {}".format(result), flush=True)
         return result
-
-
-class Async_Subproc_Com(object):
-    """
-    Handle communication with a subprocess without deadlocking
-    """
-
-    def __init__(self, procargslist, env=None):
-        self.proc = subprocess.Popen(
-            procargslist,
-            env=env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            bufsize=0,
-            close_fds=True,
-        )
-        self.frt = FileReaderThread(self.proc.stdout)
-        # self.fwt.start()
-        self.frt.start()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, value, traceback):
-        self.proc.stdout.close()
-        time.sleep(1e-2)
-        self.proc.__exit__(exc_type, value, traceback)
-
-    def send(self, data):
-        self.proc.stdin.write(data)
-
-    def receive(self):
-        return self.frt.receive()

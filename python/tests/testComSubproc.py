@@ -5,9 +5,9 @@ import datetime
 import subprocess
 import os
 
-from asciiserialcom.asyncSubprocCom import (
+from asciiserialcom.comSubproc import (
     FileReaderThread,
-    Async_Subproc_Com,
+    Com_Subproc,
 )
 
 
@@ -37,14 +37,14 @@ class TestFileReaderThread(unittest.TestCase):
 
 class TestAsync_Subproc_Com(unittest.TestCase):
     def test(self):
-        with Async_Subproc_Com(["cat"]) as aspc:
+        with Com_Subproc(["cat"]) as cs:
             for wdata in [b"", b"a", b"abcdefg", b"x" * 50]:
-                aspc.send(wdata)
+                cs.send(wdata)
                 tstart = datetime.datetime.now()
                 data = bytearray()
                 while datetime.datetime.now() < tstart + datetime.timedelta(
                     milliseconds=20
                 ):
-                    data += aspc.receive()
+                    data += cs.receive()
                 # print("Got data: '{}'".format(data.decode("UTF-8")), flush=True)
                 self.assertEqual(wdata, data)
