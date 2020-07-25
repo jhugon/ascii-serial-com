@@ -7,14 +7,12 @@ import os
 
 from asciiserialcom.asyncSubprocCom import (
     FileReaderThread,
-    FileWriterThread,
     Async_Subproc_Com,
 )
 
 
 class TestFileReaderThread(unittest.TestCase):
     def test(self):
-        return
         with subprocess.Popen(
             ["cat"],
             stdin=subprocess.PIPE,
@@ -39,11 +37,14 @@ class TestFileReaderThread(unittest.TestCase):
 
 class TestAsync_Subproc_Com(unittest.TestCase):
     def test(self):
-        aspc = Async_Subproc_Com(["cat"])
-        aspc.send(b"abcd")
-        tstart = datetime.datetime.now()
-        data = bytearray()
-        while datetime.datetime.now() < tstart + datetime.timedelta(milliseconds=20):
-            data += aspc.receive()
-        print("Got data: '{}'".format(data.decode("UTF-8")), flush=True)
-        self.assertEqual("abcd", data)
+        with Async_Subproc_Com(["cat"]) as aspc:
+            for wdata in [b"", b"a", b"abcdefg", b"x" * 50]:
+                aspc.send(wdata)
+                tstart = datetime.datetime.now()
+                data = bytearray()
+                while datetime.datetime.now() < tstart + datetime.timedelta(
+                    milliseconds=20
+                ):
+                    data += aspc.receive()
+                # print("Got data: '{}'".format(data.decode("UTF-8")), flush=True)
+                self.assertEqual(wdata, data)
