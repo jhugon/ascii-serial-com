@@ -347,4 +347,31 @@ void circular_buffer_clear_uint8(circular_buffer_uint8 *circ_buf);
 size_t circular_buffer_push_back_string_uint8(circular_buffer_uint8 *circ_buf,
                                               const char *string);
 
+/** \brief circular buffer remove unfinished frames from front of buffer
+ *
+ *  Removes from the front of the buffer any frames that haven't ended before
+ *  an ended frame. If the buffer just contains an unfinished frame (e.g. that
+ *  hasn't finished reading in yet), that isn't removed.
+ *
+ *  More concretely: The first endChar is found. Any elements before the
+ *  startChar preceding endChar are removed. If the endChar isn't found, any
+ *  elements before the last startChar are removed. If no startChar is found
+ *  either, the buffer is cleared.
+ *
+ *  Additionally, if endChar is front or there is no startChar before the first
+ *  endChar, everything up to and including endChar is deleted and the function
+ *  is recursed.
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *
+ *  \param startChar designates the start of frames
+ *
+ *  \param endChar designates the end of frames
+ *
+ *  \return the number of elements removed
+ *
+ */
+size_t circular_buffer_remove_front_unfinished_frames_uint8(
+    circular_buffer_uint8 *circ_buf, const char startChar, const char endChar);
+
 #endif

@@ -1005,6 +1005,104 @@ void test_circular_buffer_pop_front_to_fd_uint8(void) {
   }
 }
 
+void test_circular_buffer_remove_front_unfinished_frames_uint8(void) {
+  circular_buffer_uint8 cb;
+  const size_t capacity = 10;
+  uint8_t buf[capacity];
+  circular_buffer_init_uint8(&cb, capacity, (uint8_t *)(&buf));
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+
+  const char *testString = "\nxxxxa";
+  size_t resultSize = 0;
+  circular_buffer_push_back_string_uint8(&cb, testString);
+  circular_buffer_remove_front_unfinished_frames_uint8(&cb, '>', '\n');
+  TEST_ASSERT_EQUAL(resultSize, circular_buffer_get_size_uint8(&cb));
+
+  testString = "\nxxxxa>abcdefg";
+  resultSize = 8;
+  const char *resultString = ">abcdefg";
+  circular_buffer_push_back_string_uint8(&cb, testString);
+  circular_buffer_remove_front_unfinished_frames_uint8(&cb, '>', '\n');
+  TEST_ASSERT_EQUAL(resultSize, circular_buffer_get_size_uint8(&cb));
+  for (size_t i = 0; i < resultSize; i++) {
+    TEST_ASSERT_EQUAL_CHAR(resultString[i],
+                           circular_buffer_pop_front_uint8(&cb));
+  }
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+
+  testString = "\nxa>abc\n";
+  resultSize = 5;
+  resultString = ">abc\n";
+  circular_buffer_push_back_string_uint8(&cb, testString);
+  circular_buffer_remove_front_unfinished_frames_uint8(&cb, '>', '\n');
+  TEST_ASSERT_EQUAL(resultSize, circular_buffer_get_size_uint8(&cb));
+  for (size_t i = 0; i < resultSize; i++) {
+    TEST_ASSERT_EQUAL_CHAR(resultString[i],
+                           circular_buffer_pop_front_uint8(&cb));
+  }
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+
+  testString = "ab\nxa>abc\n";
+  resultSize = 5;
+  resultString = ">abc\n";
+  circular_buffer_push_back_string_uint8(&cb, testString);
+  circular_buffer_remove_front_unfinished_frames_uint8(&cb, '>', '\n');
+  TEST_ASSERT_EQUAL(resultSize, circular_buffer_get_size_uint8(&cb));
+  for (size_t i = 0; i < resultSize; i++) {
+    TEST_ASSERT_EQUAL_CHAR(resultString[i],
+                           circular_buffer_pop_front_uint8(&cb));
+  }
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+
+  testString = "abcdefg";
+  resultSize = 0;
+  circular_buffer_push_back_string_uint8(&cb, testString);
+  circular_buffer_remove_front_unfinished_frames_uint8(&cb, '>', '\n');
+  TEST_ASSERT_EQUAL(resultSize, circular_buffer_get_size_uint8(&cb));
+  for (size_t i = 0; i < resultSize; i++) {
+    TEST_ASSERT_EQUAL_CHAR(resultString[i],
+                           circular_buffer_pop_front_uint8(&cb));
+  }
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+
+  testString = ">a>b>c>d";
+  resultSize = 2;
+  resultString = ">d";
+  circular_buffer_push_back_string_uint8(&cb, testString);
+  circular_buffer_remove_front_unfinished_frames_uint8(&cb, '>', '\n');
+  TEST_ASSERT_EQUAL(resultSize, circular_buffer_get_size_uint8(&cb));
+  for (size_t i = 0; i < resultSize; i++) {
+    TEST_ASSERT_EQUAL_CHAR(resultString[i],
+                           circular_buffer_pop_front_uint8(&cb));
+  }
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+
+  testString = ">a>b>c>d";
+  resultSize = 2;
+  resultString = ">d";
+  circular_buffer_push_back_string_uint8(&cb, testString);
+  circular_buffer_remove_front_unfinished_frames_uint8(&cb, '>', '\n');
+  TEST_ASSERT_EQUAL(resultSize, circular_buffer_get_size_uint8(&cb));
+  for (size_t i = 0; i < resultSize; i++) {
+    TEST_ASSERT_EQUAL_CHAR(resultString[i],
+                           circular_buffer_pop_front_uint8(&cb));
+  }
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+
+  testString = "c>d>abc\n";
+  resultSize = 5;
+  resultString = ">abc\n";
+  circular_buffer_push_back_string_uint8(&cb, testString);
+  circular_buffer_remove_front_unfinished_frames_uint8(&cb, '>', '\n');
+  circular_buffer_print_uint8(&cb, stderr);
+  TEST_ASSERT_EQUAL(resultSize, circular_buffer_get_size_uint8(&cb));
+  for (size_t i = 0; i < resultSize; i++) {
+    TEST_ASSERT_EQUAL_CHAR(resultString[i],
+                           circular_buffer_pop_front_uint8(&cb));
+  }
+  TEST_ASSERT_EQUAL(0, circular_buffer_get_size_uint8(&cb));
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_circular_buffer_init_uint8);
@@ -1026,5 +1124,6 @@ int main(void) {
   RUN_TEST(test_circular_buffer_pop_front_block_uint8);
   RUN_TEST(test_circular_buffer_push_back_from_fd_uint8);
   RUN_TEST(test_circular_buffer_pop_front_to_fd_uint8);
+  RUN_TEST(test_circular_buffer_remove_front_unfinished_frames_uint8);
   return UNITY_END();
 }

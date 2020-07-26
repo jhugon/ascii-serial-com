@@ -346,3 +346,46 @@ size_t circular_buffer_push_back_string_uint8(circular_buffer_uint8 *circ_buf,
   }
   return nPushed;
 }
+
+size_t circular_buffer_remove_front_unfinished_frames_uint8(
+    circular_buffer_uint8 *circ_buf, const char startChar, const char endChar) {
+  const size_t iEnd = circular_buffer_find_first_uint8(circ_buf, endChar);
+  if (iEnd >= circ_buf->size) { // no end found
+    const size_t iLastStart =
+        circular_buffer_find_last_uint8(circ_buf, startChar);
+    if (iLastStart >= circ_buf->size) { // no start found
+      const size_t bufSize = circ_buf->size;
+      circular_buffer_clear_uint8(circ_buf);
+      return bufSize;
+    }
+    for (size_t i = 0; i < iLastStart; i++) {
+      circular_buffer_pop_front_uint8(circ_buf);
+    }
+    return iLastStart;
+  }
+  if (iEnd == 0) { // end of frame first element, can't be start of frame
+    circular_buffer_pop_front_uint8(circ_buf);
+    return circular_buffer_remove_front_unfinished_frames_uint8(
+        circ_buf, startChar, endChar);
+  }
+  size_t iElement = iEnd - 1;
+  while (true) {
+    if (circular_buffer_get_element_uint8(circ_buf, iElement) == startChar) {
+      break;
+    }
+    if (iElement == 0) { // No startChar found, this frame is bad
+      for (size_t i = 0; i <= iEnd; i++) { // delete up to including endChar
+        circular_buffer_pop_front_uint8(circ_buf);
+      }
+      return iEnd + 1 +
+             circular_buffer_remove_front_unfinished_frames_uint8(
+                 circ_buf, startChar, endChar);
+    }
+    iElement--;
+  }
+  // iElement is the iStart we want, so pop all before that
+  for (size_t i = 0; i < iElement; i++) {
+    circular_buffer_pop_front_uint8(circ_buf);
+  }
+  return iElement;
+}
