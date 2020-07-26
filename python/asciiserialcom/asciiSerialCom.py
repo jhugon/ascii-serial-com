@@ -468,7 +468,8 @@ class Ascii_Serial_Com(object):
                 "Inproperly formatted frame: no end of data character '.': ", frame
             )
         frame = frame.split(b".")[0] + b"."
-        result = hex(self.crcFunc(frame)).upper().encode("ascii")
+        result = "{:02X}".format(self.crcFunc(frame)).encode("ascii")
+        # print("checksum computed to be: ",result)
         return result
 
     def _convert_to_hex(self, num, N=2):

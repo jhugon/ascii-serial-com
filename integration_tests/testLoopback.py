@@ -22,7 +22,6 @@ class TestTrivialLoopback(unittest.TestCase):
         self.exe = os.path.join(self.exedir, "ascii_serial_com_dummy_loopback_device")
 
     def test_just_device(self):
-
         intexts = [
             b">abc.C103\n",
             b">AFw0123456789.A86F\n",
@@ -44,7 +43,24 @@ class TestTrivialLoopback(unittest.TestCase):
                     data += comSubproc.receive()
                 # print("Got data: '{}'".format(data.decode("UTF-8")),flush=True)
                 self.assertEqual(intext, data)
-            comSubproc.terminate()  # explicitly terminate since exe doesn't exit on file closes
+
+    def test_host_device(self):
+        with subprocess.Popen(
+            [self.exe, "-l"],
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            bufsize=0,
+            close_fds=True,
+        ) as proc:
+            asc = Ascii_Serial_Com(proc.stdout, proc.stdin, 8)
+            for testCommand in [b"a", b"b", b"c"]:
+                for testData in [b"", b"abcdefg"]:
+                    asc.send_message(testCommand, testData)
+                    ascVersion, appVersion, command, data = asc.receive_message()
+                    self.assertEqual(testCommand, command)
+                    self.assertEqual(testData, data)
 
 
 class TestASCLoopback(unittest.TestCase):
@@ -102,3 +118,20 @@ class TestASCLoopback(unittest.TestCase):
                     data += comSubproc.receive()
                 # print("Got data: '{}'".format(data.decode("UTF-8")), flush=True)
                 self.assertEqual(b"", data)
+
+    def test_host_device(self):
+        with subprocess.Popen(
+            [self.exe],
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            bufsize=0,
+            close_fds=True,
+        ) as proc:
+            asc = Ascii_Serial_Com(proc.stdout, proc.stdin, 8)
+            for testCommand in [b"a", b"b", b"c"]:
+                for testData in [b"", b"abcdefg"]:
+                    asc.send_message(testCommand, testData)
+                    ascVersion, appVersion, command, data = asc.receive_message()
+                    self.assertEqual(testCommand, command)
+                    self.assertEqual(testData, data)

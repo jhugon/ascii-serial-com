@@ -75,7 +75,7 @@ class TestCRC(unittest.TestCase):
         reg_num = 2
         reg_val = 0x1234567A
         reply_message = b">00r%02X,%08X." % (reg_num, reg_val)
-        good_crc = hex(self.crcFunc(reply_message)).upper().encode("ascii")
+        good_crc = "{:02X}".format(self.crcFunc(reply_message)).encode("ascii")
         self.assertEqual(self.asc._compute_checksum(reply_message), good_crc)
         self.assertEqual(
             self.asc._compute_checksum(reply_message + b"aslkdgasbv\n"), good_crc
@@ -190,7 +190,7 @@ class TestFramingAndStreaming(unittest.TestCase):
         ]:
             with self.subTest(i="args={}, returnval={}".format(args, returnval)):
                 returnval += (
-                    hex(self.crcFunc(returnval)).upper().encode("ascii") + b"\n"
+                    "{:02X}".format(self.crcFunc(returnval)).encode("ascii") + b"\n"
                 )
                 self.assertEqual(asc._pack_message(*args), returnval)
 
@@ -204,7 +204,7 @@ class TestFramingAndStreaming(unittest.TestCase):
             (b">0Fw" + b"A" * 56 + b".", (b"0", b"F", b"w", b"A" * 56)),
         ]:
             with self.subTest(i="frame={}, returnval={}".format(frame, returnval)):
-                frame += hex(self.crcFunc(frame)).upper().encode("ascii") + b"\n"
+                frame += "{:02X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
                 self.assertEqual(asc._unpack_message(frame), returnval)
 
         frame = b">\n"
@@ -214,13 +214,13 @@ class TestFramingAndStreaming(unittest.TestCase):
         with self.assertRaises(MessageIntegrityError):
             asc._unpack_message(frame)
         frame = b">."
-        frame += hex(self.crcFunc(frame) + 1).upper().encode("ascii") + b"\n"
+        frame += "{:02X}".format(self.crcFunc(frame) + 1).encode("ascii") + b"\n"
         with self.assertRaises(MessageIntegrityError):
             asc._unpack_message(frame)
 
         for frame in [b">.", b">00.", b">0w.", b">w.", b""]:
             with self.subTest(i="frame: {}".format(frame)):
-                frame += hex(self.crcFunc(frame)).upper().encode("ascii") + b"\n"
+                frame += "{:02X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
                 with self.assertRaises(MalformedFrameError):
                     asc._unpack_message(frame)
 
@@ -287,13 +287,13 @@ class TestMessaging(unittest.TestCase):
             (b">0Fw" + b"A" * 56 + b".", (b"0", b"F", b"w", b"A" * 56)),
         ]:
             with self.subTest(i="frame={}, returnval={}".format(frame, returnval)):
-                frame += hex(self.crcFunc(frame)).upper().encode("ascii") + b"\n"
+                frame += "{:02X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
                 fileMock.read.return_value = frame
                 self.assertEqual(asc.receive_message(), returnval)
 
         for frame in [b">10w.", b">F0w."]:
             with self.subTest(i="frame: {}".format(frame)):
-                frame += hex(self.crcFunc(frame)).upper().encode("ascii") + b"\n"
+                frame += "{:02X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
                 fileMock.read.return_value = frame
                 with self.assertRaises(AsciiSerialComVersionMismatchError):
                     asc.receive_message()
@@ -308,7 +308,7 @@ class TestMessaging(unittest.TestCase):
             (b">00w" + b"A" * 56 + b".", (b"w", b"A" * 56)),
         ]:
             with self.subTest(i="frame={}, args={}".format(frame, args)):
-                frame += hex(self.crcFunc(frame)).upper().encode("ascii") + b"\n"
+                frame += "{:02X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
                 asc.send_message(*args)
                 fileMock.write.assert_called_once_with(frame)
                 fileMock.write.reset_mock()
@@ -322,14 +322,14 @@ class TestMessaging(unittest.TestCase):
             with self.subTest(i="reg_num={}, reg_val={}".format(reg_num, reg_val)):
                 reply_message = b">00r%04X,%08X." % (reg_num, reg_val)
                 reply_message += (
-                    hex(self.crcFunc(reply_message)).upper().encode("ascii") + b"\n"
+                    "{:02X}".format(self.crcFunc(reply_message)).encode("ascii") + b"\n"
                 )
                 fileMock.read.return_value = reply_message
                 result = asc.read_register(reg_num)
                 self.assertEqual(result, b"%08X" % reg_val)
                 write_message = b">00r%04X." % (reg_num)
                 write_message += (
-                    hex(self.crcFunc(write_message)).upper().encode("ascii") + b"\n"
+                    "{:02X}".format(self.crcFunc(write_message)).encode("ascii") + b"\n"
                 )
                 fileMock.write.assert_called_once_with(write_message)
                 fileMock.write.reset_mock()
@@ -337,7 +337,7 @@ class TestMessaging(unittest.TestCase):
                 # reply with wrong reg number
                 reply_message = b">00r%04X,%08X." % (reg_num + 1, reg_val)
                 reply_message += (
-                    hex(self.crcFunc(reply_message)).upper().encode("ascii") + b"\n"
+                    "{:02X}".format(self.crcFunc(reply_message)).encode("ascii") + b"\n"
                 )
                 fileMock.read.return_value = reply_message
                 with self.assertRaises(ResponseTimeoutError):
@@ -366,8 +366,10 @@ class TestMessaging(unittest.TestCase):
             with self.subTest(
                 i="args={}, written={}, read={}".format(args, written, read)
             ):
-                written += hex(self.crcFunc(written)).upper().encode("ascii") + b"\n"
-                read += hex(self.crcFunc(read)).upper().encode("ascii") + b"\n"
+                written += (
+                    "{:02X}".format(self.crcFunc(written)).encode("ascii") + b"\n"
+                )
+                read += "{:02X}".format(self.crcFunc(read)).encode("ascii") + b"\n"
                 fileMock.read.return_value = read
                 asc.write_register(*args)
                 fileMock.write.assert_called_once_with(written)
@@ -382,7 +384,9 @@ class TestMessaging(unittest.TestCase):
             ((0xFFFF, 0xE3), b">00wFFFF,E3."),
         ]:
             with self.subTest(i="args={}, written={}".format(args, written)):
-                written += hex(self.crcFunc(written)).upper().encode("ascii") + b"\n"
+                written += (
+                    "{:02X}".format(self.crcFunc(written)).encode("ascii") + b"\n"
+                )
                 fileMock.read.return_value = b""
                 with self.assertRaises(ResponseTimeoutError):
                     asc.write_register(*args, timeout=0.01)
