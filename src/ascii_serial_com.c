@@ -52,6 +52,7 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
     return;
   }
   circular_buffer_remove_front_unfinished_frames_uint8(&asc->in_buf, '>', '\n');
+  buf_size = circular_buffer_get_size_uint8(&asc->in_buf); // could have changed
   size_t iEnd = circular_buffer_find_first_uint8(&asc->in_buf, '\n');
   if (iEnd >= buf_size) {
     fprintf(stderr, "Error: start and/or end of frame not found\n");

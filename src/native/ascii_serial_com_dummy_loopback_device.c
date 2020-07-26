@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
   int timeout = -1;
   while (true) {
     int ready = poll(fds, 2, timeout);
-    fprintf(stderr, "poll just returned");
+    fprintf(stderr, "poll just returned\n");
     if (ready < 0) {
       perror("Error while polling");
       fprintf(stderr, "Exiting.\n");
