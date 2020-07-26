@@ -90,22 +90,25 @@ class FileReaderThread(threading.Thread):
         while True:
             # both put and read can block
             try:
-                print("FileReaderThread: about to call file_obj.read")
+                # print("FileReaderThread: about to call file_obj.read")
                 data = self.file_obj.read(64)
             except ValueError as e:
                 # print("ValueError: ", e, flush=True)
                 return
-            print(
-                "FileReaderThread: actually read something of length {}: '{}'".format(
-                    len(data), data
-                ),
-                flush=True,
-            )
-            self.q.put(data)
-            print(
-                "FileReaderThread: put the data in q, qsize: {}".format(self.q.qsize()),
-                flush=True,
-            )
+            if len(data) > 0:
+                # print(
+                #    "FileReaderThread: actually read something of length {}: '{}'".format(
+                #        len(data), data
+                #    ),
+                #    flush=True,
+                # )
+                self.q.put(data)
+                # print(
+                #    "FileReaderThread: put the data in q, qsize: {}".format(self.q.qsize()),
+                #    flush=True,
+                # )
+            else:
+                time.sleep(5e-3)
 
     def receive(self):
         """
@@ -116,8 +119,10 @@ class FileReaderThread(threading.Thread):
         result = bytearray()
         try:
             while True:
-                result += self.q.get(block=False, timeout=0.02)
+                # result += self.q.get(block=False, timeout=0.001)
+                result += self.q.get_nowait()
         except queue.Empty:
             pass
-        # print("get_data returning: {}".format(result), flush=True)
+        # if len(result) > 0:
+        #     print("receive returning: {}".format(result), flush=True)
         return result

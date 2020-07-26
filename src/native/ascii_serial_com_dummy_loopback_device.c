@@ -108,8 +108,10 @@ int main(int argc, char *argv[]) {
   circular_buffer_uint8 *asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
   circular_buffer_uint8 *asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
 
+  int timeout = -1;
   while (true) {
-    int ready = poll(fds, 2, -1);
+    int ready = poll(fds, 2, timeout);
+    fprintf(stderr, "poll just returned");
     if (ready < 0) {
       perror("Error while polling");
       fprintf(stderr, "Exiting.\n");
@@ -242,6 +244,14 @@ int main(int argc, char *argv[]) {
       } else {
         *outsetflags = POLLOUT | POLLHUP;
       }
+    }
+    // Do we need to process data in the input buffer?
+    // If so, poll with short timeout, otherwise just poll
+    // (all else is just waiting on IO)
+    if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
+      timeout = 5; // ms
+    } else {
+      timeout = -1;
     }
   }
 

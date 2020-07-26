@@ -78,7 +78,9 @@ void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
   fprintf(outfile, "  Content as string: ");
   for (size_t i = 0; i < circ_buf->size; i++) {
     uint8_t thisChar = circular_buffer_get_element_uint8(circ_buf, i);
-    if (thisChar < 0x20 || thisChar >= 0x7F) { // is control char
+    if (thisChar == 0x0A) {
+      fprintf(outfile, "\\n");
+    } else if (thisChar < 0x20 || thisChar >= 0x7F) { // is control char
       fprintf(outfile, "\\x%02" PRIX8, thisChar);
     } else { // is printable
       fprintf(outfile, "%c", thisChar);
@@ -88,7 +90,9 @@ void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
   fprintf(outfile, "  Raw memory as string: ");
   for (size_t i = 0; i < circ_buf->capacity; i++) {
     uint8_t thisChar = *(circ_buf->buffer + i);
-    if (thisChar < 0x20 || thisChar >= 0x7F) { // is control char
+    if (thisChar == 0x0A) {
+      fprintf(outfile, "\\n");
+    } else if (thisChar < 0x20 || thisChar >= 0x7F) { // is control char
       fprintf(outfile, "\\x%02" PRIX8, thisChar);
     } else { // is printable
       fprintf(outfile, "%c", thisChar);

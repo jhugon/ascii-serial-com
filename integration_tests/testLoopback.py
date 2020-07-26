@@ -139,9 +139,8 @@ class TestASCLoopback(unittest.TestCase):
         intexts += [
             intexts[0] * 2,
             intexts[0] * 5,
-            (intexts[0] * 20)[:64],
+            (intexts[0] * 20)[:60],
         ]
-        # intexts = [intexts[4]]
 
         with Com_Subproc([self.exe], env=self.env) as comSubproc:
             for intext in intexts:
