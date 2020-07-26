@@ -90,22 +90,22 @@ class FileReaderThread(threading.Thread):
         while True:
             # both put and read can block
             try:
-                # print("FileReaderThread: about to call file_obj.read")
+                print("FileReaderThread: about to call file_obj.read")
                 data = self.file_obj.read(64)
             except ValueError as e:
                 # print("ValueError: ", e, flush=True)
                 return
-            # print(
-            #    "FileReaderThread: actually read something of length {}: '{}'".format(
-            #        len(data), data
-            #    ),
-            #    flush=True,
-            # )
+            print(
+                "FileReaderThread: actually read something of length {}: '{}'".format(
+                    len(data), data
+                ),
+                flush=True,
+            )
             self.q.put(data)
-            # print(
-            #    "FileReaderThread: put the data in q, qsize: {}".format(self.q.qsize()),
-            #    flush=True,
-            # )
+            print(
+                "FileReaderThread: put the data in q, qsize: {}".format(self.q.qsize()),
+                flush=True,
+            )
 
     def receive(self):
         """

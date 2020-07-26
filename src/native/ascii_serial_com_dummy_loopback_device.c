@@ -115,24 +115,28 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "Exiting.\n");
       return 1;
     }
-    if (*inflags & POLLERR) {
-      fprintf(stderr, "Infile error, exiting.\n");
-      return 1;
+    if ((rawLoopback && circular_buffer_is_empty_uint8(&buffer)) ||
+        (!rawLoopback && circular_buffer_is_empty_uint8(asc_out_buf) &&
+         circular_buffer_is_empty_uint8(asc_in_buf))) {
+      if (*inflags & POLLERR) {
+        fprintf(stderr, "Infile error, exiting.\n");
+        return 1;
+      }
+      if (*inflags & POLLHUP) {
+        fprintf(stderr, "Infile hung up, exiting.\n");
+        return 1;
+      }
+      if (*inflags & POLLNVAL) {
+        fprintf(stderr, "Infile closed, exiting.\n");
+        return 1;
+      }
     }
     if (*outflags & POLLERR) {
       fprintf(stderr, "Outfile error, exiting.\n");
       return 1;
     }
-    // if (*inflags & POLLHUP) {
-    //  fprintf(stderr,"Infile hung up, exiting.\n");
-    //  return 1;
-    //}
     if (*outflags & POLLHUP) {
       fprintf(stderr, "Outfile hung up, exiting.\n");
-      return 1;
-    }
-    if (*inflags & POLLNVAL) {
-      fprintf(stderr, "Infile closed, exiting.\n");
       return 1;
     }
     if (*outflags & POLLNVAL) {
@@ -170,8 +174,8 @@ int main(int argc, char *argv[]) {
       } // else with if raw Loopback
     }   // if inflags POLLIN
     if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
-      // fprintf(stderr,"About to try to receive message:\n");
-      // circular_buffer_print_uint8(asc_in_buf,stderr);
+      fprintf(stderr, "About to try to receive message:\n");
+      circular_buffer_print_uint8(asc_in_buf, stderr);
       char ascVersion, appVersion, command;
       size_t dataLen;
       ascii_serial_com_get_message_from_input_buffer(
@@ -218,10 +222,10 @@ int main(int argc, char *argv[]) {
         }
       } else { // if rawLoopback
                // circular_buffer_print_uint8(asc_out_buf, stderr);
-        /*size_t nBytes =*/
-        circular_buffer_pop_front_to_fd_uint8(asc_out_buf, outfileno);
-        // fprintf(stderr, "circular_buffer_pop_front_to_fd_uint8: %zu bytes\n",
-        //        nBytes);
+        size_t nBytes =
+            circular_buffer_pop_front_to_fd_uint8(asc_out_buf, outfileno);
+        fprintf(stderr, "circular_buffer_pop_front_to_fd_uint8: %zu bytes\n",
+                nBytes);
         // circular_buffer_print_uint8(asc_out_buf, stderr);
       }
     } // if outflags & POLLHUP

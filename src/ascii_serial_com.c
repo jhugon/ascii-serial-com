@@ -47,14 +47,18 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
   circular_buffer_remove_front_to_uint8(&asc->in_buf, '>', false);
   size_t buf_size = circular_buffer_get_size_uint8(&asc->in_buf);
   if (buf_size == 0) {
-    printf("Error Buffer size == 0\n");
+    fprintf(stderr, "Error Buffer size == 0\n");
     *command = '\0';
     *dataLen = 0;
     return;
   }
   size_t iEnd = circular_buffer_find_first_uint8(&asc->in_buf, '\n');
   if (iEnd >= buf_size) {
-    printf("Error \\n not found\n");
+    fprintf(stderr, "Error \\n not found\n");
+    // Don't throw away frame, the rest of the frame may just nead another read
+    // to get
+    // circular_buffer_pop_front_uint8(&asc->in_buf); // pop off starting '>' to
+    // move to next frame
     *command = '\0';
     *dataLen = 0;
     return;
@@ -65,7 +69,7 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
     if (element == '>') {
       circular_buffer_pop_front_uint8(
           &asc->in_buf); // get rid of spuroius start of frame
-      printf("Error extra >\n");
+      fprintf(stderr, "Error extra >\n");
       *command = '\0';
       *dataLen = 0;
       return;
@@ -73,7 +77,10 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
   }
   if (!ascii_serial_com_compute_checksum(asc, computeChecksum, false)) {
     // invalid checksum, so probably couldn't find a valid message
-    printf("Error invalid message frame (couldn't compute checksum)\n");
+    fprintf(stderr,
+            "Error invalid message frame (couldn't compute checksum)\n");
+    circular_buffer_pop_front_uint8(
+        &asc->in_buf); // pop off starting '>' to move to next frame
     *command = '\0';
     *dataLen = 0;
     return;
@@ -95,7 +102,9 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
   if (*dataLen == MAXDATALEN &&
       circular_buffer_pop_front_uint8(&asc->in_buf) != '.') {
     // never found '.', so bad message
-    printf("Error invalid message frame (no '.' found)\n");
+    fprintf(stderr, "Error invalid message frame (no '.' found)\n");
+    circular_buffer_pop_front_uint8(
+        &asc->in_buf); // pop off starting '>' to move to next frame
     *command = '\0';
     *dataLen = 0;
     return;
@@ -107,15 +116,17 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
   for (size_t iChk = 0; iChk < NCHARCHECKSUM; iChk++) {
     if (receiveChecksum[iChk] != computeChecksum[iChk]) {
       // checksum mismatch!
-      printf("Error: checksum mismatch, computed: ");
+      fprintf(stderr, "Error: checksum mismatch, computed: ");
       for (size_t i = 0; i < NCHARCHECKSUM; i++) {
-        printf("%c", computeChecksum[i]);
+        fprintf(stderr, "%c", computeChecksum[i]);
       }
-      printf(", received: ");
+      fprintf(stderr, ", received: ");
       for (size_t i = 0; i < NCHARCHECKSUM; i++) {
-        printf("%c", receiveChecksum[i]);
+        fprintf(stderr, "%c", receiveChecksum[i]);
       }
-      printf("\n");
+      fprintf(stderr, "\n");
+      circular_buffer_pop_front_uint8(
+          &asc->in_buf); // pop off starting '>' to move to next frame
       *command = '\0';
       *dataLen = 0;
       return;
