@@ -72,7 +72,7 @@ class TestASCLoopback(unittest.TestCase):
 
         with Com_Subproc([self.exe], env=self.env) as comSubproc:
             for intext in intexts:
-                print("For intext: ", intext)
+                # print("For intext: ", intext)
                 comSubproc.send(intext)
                 tstart = datetime.datetime.now()
                 data = bytearray()
@@ -80,11 +80,8 @@ class TestASCLoopback(unittest.TestCase):
                     milliseconds=20
                 ):
                     data += comSubproc.receive()
-                print("Got data: '{}'".format(data.decode("UTF-8")), flush=True)
+                # print("Got data: '{}'".format(data.decode("UTF-8")), flush=True)
                 self.assertEqual(intext, data)
-            # time.sleep(0.5)
-            # comSubproc.terminate()  # explicitly terminate since exe doesn't exit on file closes
-            # time.sleep(0.5)
 
     def test_just_device_badframes(self):
         intexts = [
@@ -95,7 +92,7 @@ class TestASCLoopback(unittest.TestCase):
 
         with Com_Subproc([self.exe], env=self.env) as comSubproc:
             for intext in intexts:
-                print("For intext: ", intext)
+                # print("For intext: ", intext)
                 comSubproc.send(intext)
                 tstart = datetime.datetime.now()
                 data = bytearray()
@@ -103,8 +100,5 @@ class TestASCLoopback(unittest.TestCase):
                     milliseconds=20
                 ):
                     data += comSubproc.receive()
-                print("Got data: '{}'".format(data.decode("UTF-8")), flush=True)
+                # print("Got data: '{}'".format(data.decode("UTF-8")), flush=True)
                 self.assertEqual(b"", data)
-            # time.sleep(0.5)
-            # comSubproc.terminate()  # explicitly terminate since exe doesn't exit on file closes
-            # time.sleep(0.5)
