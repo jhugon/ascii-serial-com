@@ -44,7 +44,6 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
                                                     char *command, char *data,
                                                     size_t *dataLen) {
   char computeChecksum[NCHARCHECKSUM];
-  circular_buffer_remove_front_to_uint8(&asc->in_buf, '>', false);
   size_t buf_size = circular_buffer_get_size_uint8(&asc->in_buf);
   if (buf_size == 0) {
     fprintf(stderr, "Error Buffer size == 0\n");
@@ -52,28 +51,15 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
     *dataLen = 0;
     return;
   }
+  circular_buffer_remove_front_unfinished_frames_uint8(&asc->in_buf, '>', '\n');
   size_t iEnd = circular_buffer_find_first_uint8(&asc->in_buf, '\n');
   if (iEnd >= buf_size) {
-    fprintf(stderr, "Error \\n not found\n");
+    fprintf(stderr, "Error: start and/or end of frame not found\n");
     // Don't throw away frame, the rest of the frame may just nead another read
     // to get
-    // circular_buffer_pop_front_uint8(&asc->in_buf); // pop off starting '>' to
-    // move to next frame
     *command = '\0';
     *dataLen = 0;
     return;
-  }
-  // check to make sure there isn't a not-ended frame in there
-  for (size_t iElement = 1; iElement < iEnd; iElement++) {
-    uint8_t element = circular_buffer_get_element_uint8(&asc->in_buf, iElement);
-    if (element == '>') {
-      circular_buffer_pop_front_uint8(
-          &asc->in_buf); // get rid of spuroius start of frame
-      fprintf(stderr, "Error extra >\n");
-      *command = '\0';
-      *dataLen = 0;
-      return;
-    }
   }
   if (!ascii_serial_com_compute_checksum(asc, computeChecksum, false)) {
     // invalid checksum, so probably couldn't find a valid message
@@ -240,7 +226,7 @@ uint8_t convert_hex_to_uint8(char *instr) {
 uint16_t convert_hex_to_uint16(char *instr) {
   uint16_t result = 0;
   for (uint8_t i = 0; i < 2; i++) {
-    result |= convert_hex_to_uint8(instr + (1 - i) * 2) << (8 * i);
+    result |= (uint16_t)convert_hex_to_uint8(instr + (1 - i) * 2) << (8 * i);
   }
   return result;
 }
@@ -248,7 +234,7 @@ uint16_t convert_hex_to_uint16(char *instr) {
 uint32_t convert_hex_to_uint32(char *instr) {
   uint32_t result = 0;
   for (uint8_t i = 0; i < 4; i++) {
-    result |= convert_hex_to_uint8(instr + (3 - i) * 2) << (8 * i);
+    result |= (uint32_t)convert_hex_to_uint8(instr + (3 - i) * 2) << (8 * i);
   }
   return result;
 }
