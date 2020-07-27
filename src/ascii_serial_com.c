@@ -97,6 +97,13 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
     *dataLen = 0;
     return;
   }
+  if (circular_buffer_get_size_uint8(&asc->in_buf) < NCHARCHECKSUM + 1 ||
+      circular_buffer_get_element_uint8(&asc->in_buf, NCHARCHECKSUM) != '\n') {
+    fprintf(stderr, "Error: checksum incorrect length\n");
+    *command = '\0';
+    *dataLen = 0;
+    return;
+  }
   char receiveChecksum[NCHARCHECKSUM];
   for (size_t iChk = 0; iChk < NCHARCHECKSUM; iChk++) {
     receiveChecksum[iChk] = circular_buffer_pop_front_uint8(&asc->in_buf);

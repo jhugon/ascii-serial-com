@@ -151,6 +151,7 @@ class Ascii_Serial_Com(object):
         returns None
         """
         message = self._pack_message(command, data)
+        # print("send_message: command: {} data: {} message: {}".format(command,data,message))
         self.fout.write(message)
         self.fout.flush()
 
@@ -468,7 +469,7 @@ class Ascii_Serial_Com(object):
                 "Inproperly formatted frame: no end of data character '.': ", frame
             )
         frame = frame.split(b".")[0] + b"."
-        result = "{:02X}".format(self.crcFunc(frame)).encode("ascii")
+        result = "{:04X}".format(self.crcFunc(frame)).encode("ascii")
         # print("checksum computed to be: ",result)
         return result
 

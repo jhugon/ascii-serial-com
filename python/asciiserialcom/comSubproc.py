@@ -16,17 +16,21 @@ class Com_Subproc(object):
     Receives subproc output in another thread which puts it in a queue
     """
 
-    def __init__(self, procargslist, env=None):
+    def __init__(self, procargslist, env=None, hideStderr=False):
         """
         procargslist is a list of args to pass to Popen
 
         env is a dict of the environment to pass to Popen
         """
+        stderr = None
+        if hideStderr:
+            stderr = subprocess.DEVNULL
         self.proc = subprocess.Popen(
             procargslist,
             env=env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
+            stderr=stderr,
             bufsize=0,
             close_fds=True,
         )

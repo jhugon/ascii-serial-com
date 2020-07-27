@@ -222,8 +222,9 @@ int main(int argc, char *argv[]) {
           }
         }
       } else { // if rawLoopback
-               // circular_buffer_print_uint8(asc_out_buf, stderr);
-               /* size_t nBytes = */
+
+        // circular_buffer_print_uint8(asc_out_buf, stderr);
+        /* size_t nBytes = */
         circular_buffer_pop_front_to_fd_uint8(asc_out_buf, outfileno);
         // fprintf(stderr, "circular_buffer_pop_front_to_fd_uint8: %zu bytes\n",
         //         nBytes);

@@ -2,13 +2,14 @@ import datetime
 import os
 import os.path
 import subprocess
-import sys
-import time
-import pty
+import random
 import unittest
 from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
 from asciiserialcom.ascErrors import *
 from asciiserialcom.comSubproc import Com_Subproc
+
+alphabytes = b"abcdefghijklmnopqrstuvwxyz"
+alphanumeric = alphabytes + bytes(alphabytes).upper() + b"0123456789"
 
 
 class TestTrivialLoopback(unittest.TestCase):
@@ -20,6 +21,7 @@ class TestTrivialLoopback(unittest.TestCase):
         self.env.update({"platform": platform, "CC": CC, "build_type": build_type})
         self.exedir = "build/{}_{}_{}".format(platform, CC, build_type)
         self.exe = os.path.join(self.exedir, "ascii_serial_com_dummy_loopback_device")
+        random.seed(123456789)
 
     def test_just_device(self):
         intexts = [
@@ -32,7 +34,7 @@ class TestTrivialLoopback(unittest.TestCase):
             intexts[0] * 5,
             (intexts[0] * 20)[:64],
         ]
-        with Com_Subproc([self.exe, "-l"], env=self.env) as comSubproc:
+        with Com_Subproc([self.exe, "-l"], env=self.env, hideStderr=True) as comSubproc:
             for intext in intexts:
                 comSubproc.send(intext)
                 tstart = datetime.datetime.now()
@@ -56,11 +58,32 @@ class TestTrivialLoopback(unittest.TestCase):
         ) as proc:
             asc = Ascii_Serial_Com(proc.stdout, proc.stdin, 8)
             for testCommand in [b"a", b"b", b"c"]:
-                for testData in [b"", b"abcdefg"]:
+                for testData in [b"", b"abcdefg", b"x" * 54]:
                     asc.send_message(testCommand, testData)
                     ascVersion, appVersion, command, data = asc.receive_message()
                     self.assertEqual(testCommand, command)
                     self.assertEqual(testData, data)
+
+    def test_host_device_random(self):
+        with subprocess.Popen(
+            [self.exe, "-l"],
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            bufsize=0,
+            close_fds=True,
+        ) as proc:
+            asc = Ascii_Serial_Com(proc.stdout, proc.stdin, 8)
+            for i in range(1000):
+                testCommand = bytes([random.choice(alphabytes)])
+                nData = random.randrange(55)
+                testData = bytes(random.choices(alphanumeric, k=nData))
+                # print(testCommand,testData)
+                asc.send_message(testCommand, testData)
+                ascVersion, appVersion, command, data = asc.receive_message()
+                self.assertEqual(testCommand, command)
+                self.assertEqual(testData, data)
 
 
 class TestASCLoopback(unittest.TestCase):
@@ -72,6 +95,7 @@ class TestASCLoopback(unittest.TestCase):
         self.env.update({"platform": platform, "CC": CC, "build_type": build_type})
         self.exedir = "build/{}_{}_{}".format(platform, CC, build_type)
         self.exe = os.path.join(self.exedir, "ascii_serial_com_dummy_loopback_device")
+        random.seed(123456789)
 
     def test_just_device(self):
         stderrAll = b""
@@ -86,7 +110,7 @@ class TestASCLoopback(unittest.TestCase):
             (intexts[0] * 20)[:60],
         ]
 
-        with Com_Subproc([self.exe], env=self.env) as comSubproc:
+        with Com_Subproc([self.exe], env=self.env, hideStderr=True) as comSubproc:
             for intext in intexts:
                 # print("For intext: ", intext)
                 comSubproc.send(intext)
@@ -106,7 +130,7 @@ class TestASCLoopback(unittest.TestCase):
             b">AFw0123456789.086F\n",
         ]
 
-        with Com_Subproc([self.exe], env=self.env) as comSubproc:
+        with Com_Subproc([self.exe], env=self.env, hideStderr=True) as comSubproc:
             for intext in intexts:
                 # print("For intext: ", intext)
                 comSubproc.send(intext)
@@ -125,13 +149,35 @@ class TestASCLoopback(unittest.TestCase):
             env=self.env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             bufsize=0,
             close_fds=True,
         ) as proc:
             asc = Ascii_Serial_Com(proc.stdout, proc.stdin, 8)
             for testCommand in [b"a", b"b", b"c"]:
-                for testData in [b"", b"abcdefg"]:
+                for testData in [b"", b"abcdefg", b"x" * 54]:
                     asc.send_message(testCommand, testData)
                     ascVersion, appVersion, command, data = asc.receive_message()
                     self.assertEqual(testCommand, command)
                     self.assertEqual(testData, data)
+
+    def test_host_device_random(self):
+        with subprocess.Popen(
+            [self.exe],
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            bufsize=0,
+            close_fds=True,
+        ) as proc:
+            asc = Ascii_Serial_Com(proc.stdout, proc.stdin, 8)
+            for i in range(10000):
+                testCommand = bytes([random.choice(alphabytes)])
+                nData = random.randrange(55)
+                testData = bytes(random.choices(alphanumeric, k=nData))
+                # print(testCommand,testData)
+                asc.send_message(testCommand, testData)
+                ascVersion, appVersion, command, data = asc.receive_message()
+                self.assertEqual(testCommand, command)
+                self.assertEqual(testData, data)
