@@ -106,6 +106,31 @@ def run_integration_tests():
     return success, stdout
 
 
+def run_python_unit_tests():
+    env = os.environ.copy()
+
+    success = True
+    stdout = ""
+    cmpltProc = subprocess.run(
+        ["python3", "-m", "unittest", "discover", "python"],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    success = cmpltProc.returncode == 0
+    stdout += cmpltProc.stdout
+    print()
+    print("========== Python Unit Tests =============")
+    print()
+    print(stdout)
+    if success:
+        print("Python Unit Tests All Pass!")
+    else:
+        print("Python Unit Test Failure")
+    return success, stdout
+
+
 def main():
 
     available_targets = ["all", "native_gcc", "native_clang"]
@@ -158,10 +183,11 @@ def main():
                 testOutBuffer += testOutput
                 testsAllPass = testsAllPass and testPass
 
+    pythonTestsPass = False
     if args.unittest:
         print()
         print("==========================================")
-        print("============ Test Results ================")
+        print("========== Unit Test Results =============")
         print("==========================================")
         print()
         print(testOutBuffer)
@@ -171,8 +197,32 @@ def main():
         else:
             print("Unit Test Failure")
 
+        pythonTestsPass, testOutput = run_python_unit_tests()
+
+    integrationTestsPass = False
     if args.integrationtest:
-        testPass, testOutput = run_integration_tests()
+        integrationTestsPass, testOutput = run_integration_tests()
+
+    if args.unittest or args.integrationtest:
+        print()
+        print("============= Test Summary ===============")
+        print()
+    if args.unittest:
+        if testsAllPass:
+            print("Unit Tests All Pass!")
+        else:
+            print("Unit Test Failure")
+        if pythonTestsPass:
+            print("Python Unit Tests All Pass!")
+        else:
+            print("Python Unit Test Failure")
+    if args.integrationtest:
+        if integrationTestsPass:
+            print("Integration Tests All Pass!")
+        else:
+            print("Integration Test Failure")
+    if args.unittest or args.integrationtest:
+        print()
 
 
 if __name__ == "__main__":
