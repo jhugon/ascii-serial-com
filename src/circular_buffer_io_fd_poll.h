@@ -2,6 +2,7 @@
 #define CIRCULAR_BUFFER_IO_FD_POLL_H
 
 #include "circular_buffer.h"
+#include <poll.h>
 
 /** \brief Circular buffer IO with file descriptor polling
  *
@@ -28,21 +29,25 @@
  *
  */
 typedef struct circular_buffer_io_fd_poll_struct {
-  circular_buffer *in_buf;
-  circular_buffer *out_buf;
+  circular_buffer_uint8 *in_buf;
+  circular_buffer_uint8 *out_buf;
   int fd_in;
   int fd_out;
+  struct pollfd fds[2];
 } circular_buffer_io_fd_poll;
 
 /** \brief Initialize circular buffer IO with file descriptor polling object
  *
  * Initialize object
  *
- * All arguments should already be initialized
+ * \param uninitialized circular_buffer_io_fd_poll object
+ *
+ * All other arguments should already be initialized
  *
  */
-void circular_buffer_io_fd_poll_init(circular_buffer *in_buf,
-                                     circular_buffer *out_buf, int fd_in,
+void circular_buffer_io_fd_poll_init(circular_buffer_io_fd_poll *cb_io,
+                                     circular_buffer_uint8 *in_buf,
+                                     circular_buffer_uint8 *out_buf, int fd_in,
                                      int fd_out);
 
 /** \brief poll circular buffer IO with file descriptor polling object
@@ -50,11 +55,16 @@ void circular_buffer_io_fd_poll_init(circular_buffer *in_buf,
  * Poll file descriptors. Always polls on input file descriptor, but only polls
  * on output file descriptor when output circular buffer is not empty.
  *
+ * \param initialized circular_buffer_io_fd_poll object
+ *
  * \param timeout: timout after waiting for input or output fds for this long,
  * in ms. If 0, return immediately. If -1, wait indefinetly for fds to be
  * ready. See poll documentation (man 2 poll)
+ *
+ * \return status: if 0 success, otherwise failure
  */
-void circular_buffer_io_fd_poll_do_poll(int timeout);
+uint8_t circular_buffer_io_fd_poll_do_poll(circular_buffer_io_fd_poll *cb_io,
+                                           int timeout);
 
 /** \brief circular buffer IO with file descriptor polling object: write to
  * output fd
@@ -65,10 +75,12 @@ void circular_buffer_io_fd_poll_do_poll(int timeout);
  *
  * Elements are popped from the front of the output circular buffer.
  *
+ * \param initialized circular_buffer_io_fd_poll object
+ *
  * \return the number of elements written to the fd and popped from output
  * circular buffer
  */
-size_t circular_buffer_io_fd_poll_do_output();
+size_t circular_buffer_io_fd_poll_do_output(circular_buffer_io_fd_poll *cb_io);
 
 /** \brief circular buffer IO with file descriptor polling object: read from
  * input fd
@@ -79,9 +91,11 @@ size_t circular_buffer_io_fd_poll_do_output();
  *
  * Elements are pushed to the back of the input circular buffer.
  *
+ * \param initialized circular_buffer_io_fd_poll object
+ *
  * \return the number of elements read from the fd and pushed to the input
  * circular buffer
  */
-size_t circular_buffer_io_fd_poll_do_input();
+size_t circular_buffer_io_fd_poll_do_input(circular_buffer_io_fd_poll *cb_io);
 
 #endif
