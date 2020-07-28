@@ -1,3 +1,6 @@
+#ifndef ASCII_SERIAL_COM_DEVICE_H
+#define ASCII_SERIAL_COM_DEVICE_H
+
 /** \brief ASCII Serial Com Device
  *
  */
@@ -8,9 +11,10 @@
  *
  *  Keeps track of the state of the ASCII Serial Com device
  *
- *  The functions take the stuff from ascii_serial_com_receive plus a void
- * pointer to possible state/configuration info. If the functions are null ptrs,
- * a check will be done and error message returned to host
+ * The functions take the stuff from
+ * ascii_serial_com_get_message_from_input_buffer plus a void pointer to
+ * possible state/configuration info. If the functions are null ptrs, an error
+ * message returned to host. This class owns the data buffer passed around.
  */
 typedef struct ascii_serial_com_device_struct {
   ascii_serial_com asc;        /**< used to receive messages and reply */
@@ -27,9 +31,10 @@ typedef struct ascii_serial_com_device_struct {
  *
  * Initialize ASCII Serial Com device
  *
- *  The functions take the stuff from ascii_serial_com_receive plus a void
- * pointer to possible state/configuration info. If the functions are null ptrs,
- * a check will be done and error message returned to host
+ * The functions take the stuff from
+ * ascii_serial_com_get_message_from_input_buffer plus a void pointer to
+ * possible state/configuration info. If the functions are null ptrs, an error
+ * message returned to host. This class owns the data buffer passed around.
  *
  */
 void ascii_serial_com_device_init(
@@ -50,3 +55,5 @@ void ascii_serial_com_device_init(
  *
  */
 void ascii_serial_com_device_receive();
+
+#endif
