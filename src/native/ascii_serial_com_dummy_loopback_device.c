@@ -6,6 +6,7 @@
 
 #include "ascii_serial_com.h"
 #include "circular_buffer.h"
+#include "circular_buffer_io_fd_poll.h"
 
 #define bufCap 64
 #define littleBufCap 8
@@ -16,6 +17,8 @@ uint8_t little_buffer[littleBufCap];
 char dataBuffer[MAXDATALEN];
 
 ascii_serial_com asc;
+
+circular_buffer_io_fd_poll cb_io;
 
 int main(int argc, char *argv[]) {
 
@@ -94,86 +97,25 @@ int main(int argc, char *argv[]) {
     outfileno = STDOUT_FILENO;
   }
 
-  struct pollfd fds[2] = {
-      {infileno, POLLIN /*| POLLHUP*/, 0},
-      {outfileno, POLLHUP, 0},
-  };
-  short *inflags = &fds[0].revents;
-  short *outflags = &fds[1].revents;
-  short *outsetflags = &fds[1].events;
-
   circular_buffer_init_uint8(&buffer, bufCap, buffer_raw);
 
   ascii_serial_com_init(&asc);
   circular_buffer_uint8 *asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
   circular_buffer_uint8 *asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
 
+  if (rawLoopback) {
+    circular_buffer_io_fd_poll_init(&cb_io, &buffer, &buffer, infileno,
+                                    outfileno);
+  } else {
+    circular_buffer_io_fd_poll_init(&cb_io, asc_in_buf, asc_out_buf, infileno,
+                                    outfileno);
+  }
+
   int timeout = -1;
   while (true) {
-    int ready = poll(fds, 2, timeout);
-    if (ready < 0) {
-      perror("Error while polling");
-      fprintf(stderr, "Exiting.\n");
-      return 1;
-    }
-    if ((rawLoopback && circular_buffer_is_empty_uint8(&buffer)) ||
-        (!rawLoopback && circular_buffer_is_empty_uint8(asc_out_buf) &&
-         circular_buffer_is_empty_uint8(asc_in_buf))) {
-      if (*inflags & POLLERR) {
-        fprintf(stderr, "Infile error, exiting.\n");
-        return 1;
-      }
-      if (*inflags & POLLHUP) {
-        fprintf(stderr, "Infile hung up, exiting.\n");
-        return 1;
-      }
-      if (*inflags & POLLNVAL) {
-        fprintf(stderr, "Infile closed, exiting.\n");
-        return 1;
-      }
-    }
-    if (*outflags & POLLERR) {
-      fprintf(stderr, "Outfile error, exiting.\n");
-      return 1;
-    }
-    if (*outflags & POLLHUP) {
-      fprintf(stderr, "Outfile hung up, exiting.\n");
-      return 1;
-    }
-    if (*outflags & POLLNVAL) {
-      fprintf(stderr, "Outfile closed, exiting.\n");
-      return 1;
-    }
-    if (*inflags & POLLIN) {
-      // read
-      // fprintf(stderr, "Something to read!\n");
-      if (rawLoopback) {
-        if (circular_buffer_is_full_uint8(&buffer)) {
-          if (!usleep(1000)) {
-            perror("Error while sleeping waiting for read");
-            fprintf(stderr, "Exiting.\n");
-            return 1;
-          }
-        } else {
-          // fprintf(stderr,"About to call read()\n");
-          ssize_t nRead = read(infileno, little_buffer, littleBufCap);
-          // fprintf(stderr,"Read %zd\n",nRead);
-          if (nRead < 0) {
-            perror("Error reading from infile");
-            fprintf(stderr, "Exiting.\n");
-            return 1;
-          }
-          if (nRead == 0) {
-            break;
-          }
-          for (ssize_t iChar = 0; iChar < nRead; iChar++) {
-            circular_buffer_push_back_uint8(&buffer, little_buffer[iChar]);
-          }
-        }
-      } else { // if rawLoopback
-        circular_buffer_push_back_from_fd_uint8(asc_in_buf, infileno);
-      } // else with if raw Loopback
-    }   // if inflags POLLIN
+    circular_buffer_io_fd_poll_do_poll(&cb_io, timeout);
+    circular_buffer_io_fd_poll_do_input(&cb_io);
+
     if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
       // fprintf(stderr, "About to try to receive message:\n");
       // circular_buffer_print_uint8(asc_in_buf, stderr);
@@ -196,62 +138,16 @@ int main(int argc, char *argv[]) {
             &asc, ascVersion, appVersion, command, dataBuffer, dataLen);
       }
     }
-    // fprintf(stderr,"inflags: %hu outflags: %hu, buffer size: %zu\n",
-    // *inflags, *outflags, circular_buffer_get_size_uint8(&buffer));
-    if (*outflags & POLLOUT) {
-      // write
-      // fprintf(stderr, "File ready to write!\n");
-      if (rawLoopback) {
-        if (circular_buffer_is_empty_uint8(&buffer)) {
-          if (usleep(1000)) {
-            perror("Error while sleeping waiting for write");
-            fprintf(stderr, "Exiting.\n");
-            return 1;
-          }
-        } else {
-          while (!circular_buffer_is_empty_uint8(&buffer)) {
-            const uint8_t c = circular_buffer_pop_front_uint8(&buffer);
-            if (fputc(c, outfile) == EOF) {
-              break;
-            }
-            if (fflush(outfile) == EOF) {
-              perror("Error flushing after write");
-              fprintf(stderr, "Exiting.\n");
-              return 1;
-            }
-          }
-        }
-      } else { // if rawLoopback
 
-        // circular_buffer_print_uint8(asc_out_buf, stderr);
-        /* size_t nBytes = */
-        circular_buffer_pop_front_to_fd_uint8(asc_out_buf, outfileno);
-        // fprintf(stderr, "circular_buffer_pop_front_to_fd_uint8: %zu bytes\n",
-        //         nBytes);
-        // circular_buffer_print_uint8(asc_out_buf, stderr);
-      }
-    } // if outflags & POLLHUP
-    // Should output POLLHUP?
-    if (rawLoopback) {
-      if (circular_buffer_is_empty_uint8(&buffer)) {
-        *outsetflags = POLLHUP;
-      } else {
-        *outsetflags = POLLOUT | POLLHUP;
-      }
-    } else {
-      if (circular_buffer_is_empty_uint8(asc_out_buf)) {
-        *outsetflags = POLLHUP;
-      } else {
-        *outsetflags = POLLOUT | POLLHUP;
-      }
-    }
+    circular_buffer_io_fd_poll_do_input(&cb_io);
+
     // Do we need to process data in the input buffer?
     // If so, poll with short timeout, otherwise just poll
     // (all else is just waiting on IO)
     if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
       timeout = 5; // ms
     } else {
-      timeout = -1;
+      timeout = -1; // unlimited
     }
   }
 
