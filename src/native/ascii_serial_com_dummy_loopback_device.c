@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    circular_buffer_io_fd_poll_do_input(&cb_io);
+    circular_buffer_io_fd_poll_do_output(&cb_io);
 
     // Do we need to process data in the input buffer?
     // If so, poll with short timeout, otherwise just poll
