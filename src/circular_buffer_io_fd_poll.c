@@ -79,3 +79,40 @@ size_t circular_buffer_io_fd_poll_do_input(circular_buffer_io_fd_poll *cb_io) {
   }
   return circular_buffer_push_back_from_fd_uint8(cb_io->in_buf, cb_io->fd_in);
 }
+
+void circular_buffer_io_fd_poll_print(circular_buffer_io_fd_poll *cb_io,
+                                      FILE *stream) {
+  fprintf(stream,
+          "circular_buffer_io_fd_poll: in buf: %p, out buf: %p, in fd: %i, out "
+          "fd: %i\n",
+          cb_io->in_buf, cb_io->out_buf, cb_io->fd_in, cb_io->fd_out);
+  fprintf(stream, "%12s%12s%12s\n", "", "events", "revents"); // 12 each
+  fprintf(stream, "%12s%12hi%12hi\n", "in POLLIN",
+          (short)(cb_io->fds[0].events & POLLIN),
+          (short)(cb_io->fds[0].revents & POLLIN));
+  fprintf(stream, "%12s%12hi%12hi\n", "in POLLPRI",
+          (short)(cb_io->fds[0].events & POLLPRI),
+          (short)(cb_io->fds[0].revents & POLLPRI));
+  fprintf(stream, "%12s%12hi%12hi\n", "in POLLOUT",
+          (short)(cb_io->fds[0].events & POLLOUT),
+          (short)(cb_io->fds[0].revents & POLLOUT));
+  fprintf(stream, "%12s%12hi%12hi\n", "in POLLHUP",
+          (short)(cb_io->fds[0].events & POLLHUP),
+          (short)(cb_io->fds[0].revents & POLLHUP));
+  fprintf(stream, "%12s%12hi%12hi\n", "out POLLIN",
+          (short)(cb_io->fds[1].events & POLLIN),
+          (short)(cb_io->fds[1].revents & POLLIN));
+  fprintf(stream, "%12s%12hi%12hi\n", "out POLLPRI",
+          (short)(cb_io->fds[1].events & POLLPRI),
+          (short)(cb_io->fds[1].revents & POLLPRI));
+  fprintf(stream, "%12s%12hi%12hi\n", "out POLLOUT",
+          (short)(cb_io->fds[1].events & POLLOUT),
+          (short)(cb_io->fds[1].revents & POLLOUT));
+  fprintf(stream, "%12s%12hi%12hi\n", "out POLLHUP",
+          (short)(cb_io->fds[1].events & POLLHUP),
+          (short)(cb_io->fds[1].revents & POLLHUP));
+  fprintf(stream, "%12s%12hi%12hi\n", "in raw", cb_io->fds[0].events,
+          cb_io->fds[0].revents);
+  fprintf(stream, "%12s%12hi%12hi\n", "out raw", cb_io->fds[1].events,
+          cb_io->fds[1].revents);
+}

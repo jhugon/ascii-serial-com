@@ -3,6 +3,7 @@
 
 #include "circular_buffer.h"
 #include <poll.h>
+#include <stdio.h>
 
 /** \brief Circular buffer IO with file descriptor polling
  *
@@ -33,7 +34,7 @@ typedef struct circular_buffer_io_fd_poll_struct {
   circular_buffer_uint8 *out_buf;
   int fd_in;
   int fd_out;
-  struct pollfd fds[2];
+  struct pollfd fds[2]; // fds[0] is in, fds[1] is out
 } circular_buffer_io_fd_poll;
 
 /** \brief Initialize circular buffer IO with file descriptor polling object
@@ -97,5 +98,8 @@ size_t circular_buffer_io_fd_poll_do_output(circular_buffer_io_fd_poll *cb_io);
  * circular buffer
  */
 size_t circular_buffer_io_fd_poll_do_input(circular_buffer_io_fd_poll *cb_io);
+
+void circular_buffer_io_fd_poll_print(circular_buffer_io_fd_poll *cb_io,
+                                      FILE *stream);
 
 #endif

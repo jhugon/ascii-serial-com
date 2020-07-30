@@ -113,7 +113,10 @@ int main(int argc, char *argv[]) {
 
   int timeout = -1;
   while (true) {
-    circular_buffer_io_fd_poll_do_poll(&cb_io, timeout);
+    int poll_ret_code = circular_buffer_io_fd_poll_do_poll(&cb_io, timeout);
+    if (poll_ret_code != 0) {
+      return 1;
+    }
     circular_buffer_io_fd_poll_do_input(&cb_io);
 
     if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
