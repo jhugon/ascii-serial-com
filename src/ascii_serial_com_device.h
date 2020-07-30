@@ -52,12 +52,30 @@ void ascii_serial_com_device_init(
 
 /** \brief ASCII Serial Com Device receive messages
  *
- * Initialize ASCII Serial Com device. Actually does the work.
- *
  * Receives ASCII Serial Com messages, and hands them over to the
  * appropriate one of the functions
  *
+ * /param ascd: initialized ascii_serial_com_device
+ *
  */
 void ascii_serial_com_device_receive(ascii_serial_com_device *ascd);
+
+/** \brief ASCII Serial Com Device get input buffer
+ *
+ * MAKE SURE ascd IS ALREADY INITIALIZED!
+ *
+ * /param ascd: initialized ascii_serial_com_device
+ */
+circular_buffer_uint8 *
+ascii_serial_com_device_get_input_buffer(ascii_serial_com_device *ascd);
+
+/** \brief ASCII Serial Com Device get output buffer
+ *
+ * MAKE SURE ascd IS ALREADY INITIALIZED!
+ *
+ * /param ascd: initialized ascii_serial_com_device
+ */
+circular_buffer_uint8 *
+ascii_serial_com_device_get_output_buffer(ascii_serial_com_device *ascd);
 
 #endif

@@ -26,7 +26,7 @@ void ascii_serial_com_device_receive(ascii_serial_com_device *ascd) {
   ascii_serial_com_get_message_from_input_buffer(&ascd->asc, &ascVersion,
                                                  &appVersion, &command,
                                                  ascd->dataBuffer, &dataLen);
-  fprintf(stderr, "device_receive: message type: %c", command);
+  fprintf(stderr, "device_receive: message type: %c\n", command);
   if (command == '\0') { // no message in input buffer
     // pass
   } else if (command == 'r' || command == 'w') {
@@ -45,4 +45,14 @@ void ascii_serial_com_device_receive(ascii_serial_com_device *ascd) {
                    ascd->dataBuffer, dataLen, ascd->state_fother);
     }
   }
+}
+
+circular_buffer_uint8 *
+ascii_serial_com_device_get_input_buffer(ascii_serial_com_device *ascd) {
+  return ascii_serial_com_get_input_buffer(&ascd->asc);
+}
+
+circular_buffer_uint8 *
+ascii_serial_com_device_get_output_buffer(ascii_serial_com_device *ascd) {
+  return ascii_serial_com_get_output_buffer(&ascd->asc);
 }
