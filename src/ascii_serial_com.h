@@ -228,7 +228,7 @@ void convert_uint32_to_hex(uint32_t num, char *outstr, bool caps);
  *  \return the uint8_t
  *
  */
-uint8_t convert_hex_to_uint8(char *instr);
+uint8_t convert_hex_to_uint8(const char *instr);
 
 /** \brief convert hex string to uint16
  *
@@ -239,7 +239,7 @@ uint8_t convert_hex_to_uint8(char *instr);
  *  \return the uint16_t
  *
  */
-uint16_t convert_hex_to_uint16(char *instr);
+uint16_t convert_hex_to_uint16(const char *instr);
 
 /** \brief convert hex string to uint32
  *
@@ -250,6 +250,6 @@ uint16_t convert_hex_to_uint16(char *instr);
  *  \return the uint32_t
  *
  */
-uint32_t convert_hex_to_uint32(char *instr);
+uint32_t convert_hex_to_uint32(const char *instr);
 
 #endif

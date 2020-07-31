@@ -3,12 +3,12 @@
 
 void ascii_serial_com_device_init(
     ascii_serial_com_device *ascd,
-    void (*frw)(ascii_serial_com *, char, char, char, const char *data, size_t,
+    void (*frw)(ascii_serial_com *, char, char, char, char *data, size_t,
                 void *), /**< called for r or w messages */
-    void (*fs)(ascii_serial_com *, char, char, char, const char *data, size_t,
+    void (*fs)(ascii_serial_com *, char, char, char, char *data, size_t,
                void *), /**< called for s messages */
-    void (*fother)(ascii_serial_com *, char, char, char, const char *data,
-                   size_t, void *), /**< called for other messages */
+    void (*fother)(ascii_serial_com *, char, char, char, char *data, size_t,
+                   void *), /**< called for other messages */
     void *state_frw, void *state_fs, void *state_fother) {
   ascii_serial_com_init(&ascd->asc);
   ascd->frw = frw;

@@ -232,7 +232,7 @@ void convert_uint32_to_hex(uint32_t num, char *outstr, bool caps) {
   }
 }
 
-uint8_t convert_hex_to_uint8(char *instr) {
+uint8_t convert_hex_to_uint8(const char *instr) {
   uint8_t result = 0;
   for (uint8_t i = 0; i < 2; i++) {
     char thischar = instr[1 - i];
@@ -251,7 +251,7 @@ uint8_t convert_hex_to_uint8(char *instr) {
   return result;
 }
 
-uint16_t convert_hex_to_uint16(char *instr) {
+uint16_t convert_hex_to_uint16(const char *instr) {
   uint16_t result = 0;
   for (uint8_t i = 0; i < 2; i++) {
     result |= (uint16_t)convert_hex_to_uint8(instr + (1 - i) * 2) << (8 * i);
@@ -259,7 +259,7 @@ uint16_t convert_hex_to_uint16(char *instr) {
   return result;
 }
 
-uint32_t convert_hex_to_uint32(char *instr) {
+uint32_t convert_hex_to_uint32(const char *instr) {
   uint32_t result = 0;
   for (uint8_t i = 0; i < 4; i++) {
     result |= (uint32_t)convert_hex_to_uint8(instr + (3 - i) * 2) << (8 * i);
