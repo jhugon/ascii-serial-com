@@ -10,10 +10,10 @@ size_t dataLen_f;
 void *state_f;
 
 void testfunc(ascii_serial_com *asc, char ascVersion, char appVersion,
-              char command, const char *data, size_t dataLen, void *state);
+              char command, char *data, size_t dataLen, void *state);
 
 void testfunc(ascii_serial_com *asc, char ascVersion, char appVersion,
-              char command, const char *data, size_t dataLen, void *state) {
+              char command, char *data, size_t dataLen, void *state) {
   //  fprintf(stderr,
   //          "testfunc: asc: %p ascVersion %c appVersion %c command %c dataLen
   //          "

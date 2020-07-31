@@ -3,13 +3,13 @@
 
 #if REGWIDTHBYTES == 1
 #define put_val_into_bytes(x, b) convert_uint8_to_hex(x, (b), true)
-#define get_val_from_bytes(b) convert_hex_to_uint16((b))
+#define get_val_from_bytes(b) convert_hex_to_uint8((b))
 #elif REGWIDTHBYTES == 2
 #define put_val_into_bytes(x, b) convert_uint16_to_hex(x, (b), true)
 #define get_val_from_bytes(b) convert_hex_to_uint16((b))
 #elif REGWIDTHBYTES == 4
 #define put_val_into_bytes(x, b) convert_uint32_to_hex(x, (b), true)
-#define get_val_from_bytes(b) convert_hex_to_uint16((b))
+#define get_val_from_bytes(b) convert_hex_to_uint32((b))
 #endif
 
 void ascii_serial_com_register_block_init(
@@ -49,7 +49,7 @@ void ascii_serial_com_register_block_handle_message(
     REGTYPE new_reg_val = get_val_from_bytes(data + 5);
     register_block_state->block[reg_num] = new_reg_val;
     dataLen = 4;
-    ascii_serial_com_put_message_in_output_buffer(asc, ascVersion, appVersion,
-                                                  command, data, dataLen);
   }
+  ascii_serial_com_put_message_in_output_buffer(asc, ascVersion, appVersion,
+                                                command, data, dataLen);
 }
