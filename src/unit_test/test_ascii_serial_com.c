@@ -285,7 +285,7 @@ void test_ascii_serial_com_put_error_in_output_buffer(void) {
   messageLen = 17;
   ascii_serial_com_put_error_in_output_buffer(&asc, '1', 'F', 'e', "0123", 4,
                                               5);
-  circular_buffer_print_uint8(out_buf, stderr);
+  // circular_buffer_print_uint8(out_buf, stderr);
   TEST_ASSERT_EQUAL_size_t(messageLen, circular_buffer_get_size_uint8(out_buf));
   for (size_t i = 0; i < messageLen; i++) {
     TEST_ASSERT_EQUAL_UINT8(message2[i],
@@ -297,7 +297,7 @@ void test_ascii_serial_com_put_error_in_output_buffer(void) {
   messageLen = 22;
   ascii_serial_com_put_error_in_output_buffer(&asc, '1', 'F', 's',
                                               "0123456789ABCDEF", 16, 0xFF);
-  circular_buffer_print_uint8(out_buf, stderr);
+  // circular_buffer_print_uint8(out_buf, stderr);
   TEST_ASSERT_EQUAL_size_t(messageLen, circular_buffer_get_size_uint8(out_buf));
   for (size_t i = 0; i < messageLen; i++) {
     TEST_ASSERT_EQUAL_UINT8(message3[i],

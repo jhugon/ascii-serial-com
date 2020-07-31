@@ -145,11 +145,8 @@ ascii_serial_com_get_output_buffer(ascii_serial_com *asc);
  * Called when you want to return an error message related to some input
  * message
  *
- * CLOBBERS data, assumes it is MAXDATALEN
- *
- * The same parameters as ascii_serial_com_put_message_in_output_buffer, exept
- * data isn't const and errorCode
- *
+ * The same parameters as ascii_serial_com_put_message_in_output_buffer, except
+ * data isn't const (should it be const?) and errorCode
  *
  */
 void ascii_serial_com_put_error_in_output_buffer(ascii_serial_com *asc,

@@ -33,16 +33,28 @@ void ascii_serial_com_device_receive(ascii_serial_com_device *ascd) {
     if (ascd->frw) {
       ascd->frw(&ascd->asc, ascVersion, appVersion, command, ascd->dataBuffer,
                 dataLen, ascd->state_frw);
+    } else {
+      ascii_serial_com_put_error_in_output_buffer(
+          &ascd->asc, ascVersion, appVersion, command, ascd->dataBuffer,
+          dataLen, ASC_ERROR_COMMAND_NOT_IMPLEMENTED);
     }
   } else if (command == 's') {
     if (ascd->fs) {
       ascd->fs(&ascd->asc, ascVersion, appVersion, command, ascd->dataBuffer,
                dataLen, ascd->state_fs);
+    } else {
+      ascii_serial_com_put_error_in_output_buffer(
+          &ascd->asc, ascVersion, appVersion, command, ascd->dataBuffer,
+          dataLen, ASC_ERROR_COMMAND_NOT_IMPLEMENTED);
     }
   } else {
     if (ascd->fother) {
       ascd->fother(&ascd->asc, ascVersion, appVersion, command,
                    ascd->dataBuffer, dataLen, ascd->state_fother);
+    } else {
+      ascii_serial_com_put_error_in_output_buffer(
+          &ascd->asc, ascVersion, appVersion, command, ascd->dataBuffer,
+          dataLen, ASC_ERROR_COMMAND_NOT_IMPLEMENTED);
     }
   }
 }
