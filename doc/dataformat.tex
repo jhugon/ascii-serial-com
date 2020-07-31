@@ -74,6 +74,7 @@ Configure device registers & c & Register content comma (`,') separated & reply 
 Data stream frame & s & frame number comma (`,') data &  frame number comma (`,') data \\ \hline
 Device stream on & n & & \\ \hline
 Device stream off & f & & \\ \hline
+Error message & e & 2 hex digits of error code (`,') command code comma first 9 bytes of data of message that caused error &  2 hex digits of error code (`,') first 9 bytes of data of message that caused error \\ \hline
 \end{tabularx}
 \end{center}
 
@@ -85,6 +86,18 @@ Device stream off & f & & \\ \hline
   \item s: Data stream frame: The same format is sent from the host to the device or the device to the host. For streaming from the host, the host just starts streaming. For streaming to the host, the host must send the `n' and `f' commands to start and stop streaming. The data consists of a stream frame number (1 to 8 bytes) a `,' character, and the data. The stream frame number and data must be in ASCII capital hex. Spaces may be put into the data to act as e.g. field separators. The stream frame number must increment by one with each frame sent.
   \item n: Device stream on: The host sends this with no data to tell the device to start streaming data.
   \item f: Device stream off: The host sends this with no data to tell the device to stop streaming data.
+  \item e: Usually device to host, replying with error and beginning of message that caused error.
 \end{itemize}
+
+\begin{center}
+\small
+Error Code Table
+\begin{tabularx}{\textwidth}{|l|X|} \hline
+Code & Description \\ \hline
+0 & Unknown Error \\ \hline
+1 & Command type not implemented \\ \hline
+\end{tabularx}
+\end{center}
+
 
 \end{document}

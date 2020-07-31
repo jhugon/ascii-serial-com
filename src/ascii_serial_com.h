@@ -12,6 +12,11 @@
 #define MAXDATALEN 54
 #define NCHARCHECKSUM 4
 
+enum asc_error_code {
+  ASC_ERROR_UNKOWN = 0,
+  ASC_ERROR_COMMAND_NOT_IMPLEMENTED = 1
+};
+
 ////////////////////////////////////////////////////
 ////////////////////////////////////////////////////
 //////////////// Public Interface //////////////////
@@ -134,6 +139,24 @@ circular_buffer_uint8 *ascii_serial_com_get_input_buffer(ascii_serial_com *asc);
  */
 circular_buffer_uint8 *
 ascii_serial_com_get_output_buffer(ascii_serial_com *asc);
+
+/** \brief ASCII Serial Com put error message in out buffer
+ *
+ * Called when you want to return an error message related to some input
+ * message
+ *
+ * CLOBBERS data, assumes it is MAXDATALEN
+ *
+ * The same parameters as ascii_serial_com_put_message_in_output_buffer, exept
+ * data isn't const and errorCode
+ *
+ *
+ */
+void ascii_serial_com_put_error_in_output_buffer(ascii_serial_com *asc,
+                                                 char ascVersion,
+                                                 char appVersion, char command,
+                                                 char *data, size_t dataLen,
+                                                 enum asc_error_code errorCode);
 
 ////////////////////////////////////////////////////
 ////////////////////////////////////////////////////

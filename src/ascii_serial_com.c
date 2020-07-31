@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#define error_message_data_len 12
+
 void ascii_serial_com_init(ascii_serial_com *asc) {
 
   circular_buffer_init_uint8(&(asc->in_buf), MAXMESSAGELEN, asc->raw_buffer);
@@ -184,6 +186,23 @@ bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
       computeCRC_16_DNP(checksumbuffer, iStop - iStart + 1, 0xFFFF);
   convert_uint16_to_hex(resultInt, checksumOut, true);
   return true;
+}
+
+void ascii_serial_com_put_error_in_output_buffer(
+    ascii_serial_com *asc, char ascVersion, char appVersion, char command,
+    char *data, size_t dataLen, enum asc_error_code errorCode) {
+  char outData[error_message_data_len];
+  convert_uint8_to_hex((uint8_t)errorCode, outData, true);
+  outData[2] = command;
+  for (size_t i = 0; i < dataLen && i < (error_message_data_len - 3); i++) {
+    outData[i + 3] = data[i];
+  }
+  size_t outDataLen = dataLen + 3;
+  if (outDataLen > error_message_data_len) {
+    outDataLen = error_message_data_len;
+  }
+  ascii_serial_com_put_message_in_output_buffer(asc, ascVersion, appVersion,
+                                                'e', outData, outDataLen);
 }
 
 /////////////////////////////////////////////////////

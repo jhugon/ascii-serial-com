@@ -265,6 +265,47 @@ void test_ascii_serial_com_get_message_from_input_buffer(void) {
   }
 }
 
+void test_ascii_serial_com_put_error_in_output_buffer(void) {
+  ascii_serial_com asc;
+  ascii_serial_com_init(&asc);
+  circular_buffer_uint8 *out_buf = ascii_serial_com_get_output_buffer(&asc);
+
+  const char *message1 = ">00eFFw.E0DD\n";
+  size_t messageLen = 13;
+  ascii_serial_com_put_error_in_output_buffer(&asc, '0', '0', 'w', "", 0, 0xFF);
+  // circular_buffer_print_uint8(out_buf,stderr);
+  TEST_ASSERT_EQUAL_size_t(messageLen, circular_buffer_get_size_uint8(out_buf));
+  for (size_t i = 0; i < messageLen; i++) {
+    TEST_ASSERT_EQUAL_UINT8(message1[i],
+                            circular_buffer_get_element_uint8(out_buf, i));
+  }
+  circular_buffer_clear_uint8(out_buf);
+
+  const char *message2 = ">1Fe05e0123.FBBE\n";
+  messageLen = 17;
+  ascii_serial_com_put_error_in_output_buffer(&asc, '1', 'F', 'e', "0123", 4,
+                                              5);
+  circular_buffer_print_uint8(out_buf, stderr);
+  TEST_ASSERT_EQUAL_size_t(messageLen, circular_buffer_get_size_uint8(out_buf));
+  for (size_t i = 0; i < messageLen; i++) {
+    TEST_ASSERT_EQUAL_UINT8(message2[i],
+                            circular_buffer_get_element_uint8(out_buf, i));
+  }
+  circular_buffer_clear_uint8(out_buf);
+
+  const char *message3 = ">1FeFFs012345678.E6F5\n";
+  messageLen = 22;
+  ascii_serial_com_put_error_in_output_buffer(&asc, '1', 'F', 's',
+                                              "0123456789ABCDEF", 16, 0xFF);
+  circular_buffer_print_uint8(out_buf, stderr);
+  TEST_ASSERT_EQUAL_size_t(messageLen, circular_buffer_get_size_uint8(out_buf));
+  for (size_t i = 0; i < messageLen; i++) {
+    TEST_ASSERT_EQUAL_UINT8(message3[i],
+                            circular_buffer_get_element_uint8(out_buf, i));
+  }
+  circular_buffer_clear_uint8(out_buf);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_convert_uint8_to_hex);
@@ -276,5 +317,6 @@ int main(void) {
   RUN_TEST(test_ascii_serial_com_compute_checksum);
   RUN_TEST(test_ascii_serial_com_put_message_in_output_buffer);
   RUN_TEST(test_ascii_serial_com_get_message_from_input_buffer);
+  RUN_TEST(test_ascii_serial_com_put_error_in_output_buffer);
   return UNITY_END();
 }
