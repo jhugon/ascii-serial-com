@@ -1,8 +1,8 @@
 #ifndef ASC_EXCEPTION_H
 #define ASC_EXCEPTION_H
 
-#define CEXCEPTION_T uint8_t
-#define CEXCEPTION_NONE 0xFF
+//#define CEXCEPTION_T uint8_t
+//#define CEXCEPTION_NONE 0xFF
 
 #ifdef linux
 #define CEXCEPTION_NO_CATCH_HANDLER(id)                                        \

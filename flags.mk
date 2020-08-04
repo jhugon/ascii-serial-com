@@ -23,7 +23,6 @@ ifneq (,$(findstring gcc,$(CC)))
   else
     CFLAGS+=-O2 -flto -Wstrict-aliasing -fstrict-aliasing
   endif
-  else
 endif
 
 ifneq (,$(findstring clang,$(CC)))
