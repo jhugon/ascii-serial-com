@@ -5,7 +5,8 @@
 #include <stdio.h>
 
 CEXCEPTION_T e1;
-// CEXCEPTION_T e2;
+CEXCEPTION_T e2;
+size_t iString;
 
 void setUp(void) {
   // set stuff up here
@@ -158,30 +159,13 @@ void test_convert_hex_to_uint32(void) {
 }
 
 void test_ascii_serial_com_compute_checksum(void) {
+  ascii_serial_com asc;
+  ascii_serial_com_init(&asc);
+
+  char checksumOut[5];
+  checksumOut[4] = '\0'; // for easy printing
+
   Try {
-    ascii_serial_com asc;
-    ascii_serial_com_init(&asc);
-
-    char checksumOut[5];
-    checksumOut[4] = '\0'; // for easy printing
-    bool checksumFound;
-
-    const char *stringsBad[] = {
-        ">.",       ">xx.", ".>",
-        ".xxxxxx>", ">",    ".",
-        ">>>>",     "....", ">asdgkjhq23kjhgqwerkjhg1234g\n"};
-    for (size_t iString = 0; iString < 9; iString++) {
-      circular_buffer_clear_uint8(&asc.in_buf);
-      circular_buffer_clear_uint8(&asc.out_buf);
-      circular_buffer_push_back_string_uint8(&asc.in_buf, stringsBad[iString]);
-      circular_buffer_push_back_string_uint8(&asc.out_buf, stringsBad[iString]);
-      checksumFound =
-          ascii_serial_com_compute_checksum(&asc, checksumOut, true);
-      TEST_ASSERT_FALSE(checksumFound);
-      checksumFound =
-          ascii_serial_com_compute_checksum(&asc, checksumOut, false);
-      TEST_ASSERT_FALSE(checksumFound);
-    }
 
     const char *strings[][2] = {
         {">xxx.", "79BD"},
@@ -191,23 +175,19 @@ void test_ascii_serial_com_compute_checksum(void) {
         {">FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.", "39DE"},
         {">00000000000000000000000000000000000000000.", "1DC1"},
     };
-    for (size_t iString = 0; iString < 6; iString++) {
+    for (iString = 0; iString < 6; iString++) {
       circular_buffer_clear_uint8(&asc.in_buf);
       circular_buffer_clear_uint8(&asc.out_buf);
       circular_buffer_push_back_string_uint8(&asc.in_buf, strings[iString][0]);
       circular_buffer_push_back_string_uint8(&asc.out_buf, strings[iString][0]);
-      checksumFound =
-          ascii_serial_com_compute_checksum(&asc, checksumOut, true);
-      TEST_ASSERT_TRUE(checksumFound);
+      ascii_serial_com_compute_checksum(&asc, checksumOut, true);
 
       // printf("Message: \"%s\" checksums: Expected: %s, computed:
       // %s\n",strings[iString][0],strings[iString][1],checksumOut);
       for (size_t iByte = 0; iByte < 4; iByte++) {
         TEST_ASSERT_EQUAL_UINT8(strings[iString][1][iByte], checksumOut[iByte]);
       }
-      checksumFound =
-          ascii_serial_com_compute_checksum(&asc, checksumOut, false);
-      TEST_ASSERT_TRUE(checksumFound);
+      ascii_serial_com_compute_checksum(&asc, checksumOut, false);
       // printf("Message: \"%s\" checksums: Expected: %s, computed:
       // %s\n",strings[iString][0],strings[iString][1],checksumOut);
       for (size_t iByte = 0; iByte < 4; iByte++) {
@@ -219,9 +199,46 @@ void test_ascii_serial_com_compute_checksum(void) {
     printf("Uncaught exception: %u\n", e1);
     TEST_FAIL_MESSAGE("Uncaught exception!");
   }
+
+  const char *stringsInvalid[] = {".", "...."};
+  for (iString = 0; iString < 2; iString++) {
+    circular_buffer_clear_uint8(&asc.in_buf);
+    circular_buffer_clear_uint8(&asc.out_buf);
+    circular_buffer_push_back_string_uint8(&asc.in_buf,
+                                           stringsInvalid[iString]);
+    circular_buffer_push_back_string_uint8(&asc.out_buf,
+                                           stringsInvalid[iString]);
+    Try { ascii_serial_com_compute_checksum(&asc, checksumOut, true); }
+    Catch(e2) { TEST_ASSERT_EQUAL(ASC_ERROR_INVALID_FRAME, e2); }
+    Try { ascii_serial_com_compute_checksum(&asc, checksumOut, false); }
+    Catch(e2) { TEST_ASSERT_EQUAL(ASC_ERROR_INVALID_FRAME, e2); }
+  }
+
+  const char *stringsInvalidPeriod[] = {">.",
+                                        ">xx.",
+                                        ".>",
+                                        ".xxxxxx>",
+                                        ">",
+                                        ">>>>",
+                                        ">asdgkjhq23kjhgqwerkjhg1234g\n"};
+  for (iString = 0; iString < 7; iString++) {
+    circular_buffer_clear_uint8(&asc.in_buf);
+    circular_buffer_clear_uint8(&asc.out_buf);
+    circular_buffer_push_back_string_uint8(&asc.in_buf,
+                                           stringsInvalidPeriod[iString]);
+    circular_buffer_push_back_string_uint8(&asc.out_buf,
+                                           stringsInvalidPeriod[iString]);
+    Try { ascii_serial_com_compute_checksum(&asc, checksumOut, true); }
+    Catch(e2) { TEST_ASSERT_EQUAL(ASC_ERROR_INVALID_FRAME_PERIOD, e2); }
+    Try { ascii_serial_com_compute_checksum(&asc, checksumOut, false); }
+    Catch(e2) { TEST_ASSERT_EQUAL(ASC_ERROR_INVALID_FRAME_PERIOD, e2); }
+  }
 }
 
 void test_ascii_serial_com_put_message_in_output_buffer(void) {
+  fprintf(stderr,
+          "Startin test_ascii_serial_com_put_message_in_output_buffer\n");
+  fflush(stderr);
   Try {
     ascii_serial_com asc;
     ascii_serial_com_init(&asc);

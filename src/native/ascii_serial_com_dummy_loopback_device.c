@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "asc_exception.h"
 #include "ascii_serial_com.h"
 #include "circular_buffer.h"
 #include "circular_buffer_io_fd_poll.h"
@@ -20,9 +21,12 @@ ascii_serial_com asc;
 
 circular_buffer_io_fd_poll cb_io;
 
+CEXCEPTION_T e;
+bool rawLoopback;
+
 int main(int argc, char *argv[]) {
 
-  bool rawLoopback = false;
+  rawLoopback = false;
   if (argc > 1) {
     if (strncmp("-h", argv[1], 2) == 0) {
       fprintf(stderr,
@@ -111,47 +115,54 @@ int main(int argc, char *argv[]) {
                                     outfileno);
   }
 
-  int timeout = -1;
-  while (true) {
-    int poll_ret_code = circular_buffer_io_fd_poll_do_poll(&cb_io, timeout);
-    if (poll_ret_code != 0) {
-      return 1;
-    }
-    circular_buffer_io_fd_poll_do_input(&cb_io);
+  Try {
+    int timeout = -1;
+    while (true) {
+      int poll_ret_code = circular_buffer_io_fd_poll_do_poll(&cb_io, timeout);
+      if (poll_ret_code != 0) {
+        return 1;
+      }
+      circular_buffer_io_fd_poll_do_input(&cb_io);
 
-    if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
-      // fprintf(stderr, "About to try to receive message:\n");
-      // circular_buffer_print_uint8(asc_in_buf, stderr);
-      char ascVersion, appVersion, command;
-      size_t dataLen;
-      ascii_serial_com_get_message_from_input_buffer(
-          &asc, &ascVersion, &appVersion, &command, dataBuffer, &dataLen);
-      if (command != '\0') {
-        fprintf(stderr,
-                "Received message:\n  asc and app versions: %c %c\n  command: "
-                "%c dataLen: %zu\n  data: ",
-                ascVersion, appVersion, command, dataLen);
-        for (size_t iData = 0; iData < dataLen; iData++) {
-          fprintf(stderr, "%c", dataBuffer[iData]);
+      if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
+        // fprintf(stderr, "About to try to receive message:\n");
+        // circular_buffer_print_uint8(asc_in_buf, stderr);
+        char ascVersion, appVersion, command;
+        size_t dataLen;
+        ascii_serial_com_get_message_from_input_buffer(
+            &asc, &ascVersion, &appVersion, &command, dataBuffer, &dataLen);
+        if (command != '\0') {
+          fprintf(
+              stderr,
+              "Received message:\n  asc and app versions: %c %c\n  command: "
+              "%c dataLen: %zu\n  data: ",
+              ascVersion, appVersion, command, dataLen);
+          for (size_t iData = 0; iData < dataLen; iData++) {
+            fprintf(stderr, "%c", dataBuffer[iData]);
+          }
+          fprintf(stderr, "\n");
+          fflush(stderr);
+          // circular_buffer_print_uint8(asc_out_buf, stderr);
+          ascii_serial_com_put_message_in_output_buffer(
+              &asc, ascVersion, appVersion, command, dataBuffer, dataLen);
         }
-        fprintf(stderr, "\n");
-        fflush(stderr);
-        // circular_buffer_print_uint8(asc_out_buf, stderr);
-        ascii_serial_com_put_message_in_output_buffer(
-            &asc, ascVersion, appVersion, command, dataBuffer, dataLen);
+      }
+
+      circular_buffer_io_fd_poll_do_output(&cb_io);
+
+      // Do we need to process data in the input buffer?
+      // If so, poll with short timeout, otherwise just poll
+      // (all else is just waiting on IO)
+      if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
+        timeout = 5; // ms
+      } else {
+        timeout = -1; // unlimited
       }
     }
-
-    circular_buffer_io_fd_poll_do_output(&cb_io);
-
-    // Do we need to process data in the input buffer?
-    // If so, poll with short timeout, otherwise just poll
-    // (all else is just waiting on IO)
-    if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
-      timeout = 5; // ms
-    } else {
-      timeout = -1; // unlimited
-    }
+  }
+  Catch(e) {
+    fprintf(stderr, "Uncaught exception: %u, exiting.\n", e);
+    return 1;
   }
 
   return 0;

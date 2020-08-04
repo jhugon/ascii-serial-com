@@ -19,6 +19,7 @@ enum asc_exception {
   ASC_ERROR_DATA_TOO_LONG = 10,
   ASC_ERROR_CHECKSUM_PROBLEM = 11, // problem computing checksum
   ASC_ERROR_INVALID_FRAME = 12,
+  ASC_ERROR_INVALID_FRAME_PERIOD = 13, // relating to no '.' or misplaced '.'
   ASC_ERROR_NOT_HEX_CHAR = 19,
   // Register block
   ASC_ERROR_COMMAND_NOT_IMPLEMENTED = 20,

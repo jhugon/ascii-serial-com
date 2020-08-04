@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "asc_exception.h"
 #include "ascii_serial_com.h"
 #include "ascii_serial_com_device.h"
 #include "ascii_serial_com_register_block.h"
@@ -16,6 +17,8 @@ REGTYPE regs[nRegs];
 circular_buffer_io_fd_poll cb_io;
 ascii_serial_com_device ascd;
 ascii_serial_com_register_block reg_block;
+
+CEXCEPTION_T e;
 
 int main(int argc, char *argv[]) {
 
@@ -84,38 +87,44 @@ int main(int argc, char *argv[]) {
     outfileno = STDOUT_FILENO;
   }
 
-  ascii_serial_com_register_block_init(&reg_block, regs, nRegs);
-  ascii_serial_com_device_init(&ascd,
-                               ascii_serial_com_register_block_handle_message,
-                               NULL, NULL, &reg_block, NULL, NULL);
-  circular_buffer_uint8 *asc_in_buf =
-      ascii_serial_com_device_get_input_buffer(&ascd);
-  circular_buffer_uint8 *asc_out_buf =
-      ascii_serial_com_device_get_output_buffer(&ascd);
+  Try {
+    ascii_serial_com_register_block_init(&reg_block, regs, nRegs);
+    ascii_serial_com_device_init(&ascd,
+                                 ascii_serial_com_register_block_handle_message,
+                                 NULL, NULL, &reg_block, NULL, NULL);
+    circular_buffer_uint8 *asc_in_buf =
+        ascii_serial_com_device_get_input_buffer(&ascd);
+    circular_buffer_uint8 *asc_out_buf =
+        ascii_serial_com_device_get_output_buffer(&ascd);
 
-  circular_buffer_io_fd_poll_init(&cb_io, asc_in_buf, asc_out_buf, infileno,
-                                  outfileno);
+    circular_buffer_io_fd_poll_init(&cb_io, asc_in_buf, asc_out_buf, infileno,
+                                    outfileno);
 
-  int timeout = -1;
-  while (true) {
-    int poll_ret_code = circular_buffer_io_fd_poll_do_poll(&cb_io, timeout);
-    if (poll_ret_code != 0) {
-      return 1;
+    int timeout = -1;
+    while (true) {
+      int poll_ret_code = circular_buffer_io_fd_poll_do_poll(&cb_io, timeout);
+      if (poll_ret_code != 0) {
+        return 1;
+      }
+      circular_buffer_io_fd_poll_do_input(&cb_io);
+
+      ascii_serial_com_device_receive(&ascd);
+
+      circular_buffer_io_fd_poll_do_output(&cb_io);
+
+      // Do we need to process data in the input buffer?
+      // If so, poll with short timeout, otherwise just poll
+      // (all else is just waiting on IO)
+      if (!circular_buffer_is_empty_uint8(asc_in_buf)) {
+        timeout = 5; // ms
+      } else {
+        timeout = -1; // unlimited
+      }
     }
-    circular_buffer_io_fd_poll_do_input(&cb_io);
-
-    ascii_serial_com_device_receive(&ascd);
-
-    circular_buffer_io_fd_poll_do_output(&cb_io);
-
-    // Do we need to process data in the input buffer?
-    // If so, poll with short timeout, otherwise just poll
-    // (all else is just waiting on IO)
-    if (!circular_buffer_is_empty_uint8(asc_in_buf)) {
-      timeout = 5; // ms
-    } else {
-      timeout = -1; // unlimited
-    }
+  }
+  Catch(e) {
+    fprintf(stderr, "Uncaught exception: %u, exiting.\n", e);
+    return 1;
   }
 
   return 0;

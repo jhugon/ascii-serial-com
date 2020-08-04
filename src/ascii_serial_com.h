@@ -82,6 +82,10 @@ void ascii_serial_com_init(ascii_serial_com *asc);
  *  \param data: The message data
  *
  *  \param dataLen: The length of the data
+ *
+ *  May raise ASC_ERROR_DATA_TOO_LONG or the errors
+ *  ascii_serial_com_compute_checksum raises
+ *
  */
 void ascii_serial_com_put_message_in_output_buffer(
     ascii_serial_com *asc, char ascVersion, char appVersion, char command,
@@ -108,6 +112,8 @@ void ascii_serial_com_put_message_in_output_buffer(
  * long buffer
  *
  * \param dataLen: The length of the data put in data
+ *
+ * May raise ASC_ERROR_INVALID_FRAME or ASC_ERROR_INVALID_FRAME_PERIOD
  */
 void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
                                                     char *ascVersion,
@@ -159,7 +165,6 @@ void ascii_serial_com_put_error_in_output_buffer(ascii_serial_com *asc,
 
 /** \brief ASCII Serial Com compute checksum of message
  *
- *
  *  Computes the checksum of the last message in the input or output buffer.
  * Specifically finds the last substring starting with the last '>' and ending
  * in the last '.'.
@@ -170,10 +175,11 @@ void ascii_serial_com_put_error_in_output_buffer(ascii_serial_com *asc,
  *
  *  \param outputBuffer: if true, use output buffer, if false use input buffer
  *
- *  \return true if checksum valid
+ *  Raises ASC_ERROR_INVALID_FRAME or ASC_ERROR_INVALID_FRAME_PERIOD if frame
+ *  invalid
  *
  */
-bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
+void ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
                                        bool outputBuffer);
 
 /** \brief convert uint8 to hex string
@@ -223,6 +229,7 @@ void convert_uint32_to_hex(uint32_t num, char *outstr, bool caps);
  *
  *  \return the uint8_t
  *
+ *  May throw ASC_ERROR_NOT_HEX_CHAR
  */
 uint8_t convert_hex_to_uint8(const char *instr);
 
@@ -234,6 +241,8 @@ uint8_t convert_hex_to_uint8(const char *instr);
  *
  *  \return the uint16_t
  *
+ *  May throw ASC_ERROR_NOT_HEX_CHAR
+ *
  */
 uint16_t convert_hex_to_uint16(const char *instr);
 
@@ -244,6 +253,8 @@ uint16_t convert_hex_to_uint16(const char *instr);
  *  \param str: a pointer to a 8-byte long string that holds the hex input
  *
  *  \return the uint32_t
+ *
+ *  May throw ASC_ERROR_NOT_HEX_CHAR
  *
  */
 uint32_t convert_hex_to_uint32(const char *instr);

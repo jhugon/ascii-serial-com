@@ -22,7 +22,7 @@ void ascii_serial_com_put_message_in_output_buffer(
   // command, dataLen); fprintf(stderr,"in_buf: %p\n",asc->in_buf.buffer);
   // fprintf(stderr,"out_buf: %p\n",asc->out_buf.buffer);
 
-  if (dataLen >= MAXDATALEN) {
+  if (dataLen > MAXDATALEN) {
     Throw(ASC_ERROR_DATA_TOO_LONG);
   }
   circular_buffer_push_back_uint8(&asc->out_buf, '>');
@@ -34,9 +34,7 @@ void ascii_serial_com_put_message_in_output_buffer(
   }
   circular_buffer_push_back_uint8(&asc->out_buf, '.');
   char checksum[NCHARCHECKSUM];
-  if (!ascii_serial_com_compute_checksum(asc, checksum, true)) {
-    Throw(ASC_ERROR_CHECKSUM_PROBLEM);
-  }
+  ascii_serial_com_compute_checksum(asc, checksum, true);
   for (size_t i = 0; i < NCHARCHECKSUM; i++) {
     circular_buffer_push_back_uint8(&asc->out_buf, checksum[i]);
   }
@@ -67,17 +65,7 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
     *dataLen = 0;
     return;
   }
-  if (!ascii_serial_com_compute_checksum(asc, computeChecksum, false)) {
-    //// invalid checksum, so probably couldn't find a valid message
-    // fprintf(stderr,
-    //        "Error invalid message frame (couldn't compute checksum)\n");
-    circular_buffer_pop_front_uint8(
-        &asc->in_buf); // pop off starting '>' to move to next frame
-    //*command = '\0';
-    //*dataLen = 0;
-    // return;
-    Throw(ASC_ERROR_CHECKSUM_PROBLEM);
-  }
+  ascii_serial_com_compute_checksum(asc, computeChecksum, false);
   // fprintf(stderr,"Received message: \n");
   // circular_buffer_print_uint8(&asc->in_buf,stderr);
   circular_buffer_pop_front_uint8(&asc->in_buf); // pop off starting '>'
@@ -99,7 +87,7 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
     // fprintf(stderr, "Error invalid message frame (no '.' found)\n");
     circular_buffer_pop_front_uint8(
         &asc->in_buf); // pop off starting '>' to move to next frame
-    Throw(ASC_ERROR_INVALID_FRAME);
+    Throw(ASC_ERROR_INVALID_FRAME_PERIOD);
     //*command = '\0';
     //*dataLen = 0;
     // return;
@@ -151,7 +139,7 @@ ascii_serial_com_get_output_buffer(ascii_serial_com *asc) {
   return &asc->out_buf;
 }
 
-bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
+void ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
                                        bool outputBuffer) {
   uint8_t checksumbuffer[MAXMESSAGELEN - NCHARCHECKSUM - 1];
   circular_buffer_uint8 *circ_buf;
@@ -168,23 +156,13 @@ bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
     iStop = circular_buffer_find_first_uint8(circ_buf, '.');
   }
   if (iStart >= size) {
-    fprintf(stderr, "Error: ascii_serial_com_compute_checksum: couldn't find "
-                    "frame start\n");
-    circular_buffer_print_uint8(circ_buf, stderr);
-    return false;
+    Throw(ASC_ERROR_INVALID_FRAME);
   }
   if (iStop >= size) {
-    fprintf(
-        stderr,
-        "Error: ascii_serial_com_compute_checksum: couldn't find frame end\n");
-    circular_buffer_print_uint8(circ_buf, stderr);
-    return false;
+    Throw(ASC_ERROR_INVALID_FRAME_PERIOD);
   }
   if (iStop <= iStart || iStop - iStart < 4) {
-    fprintf(stderr,
-            "Error: ascii_serial_com_compute_checksum: malformed frame\n");
-    circular_buffer_print_uint8(circ_buf, stderr);
-    return false;
+    Throw(ASC_ERROR_INVALID_FRAME_PERIOD);
   }
   for (size_t iElement = iStart; iElement <= iStop; iElement++) {
     checksumbuffer[iElement - iStart] =
@@ -193,7 +171,6 @@ bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
   uint16_t resultInt =
       computeCRC_16_DNP(checksumbuffer, iStop - iStart + 1, 0xFFFF);
   convert_uint16_to_hex(resultInt, checksumOut, true);
-  return true;
 }
 
 void ascii_serial_com_put_error_in_output_buffer(ascii_serial_com *asc,

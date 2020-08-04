@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 CEXCEPTION_T e1;
-// CEXCEPTION_T e2;
+CEXCEPTION_T e2;
 
 ascii_serial_com *asc_f;
 char ascVersion_f, appVersion_f, command_f;
@@ -184,44 +184,40 @@ void test_ascii_serial_com_device_receive_null_state(void) {
 }
 
 void test_ascii_serial_com_device_receive_bad(void) {
-  Try {
-    ascii_serial_com_device ascd;
-    ascii_serial_com_device_init(&ascd, testfunc, testfunc, testfunc, &state_rw,
-                                 &state_s, &state_other);
-    circular_buffer_uint8 *in_buf =
-        ascii_serial_com_device_get_input_buffer(&ascd);
-    // circular_buffer_uint8* out_buf =
-    // ascii_serial_com_device_get_output_buffer(&ascd);
+  ascii_serial_com_device ascd;
+  ascii_serial_com_device_init(&ascd, testfunc, testfunc, testfunc, &state_rw,
+                               &state_s, &state_other);
+  circular_buffer_uint8 *in_buf =
+      ascii_serial_com_device_get_input_buffer(&ascd);
 
-    command_f = '\n';
+  Try {
     circular_buffer_push_back_string_uint8(in_buf, "00w.23A6\n");
     ascii_serial_com_device_receive(&ascd);
-    TEST_ASSERT_EQUAL_CHAR('\n', command_f);
+  }
+  Catch(e2) { TEST_ASSERT_EQUAL(ASC_ERROR_INVALID_FRAME, e2); }
 
-    command_f = '\n';
+  Try {
     circular_buffer_clear_uint8(in_buf);
     circular_buffer_push_back_string_uint8(in_buf, ">00wFFFF\n");
     ascii_serial_com_device_receive(&ascd);
-    TEST_ASSERT_EQUAL_CHAR('\n', command_f);
+  }
+  Catch(e2) { TEST_ASSERT_EQUAL(ASC_ERROR_INVALID_FRAME_PERIOD, e2); }
 
-    command_f = '\n';
+  Try {
     circular_buffer_clear_uint8(in_buf);
     circular_buffer_push_back_string_uint8(in_buf, ">\n");
     ascii_serial_com_device_receive(&ascd);
-    TEST_ASSERT_EQUAL_CHAR('\n', command_f);
+  }
+  Catch(e2) { TEST_ASSERT_EQUAL(ASC_ERROR_INVALID_FRAME_PERIOD, e2); }
 
-    command_f = '\n';
+  Try {
     circular_buffer_clear_uint8(in_buf);
     circular_buffer_push_back_string_uint8(
         in_buf,
         ">345666666666666666666666666666666666666666166666666666666.C7FB\n");
     ascii_serial_com_device_receive(&ascd);
-    TEST_ASSERT_EQUAL_CHAR('\n', command_f);
   }
-  Catch(e1) {
-    printf("Uncaught exception: %u\n", e1);
-    TEST_FAIL_MESSAGE("Uncaught exception!");
-  }
+  Catch(e2) { TEST_ASSERT_EQUAL(ASC_ERROR_INVALID_FRAME, e2); }
 }
 
 void test_ascii_serial_com_device_receive_null_func(void) {
@@ -234,7 +230,7 @@ void test_ascii_serial_com_device_receive_null_func(void) {
         ascii_serial_com_device_get_output_buffer(&ascd);
 
     size_t messageLen = 13;
-    const char *message = ">00e01w.A014\n";
+    const char *message = ">00e14w.1DA4\n";
     circular_buffer_push_back_string_uint8(in_buf, ">00w.23A6\n");
     ascii_serial_com_device_receive(&ascd);
     TEST_ASSERT_EQUAL_size_t(messageLen,
@@ -247,7 +243,7 @@ void test_ascii_serial_com_device_receive_null_func(void) {
     circular_buffer_clear_uint8(out_buf);
 
     messageLen = 13;
-    message = ">12e01r.4545\n";
+    message = ">12e14r.F8F5\n";
     circular_buffer_push_back_string_uint8(in_buf, ">12r.4EBA\n");
     ascii_serial_com_device_receive(&ascd);
     TEST_ASSERT_EQUAL_size_t(messageLen,
@@ -260,7 +256,7 @@ void test_ascii_serial_com_device_receive_null_func(void) {
     circular_buffer_clear_uint8(out_buf);
 
     messageLen = 22;
-    message = ">FFe01s111 222 3.EEFB\n";
+    message = ">FFe14s111 222 3.3930\n";
     circular_buffer_push_back_string_uint8(in_buf,
                                            ">FFs111 222 333 444.B049\n");
     ascii_serial_com_device_receive(&ascd);
@@ -274,7 +270,7 @@ void test_ascii_serial_com_device_receive_null_func(void) {
     circular_buffer_clear_uint8(out_buf);
 
     messageLen = 22;
-    message = ">34e015666666666.258D\n";
+    message = ">34e145666666666.F246\n";
     circular_buffer_push_back_string_uint8(
         in_buf,
         ">345666666666666666666666666666666666666666666666666666666.C7FB\n");
