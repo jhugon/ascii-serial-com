@@ -87,21 +87,21 @@ int main(int argc, char *argv[]) {
     outfileno = STDOUT_FILENO;
   }
 
-  Try {
-    ascii_serial_com_register_block_init(&reg_block, regs, nRegs);
-    ascii_serial_com_device_init(&ascd,
-                                 ascii_serial_com_register_block_handle_message,
-                                 NULL, NULL, &reg_block, NULL, NULL);
-    circular_buffer_uint8 *asc_in_buf =
-        ascii_serial_com_device_get_input_buffer(&ascd);
-    circular_buffer_uint8 *asc_out_buf =
-        ascii_serial_com_device_get_output_buffer(&ascd);
+  ascii_serial_com_register_block_init(&reg_block, regs, nRegs);
+  ascii_serial_com_device_init(&ascd,
+                               ascii_serial_com_register_block_handle_message,
+                               NULL, NULL, &reg_block, NULL, NULL);
+  circular_buffer_uint8 *asc_in_buf =
+      ascii_serial_com_device_get_input_buffer(&ascd);
+  circular_buffer_uint8 *asc_out_buf =
+      ascii_serial_com_device_get_output_buffer(&ascd);
 
-    circular_buffer_io_fd_poll_init(&cb_io, asc_in_buf, asc_out_buf, infileno,
-                                    outfileno);
+  circular_buffer_io_fd_poll_init(&cb_io, asc_in_buf, asc_out_buf, infileno,
+                                  outfileno);
 
-    int timeout = -1;
-    while (true) {
+  int timeout = -1;
+  while (true) {
+    Try {
       int poll_ret_code = circular_buffer_io_fd_poll_do_poll(&cb_io, timeout);
       if (poll_ret_code != 0) {
         return 1;
@@ -121,10 +121,10 @@ int main(int argc, char *argv[]) {
         timeout = -1; // unlimited
       }
     }
-  }
-  Catch(e) {
-    fprintf(stderr, "Uncaught exception: %u, exiting.\n", e);
-    return 1;
+    Catch(e) {
+      fprintf(stderr, "Uncaught exception: %u, exiting.\n", e);
+      return 1;
+    }
   }
 
   return 0;

@@ -17,8 +17,13 @@
  * message returned to host. This class owns the data buffer passed around.
  */
 typedef struct ascii_serial_com_device_struct {
-  ascii_serial_com asc;        /**< used to receive messages and reply */
+  ascii_serial_com asc; /**< used to receive messages and reply */
+  char ascVersion; /**< This and next 4 variables just hold results, putting
+                      them here lets them be statically allocated */
+  char appVersion;
+  char command;
   char dataBuffer[MAXDATALEN]; /**< data part of message received here */
+  size_t dataLen;
   void (*frw)(ascii_serial_com *, char, char, char, char *data, size_t,
               void *); /**< called for r or w messages */
   void (*fs)(ascii_serial_com *, char, char, char, char *data, size_t,

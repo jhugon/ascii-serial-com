@@ -23,6 +23,8 @@ circular_buffer_io_fd_poll cb_io;
 
 CEXCEPTION_T e;
 bool rawLoopback;
+char ascVersion, appVersion, command;
+size_t dataLen;
 
 int main(int argc, char *argv[]) {
 
@@ -115,9 +117,9 @@ int main(int argc, char *argv[]) {
                                     outfileno);
   }
 
-  Try {
-    int timeout = -1;
-    while (true) {
+  int timeout = -1;
+  while (true) {
+    Try {
       int poll_ret_code = circular_buffer_io_fd_poll_do_poll(&cb_io, timeout);
       if (poll_ret_code != 0) {
         return 1;
@@ -127,8 +129,6 @@ int main(int argc, char *argv[]) {
       if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
         // fprintf(stderr, "About to try to receive message:\n");
         // circular_buffer_print_uint8(asc_in_buf, stderr);
-        char ascVersion, appVersion, command;
-        size_t dataLen;
         ascii_serial_com_get_message_from_input_buffer(
             &asc, &ascVersion, &appVersion, &command, dataBuffer, &dataLen);
         if (command != '\0') {
@@ -159,10 +159,7 @@ int main(int argc, char *argv[]) {
         timeout = -1; // unlimited
       }
     }
-  }
-  Catch(e) {
-    fprintf(stderr, "Uncaught exception: %u, exiting.\n", e);
-    return 1;
+    Catch(e) { fprintf(stderr, "Uncaught exception: %u, continuing.\n", e); }
   }
 
   return 0;
