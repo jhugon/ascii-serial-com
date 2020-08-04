@@ -1,8 +1,6 @@
 #include "ascii_serial_com.h"
 #include "compute_crc.h"
 
-#include <assert.h>
-#include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -23,7 +21,10 @@ void ascii_serial_com_put_message_in_output_buffer(
   // ascVer: %c appVer: %c command: %c datalen: %zu\n",ascVersion, appVersion,
   // command, dataLen); fprintf(stderr,"in_buf: %p\n",asc->in_buf.buffer);
   // fprintf(stderr,"out_buf: %p\n",asc->out_buf.buffer);
-  assert(dataLen < MAXMESSAGELEN);
+
+  if (dataLen >= MAXDATALEN) {
+    Throw(ASC_ERROR_DATA_TOO_LONG);
+  }
   circular_buffer_push_back_uint8(&asc->out_buf, '>');
   circular_buffer_push_back_uint8(&asc->out_buf, ascVersion);
   circular_buffer_push_back_uint8(&asc->out_buf, appVersion);
@@ -33,7 +34,9 @@ void ascii_serial_com_put_message_in_output_buffer(
   }
   circular_buffer_push_back_uint8(&asc->out_buf, '.');
   char checksum[NCHARCHECKSUM];
-  assert(ascii_serial_com_compute_checksum(asc, checksum, true));
+  if (!ascii_serial_com_compute_checksum(asc, checksum, true)) {
+    Throw(ASC_ERROR_CHECKSUM_PROBLEM);
+  }
   for (size_t i = 0; i < NCHARCHECKSUM; i++) {
     circular_buffer_push_back_uint8(&asc->out_buf, checksum[i]);
   }
@@ -65,14 +68,15 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
     return;
   }
   if (!ascii_serial_com_compute_checksum(asc, computeChecksum, false)) {
-    // invalid checksum, so probably couldn't find a valid message
-    fprintf(stderr,
-            "Error invalid message frame (couldn't compute checksum)\n");
+    //// invalid checksum, so probably couldn't find a valid message
+    // fprintf(stderr,
+    //        "Error invalid message frame (couldn't compute checksum)\n");
     circular_buffer_pop_front_uint8(
         &asc->in_buf); // pop off starting '>' to move to next frame
-    *command = '\0';
-    *dataLen = 0;
-    return;
+    //*command = '\0';
+    //*dataLen = 0;
+    // return;
+    Throw(ASC_ERROR_CHECKSUM_PROBLEM);
   }
   // fprintf(stderr,"Received message: \n");
   // circular_buffer_print_uint8(&asc->in_buf,stderr);
@@ -91,20 +95,24 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
   }
   if (*dataLen == MAXDATALEN &&
       circular_buffer_pop_front_uint8(&asc->in_buf) != '.') {
-    // never found '.', so bad message
-    fprintf(stderr, "Error invalid message frame (no '.' found)\n");
+    //// never found '.', so bad message
+    // fprintf(stderr, "Error invalid message frame (no '.' found)\n");
     circular_buffer_pop_front_uint8(
         &asc->in_buf); // pop off starting '>' to move to next frame
-    *command = '\0';
-    *dataLen = 0;
-    return;
+    Throw(ASC_ERROR_INVALID_FRAME);
+    //*command = '\0';
+    //*dataLen = 0;
+    // return;
   }
   if (circular_buffer_get_size_uint8(&asc->in_buf) < NCHARCHECKSUM + 1 ||
       circular_buffer_get_element_uint8(&asc->in_buf, NCHARCHECKSUM) != '\n') {
-    fprintf(stderr, "Error: checksum incorrect length\n");
-    *command = '\0';
-    *dataLen = 0;
-    return;
+    circular_buffer_pop_front_uint8(
+        &asc->in_buf); // pop off starting '>' to move to next frame
+    Throw(ASC_ERROR_INVALID_FRAME);
+    // fprintf(stderr, "Error: checksum incorrect length\n");
+    //*command = '\0';
+    //*dataLen = 0;
+    // return;
   }
   char receiveChecksum[NCHARCHECKSUM];
   for (size_t iChk = 0; iChk < NCHARCHECKSUM; iChk++) {
@@ -188,9 +196,11 @@ bool ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
   return true;
 }
 
-void ascii_serial_com_put_error_in_output_buffer(
-    ascii_serial_com *asc, char ascVersion, char appVersion, char command,
-    char *data, size_t dataLen, enum asc_error_code errorCode) {
+void ascii_serial_com_put_error_in_output_buffer(ascii_serial_com *asc,
+                                                 char ascVersion,
+                                                 char appVersion, char command,
+                                                 char *data, size_t dataLen,
+                                                 enum asc_exception errorCode) {
   char outData[error_message_data_len];
   convert_uint8_to_hex((uint8_t)errorCode, outData, true);
   outData[2] = command;
@@ -245,7 +255,7 @@ uint8_t convert_hex_to_uint8(const char *instr) {
     } else {
       // printf("Problem char: '%c' = %"PRIX8"\n",thischar,(uint8_t) thischar);
       // fflush(stdout);
-      assert(false);
+      Throw(ASC_ERROR_NOT_HEX_CHAR);
     }
   }
   return result;

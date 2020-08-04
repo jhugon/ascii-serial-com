@@ -6,16 +6,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "asc_exception.h"
 #include "circular_buffer.h"
 
 #define MAXMESSAGELEN 64
 #define MAXDATALEN 54
 #define NCHARCHECKSUM 4
-
-enum asc_error_code {
-  ASC_ERROR_UNKOWN = 0,
-  ASC_ERROR_COMMAND_NOT_IMPLEMENTED = 1
-};
 
 ////////////////////////////////////////////////////
 ////////////////////////////////////////////////////
@@ -153,7 +149,7 @@ void ascii_serial_com_put_error_in_output_buffer(ascii_serial_com *asc,
                                                  char ascVersion,
                                                  char appVersion, char command,
                                                  char *data, size_t dataLen,
-                                                 enum asc_error_code errorCode);
+                                                 enum asc_exception errorCode);
 
 ////////////////////////////////////////////////////
 ////////////////////////////////////////////////////

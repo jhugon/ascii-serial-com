@@ -1,8 +1,11 @@
 #include "circular_buffer.h"
-#include <assert.h>
-#include <errno.h>
+#include "asc_exception.h"
 #include <stdlib.h>
+
+#ifdef linux
+#include <errno.h>
 #include <unistd.h>
+#endif
 
 // Private helper functions
 
@@ -56,6 +59,7 @@ bool circular_buffer_is_empty_uint8(const circular_buffer_uint8 *circ_buf) {
   return circular_buffer_get_size_uint8(circ_buf) == 0;
 }
 
+#ifdef linux
 void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
                                  FILE *outfile) {
 
@@ -100,10 +104,14 @@ void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
   }
   fprintf(outfile, "\n");
 }
+#endif
 
 uint8_t circular_buffer_get_element_uint8(const circular_buffer_uint8 *circ_buf,
                                           const size_t iElement) {
-  assert(iElement < circular_buffer_get_size_uint8(circ_buf));
+
+  if (iElement >= circular_buffer_get_size_uint8(circ_buf)) {
+    Throw(ASC_ERROR_CB_OOB);
+  }
   size_t iResult = (circ_buf->iStart + iElement) % circ_buf->capacity;
   uint8_t result = *(circ_buf->buffer + iResult);
   return result;
@@ -132,7 +140,9 @@ void circular_buffer_push_back_uint8(circular_buffer_uint8 *circ_buf,
 }
 
 uint8_t circular_buffer_pop_front_uint8(circular_buffer_uint8 *circ_buf) {
-  assert(circ_buf->size > 0);
+  if (circ_buf->size == 0) {
+    Throw(ASC_ERROR_CB_POP_EMPTY);
+  }
   const uint8_t result = *(circ_buf->buffer + circ_buf->iStart);
   inc_iStart_uint8(circ_buf);
   circ_buf->size--;
@@ -140,7 +150,9 @@ uint8_t circular_buffer_pop_front_uint8(circular_buffer_uint8 *circ_buf) {
 }
 
 uint8_t circular_buffer_pop_back_uint8(circular_buffer_uint8 *circ_buf) {
-  assert(circ_buf->size > 0);
+  if (circ_buf->size == 0) {
+    Throw(ASC_ERROR_CB_POP_EMPTY);
+  }
   dec_iStop_uint8(circ_buf);
   circ_buf->size--;
   const uint8_t result = *(circ_buf->buffer + circ_buf->iStop);
@@ -277,6 +289,7 @@ size_t circular_buffer_pop_front_block_uint8(circular_buffer_uint8 *circ_buf,
   return nWritten;
 }
 
+#ifdef linux
 size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,
                                                int fd) {
   size_t block_size_available;
@@ -290,7 +303,7 @@ size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,
   if (nRead < 0) {
     perror("circular_buffer_push_back_from_fd_uint8 error while reading from "
            "file");
-    exit(1);
+    Throw(ASC_ERROR_FILE_READ);
   }
   circ_buf->iStop = (circ_buf->iStop + nRead) % circ_buf->capacity;
   circ_buf->size += nRead;
@@ -318,7 +331,7 @@ size_t circular_buffer_pop_front_to_fd_uint8(circular_buffer_uint8 *circ_buf,
   if (nWritten < 0) {
     perror("circular_buffer_pop_front_to_fd_uint8 error while writing to "
            "file");
-    exit(1);
+    Throw(ASC_ERROR_FILE_WRITE);
   }
   circ_buf->size -= nWritten;
   if (circ_buf->size == 0) {
@@ -329,6 +342,7 @@ size_t circular_buffer_pop_front_to_fd_uint8(circular_buffer_uint8 *circ_buf,
   }
   return nWritten;
 }
+#endif
 
 void circular_buffer_clear_uint8(circular_buffer_uint8 *circ_buf) {
   circ_buf->size = 0;

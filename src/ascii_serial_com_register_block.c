@@ -1,4 +1,5 @@
 #include "ascii_serial_com_register_block.h"
+#include "asc_exception.h"
 #include <assert.h>
 
 #if REGWIDTHBYTES == 1
@@ -23,19 +24,19 @@ void ascii_serial_com_register_block_handle_message(
     ascii_serial_com *asc, char ascVersion, char appVersion, char command,
     char *data, size_t dataLen, void *register_block_state_vp) {
   if (!register_block_state_vp) {
-    assert(false);
+    Throw(ASC_ERROR_REG_BLOCK_NULL);
   }
   const ascii_serial_com_register_block *register_block_state =
       (ascii_serial_com_register_block *)register_block_state_vp;
   if (command != 'r' && command != 'w') {
-    assert(false);
+    Throw(ASC_ERROR_UNEXPECTED_COMMAND);
   }
   if (dataLen < 4) { // need room for reg num
-    assert(false);
+    Throw(ASC_ERROR_DATA_TOO_SHORT);
   }
   uint16_t reg_num = convert_hex_to_uint16(data);
   if (reg_num >= register_block_state->n_regs) {
-    assert(false);
+    Throw(ASC_ERROR_REGNUM_OOB);
   }
   if (command == 'r') {
     REGTYPE reg_val = register_block_state->block[reg_num];
@@ -44,7 +45,7 @@ void ascii_serial_com_register_block_handle_message(
     dataLen = 5 + REGWIDTHBYTES * 2;
   } else {
     if (dataLen < 5 + REGWIDTHBYTES) {
-      assert(false);
+      Throw(ASC_ERROR_REGVAL_LEN);
     }
     REGTYPE new_reg_val = get_val_from_bytes(data + 5);
     register_block_state->block[reg_num] = new_reg_val;

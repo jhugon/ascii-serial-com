@@ -5,7 +5,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#ifdef linux
 #include <stdio.h>
+#endif
 
 /** \brief circular buffer struct
  *
@@ -74,8 +76,10 @@ bool circular_buffer_is_empty_uint8(const circular_buffer_uint8 *circ_buf);
  *  outfile is usually stderr or stdout
  *
  */
+#ifdef linux
 void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
                                  FILE *outfile);
+#endif
 
 /** \brief circular buffer get element
  *
@@ -303,6 +307,7 @@ size_t circular_buffer_pop_front_block_uint8(circular_buffer_uint8 *circ_buf,
  *  \return total number of elements pushed onto buffer (and read from file)
  *
  */
+#ifdef linux
 size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,
                                                const int fd);
 
@@ -320,6 +325,7 @@ size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,
  */
 size_t circular_buffer_pop_front_to_fd_uint8(circular_buffer_uint8 *circ_buf,
                                              const int fd);
+#endif
 
 /** \brief circular buffer clear
  *
