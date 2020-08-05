@@ -4,6 +4,7 @@
 
 #ifdef linux
 #include <errno.h>
+#include <stdio.h>
 #include <unistd.h>
 #endif
 
@@ -313,8 +314,8 @@ size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,
         circ_buf->capacity;
     circ_buf->size = circ_buf->capacity;
   }
-  // printf("circular_buffer_push_back_from_fd_uint8: block_size_available: %zu
-  // nRead: %zd\n",block_size_available,nRead);
+  // fprintf(stderr,"circular_buffer_push_back_from_fd_uint8:
+  // block_size_available: %zu nRead: %zd\n",block_size_available,nRead);
   return nRead;
 }
 

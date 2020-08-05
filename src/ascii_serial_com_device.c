@@ -1,5 +1,4 @@
 #include "ascii_serial_com_device.h"
-#include "stdio.h"
 
 void ascii_serial_com_device_init(
     ascii_serial_com_device *ascd,
@@ -24,7 +23,6 @@ void ascii_serial_com_device_receive(ascii_serial_com_device *ascd) {
   ascii_serial_com_get_message_from_input_buffer(
       &ascd->asc, &ascd->ascVersion, &ascd->appVersion, &ascd->command,
       ascd->dataBuffer, &ascd->dataLen);
-  fprintf(stderr, "device_receive: message type: %c\n", ascd->command);
   if (ascd->command == '\0') { // no message in input buffer
     // pass
   } else if (ascd->command == 'r' || ascd->command == 'w') {

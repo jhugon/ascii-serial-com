@@ -2,8 +2,7 @@
 #include "compute_crc.h"
 
 #include <inttypes.h>
-#include <stdio.h>
-#include <unistd.h>
+//#include <stdio.h>
 
 #define error_message_data_len 12
 
@@ -49,7 +48,7 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
   char computeChecksum[NCHARCHECKSUM];
   size_t buf_size = circular_buffer_get_size_uint8(&asc->in_buf);
   if (buf_size == 0) {
-    fprintf(stderr, "Error Buffer size == 0\n");
+    //    fprintf(stderr, "Error Buffer size == 0\n");
     *command = '\0';
     *dataLen = 0;
     return;
@@ -58,7 +57,7 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
   buf_size = circular_buffer_get_size_uint8(&asc->in_buf); // could have changed
   size_t iEnd = circular_buffer_find_first_uint8(&asc->in_buf, '\n');
   if (iEnd >= buf_size) {
-    fprintf(stderr, "Error: start and/or end of frame not found\n");
+    //    fprintf(stderr, "Error: start and/or end of frame not found\n");
     // Don't throw away frame, the rest of the frame may just nead another read
     // to get
     *command = '\0';
@@ -109,15 +108,15 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
   for (size_t iChk = 0; iChk < NCHARCHECKSUM; iChk++) {
     if (receiveChecksum[iChk] != computeChecksum[iChk]) {
       // checksum mismatch!
-      fprintf(stderr, "Error: checksum mismatch, computed: ");
+      //      fprintf(stderr, "Error: checksum mismatch, computed: ");
       for (size_t i = 0; i < NCHARCHECKSUM; i++) {
-        fprintf(stderr, "%c", computeChecksum[i]);
+        //        fprintf(stderr, "%c", computeChecksum[i]);
       }
-      fprintf(stderr, ", received: ");
+      //      fprintf(stderr, ", received: ");
       for (size_t i = 0; i < NCHARCHECKSUM; i++) {
-        fprintf(stderr, "%c", receiveChecksum[i]);
+        //        fprintf(stderr, "%c", receiveChecksum[i]);
       }
-      fprintf(stderr, "\n");
+      //      fprintf(stderr, "\n");
       circular_buffer_pop_front_uint8(
           &asc->in_buf); // pop off starting '>' to move to next frame
       *command = '\0';
@@ -230,8 +229,8 @@ uint8_t convert_hex_to_uint8(const char *instr) {
     } else if (thischar >= 0x61 && thischar <= 0x66) {
       result |= (thischar - 0x61 + 10) << (i * 4);
     } else {
-      // printf("Problem char: '%c' = %"PRIX8"\n",thischar,(uint8_t) thischar);
-      // fflush(stdout);
+      //      fprintf(stderr,"Problem char: '%c' =
+      //      %"PRIX8"\n",thischar,(uint8_t) thischar); fflush(stderr);
       Throw(ASC_ERROR_NOT_HEX_CHAR);
     }
   }
