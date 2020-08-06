@@ -37,7 +37,7 @@ include src/Makefile
 #$(info testexes is ${testexes})
 
 .PHONY: all_later
-all_later: $(alllibs) $(exes) $(testexes)
+all_later: $(alllibs) $(exes) $(testexes) $(avrfirmware) $(armfirmware)
 
 $(allobjs): %.o: %.c
 
@@ -64,7 +64,7 @@ $(builddir)/libthrowtheswitch.a: src/externals/libthrowtheswitch.a | $(builddir)
 	cp $^ $@
 
 .PHONY: install
-install: $(builddir)/libthrowtheswitch.a $(builddir)/libasciiserialcom.a $(outtestexes) $(outexes) all
+install: $(builddir)/libthrowtheswitch.a $(builddir)/libasciiserialcom.a $(outtestexes) $(outexes) $(outavrfirmware) $(outarmfirmware) all
 
 ######################################
 
@@ -89,6 +89,8 @@ clean:
 	rm -rf $(alllibs)
 	rm -rf $(exes)
 	rm -rf $(testexes)
+	rm -rf $(avrfirmware)
+	rm -rf $(armfirmware)
 	rm -rf $(allgcno)
 	rm -rf $(allgcda)
 	#rm -rf $(allgcov)
