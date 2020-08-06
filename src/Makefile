@@ -1,5 +1,8 @@
 
-srcobjs := src/circular_buffer.o src/ascii_serial_com.o src/compute_crc.o src/circular_buffer_io_fd_poll.o src/ascii_serial_com_device.o src/ascii_serial_com_register_block.o
+srcobjs := src/circular_buffer.o src/ascii_serial_com.o src/compute_crc.o src/ascii_serial_com_device.o src/ascii_serial_com_register_block.o
+ifeq ($(platform),native)
+  srcobjs := $(srcobjs) src/circular_buffer_io_fd_poll.o
+endif
 allobjs := $(allobjs) $(srcobjs)
 #exes := $(exes)
 alllibs := $(alllibs) src/libasciiserialcom.a

@@ -10,6 +10,9 @@ import sys
 def run_make(platform, CC, build_type, args):
     env = os.environ.copy()
     env.update({"platform": platform, "CC": CC, "build_type": build_type})
+    exe_path = env["PATH"]
+    exe_path = os.path.abspath("tools/avr-install/bin") + ":" + exe_path
+    env["PATH"] = exe_path
     if args.coverage and platform == "native" and build_type == "debug":
         env["coverage"] = "TRUE"
 
@@ -133,7 +136,15 @@ def run_python_unit_tests():
 
 def main():
 
-    available_targets = ["all", "native_gcc", "native_clang"]
+    available_targets = [
+        "all",
+        "native_gcc",
+        "native_clang",
+        "avr5_gcc",
+        "avr6_gcc",
+        "avrxmega3_gcc",
+        "arm_gcc",
+    ]
 
     parser = argparse.ArgumentParser(
         description="Build tool for ASCII-Serial-Com. Will stop and exit with status 1 if build fails, but continue if tests fail."

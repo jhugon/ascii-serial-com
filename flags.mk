@@ -1,44 +1,70 @@
 
-#$(info CC is ${CC})
-#$(info build_type is ${build_type})
+$(info CC is ${CC})
+$(info build_type is ${build_type})
+$(info platform is ${platform} )
 
-ifneq (,$(findstring gcc,$(CC)))
-  GCCFLAGS=-Werror -Wall -Wextra
-  GCCFLAGS+=-Wdouble-promotion -Wformat=2 -Wformat-signedness -Winit-self -Wmissing-include-dirs -Wswitch-default -Wswitch-enum -Wuninitialized -Wtrampolines -Wfloat-equal -Wshadow -Wundef -Wbad-function-cast
-  CFLAGS=$(GCCFLAGS)
-  CXXFLAGS=$(GCCFLAGS) -std=gnu++17 -Wsuggest-override -Wplacement-new=2
-  ifneq (,$(findstring avr,$(CC)))
-  else
+GCCFLAGS=-Wall -Wextra
+GCCFLAGS+=-Wdouble-promotion -Wformat=2 -Wformat-signedness -Winit-self -Wmissing-include-dirs -Wswitch-default -Wswitch-enum -Wuninitialized -Wtrampolines -Wfloat-equal -Wshadow -Wundef -Wbad-function-cast
+
+CLANGFLAGS=-Wall -Wextra
+CLANGFLAGS+=-Wdouble-promotion -Winit-self -Wmissing-include-dirs -Wswitch-default -Wswitch-enum -Wuninitialized -Wfloat-equal -Wshadow -Wundef -Wbad-function-cast
+
+ifeq ($(platform),native)
+  ifneq (,$(findstring gcc,$(CC)))
+    CFLAGS=$(GCCFLAGS)
     CFLAGS+= -std=gnu18 -Wformat-overflow=2 -Wformat-truncation=2 -Wnull-dereference -Walloc-zero -Wduplicated-branches -Wduplicated-cond
+    CXXFLAGS=$(GCCFLAGS) -std=gnu++17 -Wsuggest-override -Wplacement-new=2
+
+    ifeq ($(build_type),debug)
+      CFLAGS+=-g -Og
+      CFLAGS+=-fsanitize=address -fsanitize=leak -fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fsanitize-address-use-after-scope -fstack-protector-all #-fsanitize=pointer-compare -fsanitize=pointer-subtract
+  	  ifdef coverage
+  	    CFLAGS+=--coverage
+  	  endif
+    else
+      CFLAGS+=-O2 -flto -Wstrict-aliasing -fstrict-aliasing
+    endif
   endif
+  ifneq (,$(findstring clang,$(CC)))
+    CFLAGS=$(CLANGFLAGS) -std=gnu18
+    CXXFLAGS=$(CLANGFLAGS) -std=gnu++14 -Wsuggest-override -Wplacement-new=2
+
+    ifeq ($(build_type),debug)
+      CFLAGS+=-g -Og -fsanitize=address -fsanitize=leak -fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fsanitize-address-use-after-scope -fstack-protector-all #-fsanitize=pointer-compare -fsanitize=pointer-subtract
+  	  ifdef coverage
+  	    CFLAGS+=--coverage
+  	  endif
+    else
+      CFLAGS+=-O2
+    endif
+  endif
+endif
+
+###############################################
+
+ifneq (,$(findstring avr,$(platform)))
+  CC=avr-gcc
+  CFLAGS=$(GCCFLAGS) -std=c18 -mmcu=$(platform)
+  CXXFLAGS=$(GCCFLAGS) -std=c++17 -Wsuggest-override -Wplacement-new=2
   ifeq ($(build_type),debug)
     CFLAGS+=-g -Og
-    ifneq (,$(findstring avr,$(CC)))
-    else
-      CFLAGS+=-fsanitize=address -fsanitize=leak -fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fsanitize-address-use-after-scope -fstack-protector-all #-fsanitize=pointer-compare -fsanitize=pointer-subtract
-	  ifdef coverage
-		CFLAGS+=--coverage
-	  endif
-    endif
   else
     CFLAGS+=-O2 -flto -Wstrict-aliasing -fstrict-aliasing
   endif
 endif
 
-ifneq (,$(findstring clang,$(CC)))
-  CLANGFLAGS=-Werror -Wall -Wextra
-  CLANGFLAGS+=-Wdouble-promotion -Winit-self -Wmissing-include-dirs -Wswitch-default -Wswitch-enum -Wuninitialized -Wfloat-equal -Wshadow -Wundef -Wbad-function-cast
-  CFLAGS=$(CLANGFLAGS) -std=gnu18
-  CXXFLAGS=$(CLANGFLAGS) -std=gnu++14 -Wsuggest-override -Wplacement-new=2
+ifeq ($(platform),arm)
+  CC=arm-none-eabi-gcc
+  CFLAGS=$(GCCFLAGS) -std=c18
+  CXXFLAGS=$(GCCFLAGS) -std=c++17 -Wsuggest-override -Wplacement-new=2
   ifeq ($(build_type),debug)
-    CFLAGS+=-g -Og -fsanitize=address -fsanitize=leak -fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fsanitize-address-use-after-scope -fstack-protector-all #-fsanitize=pointer-compare -fsanitize=pointer-subtract
-	ifdef coverage
-	  CFLAGS+=--coverage
-	endif
+    CFLAGS+=-g -Og
   else
-    CFLAGS+=-O2
+    CFLAGS+=-O2 -flto -Wstrict-aliasing -fstrict-aliasing
   endif
 endif
+
+###############################################
 
 LDFLAGS=$(CFLAGS)
 CFLAGS+=-Isrc/
