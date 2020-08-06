@@ -45,7 +45,7 @@ endif
 ifneq (,$(findstring avr,$(platform)))
   CC=avr-gcc
   CFLAGS=$(GCCFLAGS) -std=c18 -mmcu=$(platform)
-  CXXFLAGS=$(GCCFLAGS) -std=c++17 -Wsuggest-override -Wplacement-new=2
+  CXXFLAGS=$(GCCFLAGS) -std=c++17 -Wsuggest-override -Wplacement-new=2 -mmcu=$(platform)
   ifeq ($(build_type),debug)
     CFLAGS+=-g -Og
   else
@@ -53,10 +53,10 @@ ifneq (,$(findstring avr,$(platform)))
   endif
 endif
 
-ifeq ($(platform),arm)
+ifneq (,$(findstring cortex,$(platform)))
   CC=arm-none-eabi-gcc
-  CFLAGS=$(GCCFLAGS) -std=c18
-  CXXFLAGS=$(GCCFLAGS) -std=c++17 -Wsuggest-override -Wplacement-new=2
+  CFLAGS=$(GCCFLAGS) -std=c18 -mcpu=$(platform)
+  CXXFLAGS=$(GCCFLAGS) -std=c++17 -Wsuggest-override -Wplacement-new=2-mcpu=$(platform)
   ifeq ($(build_type),debug)
     CFLAGS+=-g -Og
   else

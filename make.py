@@ -138,12 +138,22 @@ def main():
 
     available_targets = [
         "all",
+        "default",
         "native_gcc",
         "native_clang",
         "avr5_gcc",
         "avr6_gcc",
         "avrxmega3_gcc",
-        "arm_gcc",
+        "cortex-m0_gcc",
+        "cortex-m3_gcc",
+        "cortex-m4_gcc",
+        "cortex-m7_gcc",
+    ]
+    default_targets = [
+        "native_gcc",
+        "native_clang",
+        "avr5_gcc",
+        "cortex-m0_gcc",
     ]
 
     parser = argparse.ArgumentParser(
@@ -151,9 +161,9 @@ def main():
     )
     parser.add_argument(
         "targets",
-        help="Targets to build",
+        help="Targets to build; defaults: {}".format(default_targets),
         nargs="*",
-        default="all",
+        default="default",
         choices=available_targets,
     )
     parser.add_argument(
@@ -174,9 +184,18 @@ def main():
     args = parser.parse_args()
 
     targets = args.targets
-    if "all" in targets:
+
+    print(targets)
+    if type(targets) == str:
+        targets = default_targets
+    elif "all" in targets:
         targets = available_targets
         targets.remove("all")
+        targets.remove("default")
+    elif "default" in targets:
+        targets += default_targets
+        targets.remove("default")
+    print(targets)
 
     if args.coverage:
         args.unittest = True
