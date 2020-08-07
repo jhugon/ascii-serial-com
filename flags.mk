@@ -3,10 +3,10 @@ $(info CC is ${CC})
 $(info build_type is ${build_type})
 $(info platform is ${platform} )
 
-GCCFLAGS=-Wall -Wextra
+GCCFLAGS=-Werror -Wall -Wextra
 GCCFLAGS+=-Wdouble-promotion -Wformat=2 -Wformat-signedness -Winit-self -Wmissing-include-dirs -Wswitch-default -Wswitch-enum -Wuninitialized -Wtrampolines -Wfloat-equal -Wshadow -Wundef -Wbad-function-cast
 
-CLANGFLAGS=-Wall -Wextra
+CLANGFLAGS=-Werror -Wall -Wextra
 CLANGFLAGS+=-Wdouble-promotion -Winit-self -Wmissing-include-dirs -Wswitch-default -Wswitch-enum -Wuninitialized -Wfloat-equal -Wshadow -Wundef -Wbad-function-cast
 
 ifeq ($(platform),native)

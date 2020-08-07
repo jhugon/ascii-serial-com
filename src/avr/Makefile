@@ -1,5 +1,5 @@
 
-atmega328pfirmware=src/avr/blink
+atmega328pfirmware=src/avr/arduino_uno_blink
 
 CFLAGSatmega328p=$(subst -mmcu=avr5,-mmcu=atmega328p,$(CFLAGS))
 
