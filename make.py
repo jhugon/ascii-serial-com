@@ -134,6 +134,36 @@ def run_python_unit_tests():
     return success, stdout
 
 
+def print_FW_size(targets):
+    env = os.environ.copy()
+    exe_path = env["PATH"]
+    exe_path = os.path.abspath("tools/avr-install/bin") + ":" + exe_path
+    env["PATH"] = exe_path
+    all_fwfiles = []
+    for target in sorted(targets):
+        for build_type in ["debug", "opt"]:
+            target_list = target.split("_")
+            assert len(target_list) == 2
+            platform = target_list[0]
+            if not ("avr" in platform):
+                continue
+            CC = target_list[1]
+            outdir = "build/{}_{}_{}".format(platform, CC, build_type)
+            outdir = os.path.abspath(outdir)
+            outfiles = os.listdir(outdir)
+            fwfiles = [os.path.join(outdir, x) for x in outfiles if x[-2:] != ".a"]
+            all_fwfiles += fwfiles
+    if len(all_fwfiles) == 0:
+        return
+    cmpltProc = subprocess.run(
+        ["avr-size", "-G"] + all_fwfiles,
+        env=env,
+        # stdout=subprocess.PIPE,
+        # stderr=subprocess.STDOUT,
+        text=True,
+    )
+
+
 def main():
 
     available_targets = [
@@ -232,6 +262,8 @@ def main():
     integrationTestsPass = False
     if args.integrationtest:
         integrationTestsPass, testOutput = run_integration_tests()
+
+    print_FW_size(targets)
 
     if args.unittest or args.integrationtest:
         print()
