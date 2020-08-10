@@ -10,6 +10,10 @@
   exit(1);
 #endif
 
+#ifdef __AVR
+#define CEXCEPTION_NONE (0x5A5A)
+#endif
+
 #include "externals/CException.h"
 
 enum asc_exception {
