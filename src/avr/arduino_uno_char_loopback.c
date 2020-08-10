@@ -12,7 +12,7 @@ int main(void) {
   USART1_Init(MYUBRR);
 
   while (1) {
-    byteBuffer = USART1_Rx(0);
+    USART1_Rx(byteBuffer);
     USART1_Tx(byteBuffer);
   }
   return 0;
