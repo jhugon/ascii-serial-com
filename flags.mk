@@ -49,7 +49,7 @@ ifneq (,$(findstring avr,$(platform)))
   ifeq ($(build_type),debug)
     CFLAGS+=-g -Og
   else
-    CFLAGS+=-O2 -flto -Wstrict-aliasing -fstrict-aliasing
+    CFLAGS+=-Os -flto -Wstrict-aliasing -fstrict-aliasing
   endif
 endif
 
@@ -60,7 +60,7 @@ ifneq (,$(findstring cortex,$(platform)))
   ifeq ($(build_type),debug)
     CFLAGS+=-g -Og
   else
-    CFLAGS+=-O2 -flto -Wstrict-aliasing -fstrict-aliasing
+    CFLAGS+=-Os -flto -Wstrict-aliasing -fstrict-aliasing
   endif
 endif
 
