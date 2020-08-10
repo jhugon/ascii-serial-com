@@ -9,11 +9,11 @@ uint8_t byteBuffer;
 
 int main(void) {
 
-  USART1_Init(MYUBRR);
+  USART0_Init(MYUBRR);
 
   while (1) {
-    USART1_Rx(byteBuffer);
-    USART1_Tx(byteBuffer);
+    USART0_Rx(byteBuffer);
+    USART0_Tx(byteBuffer);
   }
   return 0;
 }

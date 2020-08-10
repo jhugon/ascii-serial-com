@@ -1,5 +1,5 @@
 
-atmega328pfirmware=src/avr/arduino_uno_blink src/avr/arduino_uno_char_loopback
+atmega328pfirmware=src/avr/arduino_uno_blink src/avr/arduino_uno_char_loopback src/avr/arduino_uno_cb_loopback
 
 atmega2560firmware=src/avr/arduino_mega2560_blink
 
@@ -15,10 +15,10 @@ ifeq ($(platform),avr6) # atmega2560
   outavrfirmware+=$(addprefix $(builddir),$(notdir $(avrfirmware)))
 endif
 
-$(atmega328pfirmware): %: %.c
+$(atmega328pfirmware): %: %.c src/libasciiserialcom.a src/externals/libthrowtheswitch.a
 	avr-gcc $(CFLAGSatmega328p) -o $@ $^
 
-$(atmega2560firmware): %: %.c
+$(atmega2560firmware): %: %.c src/libasciiserialcom.a src/externals/libthrowtheswitch.a
 	avr-gcc $(CFLAGSatmega2560) -o $@ $^
 
 $(outavrfirmware): $(builddir)%: src/avr/% | $(builddir)

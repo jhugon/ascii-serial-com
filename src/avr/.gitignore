@@ -1,3 +1,4 @@
-arduino_uno_blink
-arduino_mega2560_blink
-arduino_uno_char_loopback
+*
+!*.c
+!*.h
+!Makefile
