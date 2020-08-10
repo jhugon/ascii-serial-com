@@ -1,5 +1,5 @@
 
-atmega328pfirmware=src/avr/arduino_uno_blink
+atmega328pfirmware=src/avr/arduino_uno_blink src/avr/arduino_uno_char_loopback
 
 atmega2560firmware=src/avr/arduino_mega2560_blink
 
