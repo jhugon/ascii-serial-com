@@ -1,6 +1,8 @@
 #ifndef AVR_UART_H
 #define AVR_UART_H
 
+/** \file */
+
 #include <avr/io.h>
 #include <stdint.h>
 

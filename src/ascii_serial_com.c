@@ -1,6 +1,8 @@
 #include "ascii_serial_com.h"
 #include "compute_crc.h"
 
+/** \file */
+
 #include <inttypes.h>
 //#include <stdio.h>
 

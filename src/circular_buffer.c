@@ -8,6 +8,8 @@
 #include <unistd.h>
 #endif
 
+/** \file */
+
 // Private helper functions
 
 inline void inc_iStart_uint8(circular_buffer_uint8 *buf);

@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+/** \file */
+
 #define inflags(cb_io) cb_io->fds[0].revents
 #define outflags(cb_io) cb_io->fds[1].revents
 #define outsetflags(cb_io) cb_io->fds[1].events

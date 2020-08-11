@@ -50,3 +50,5 @@ needs to be parsed after input reads.
 ## Required Software
 
 gcc, clang, gcovr, python 3.5+
+
+for documentation: doxygen, LaTeX

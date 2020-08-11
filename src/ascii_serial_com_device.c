@@ -1,5 +1,7 @@
 #include "ascii_serial_com_device.h"
 
+/** \file */
+
 void ascii_serial_com_device_init(
     ascii_serial_com_device *ascd,
     void (*frw)(ascii_serial_com *, char, char, char, char *data, size_t,

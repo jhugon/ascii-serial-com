@@ -1,6 +1,8 @@
 #ifndef ASC_EXCEPTION_H
 #define ASC_EXCEPTION_H
 
+/** \file */
+
 //#define CEXCEPTION_T uint8_t
 //#define CEXCEPTION_NONE 0xFF
 

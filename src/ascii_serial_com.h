@@ -1,6 +1,8 @@
 #ifndef ASCII_SERIAL_COM_H
 #define ASCII_SERIAL_COM_H
 
+/** \file */
+
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>

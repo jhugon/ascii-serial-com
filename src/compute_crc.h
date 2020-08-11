@@ -1,6 +1,8 @@
 #ifndef COMPUTE_CRC_H
 #define COMPUTE_CRC_H
 
+/** \file */
+
 #include <stdint.h>
 #include <stdlib.h>
 

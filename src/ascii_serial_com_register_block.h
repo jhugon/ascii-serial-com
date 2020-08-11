@@ -1,7 +1,9 @@
 #ifndef ASCII_SERIAL_COM_REGISTER_BLOCK_H
 #define ASCII_SERIAL_COM_REGISTER_BLOCK_H
 
-/** \brief ASCII Serial Com Register Block
+/** \file ascii_serial_com_register_block.h
+ *
+ * \brief ASCII Serial Com Register Block
  *
  * Register interface for devices.
  *

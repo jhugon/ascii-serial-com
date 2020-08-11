@@ -1,6 +1,8 @@
 #ifndef CIRCULAR_BUFFER_H
 #define CIRCULAR_BUFFER_H
 
+/** \file */
+
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>

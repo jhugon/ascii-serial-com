@@ -1,11 +1,8 @@
 #ifndef CIRCULAR_BUFFER_IO_FD_POLL_H
 #define CIRCULAR_BUFFER_IO_FD_POLL_H
 
-#include "circular_buffer.h"
-#include <poll.h>
-#include <stdio.h>
-
-/** \brief Circular buffer IO with file descriptor polling
+/** \file
+ * \brief Circular buffer IO with file descriptor polling
  *
  * Usage:
  *
@@ -23,6 +20,10 @@
  * Process data and/or push/pop from circular buffers either after running
  * do_input or after running do_output
  */
+
+#include "circular_buffer.h"
+#include <poll.h>
+#include <stdio.h>
 
 /** \brief Circular buffer IO with file descriptor polling struct
  *

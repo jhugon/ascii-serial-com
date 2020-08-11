@@ -1,7 +1,8 @@
 #ifndef ASCII_SERIAL_COM_DEVICE_H
 #define ASCII_SERIAL_COM_DEVICE_H
 
-/** \brief ASCII Serial Com Device
+/** \file ascii_serial_com_device.h
+ * \brief ASCII Serial Com Device
  *
  */
 

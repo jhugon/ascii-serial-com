@@ -1,5 +1,7 @@
 #include "compute_crc.h"
 
+/** \file */
+
 // Automatically generated CRC function
 // polynomial: 0x13D65, bit reverse algorithm
 // From crcmod predefined CRC-16-DNP

@@ -2,6 +2,8 @@
 #include "asc_exception.h"
 #include <assert.h>
 
+/** \file */
+
 #if REGWIDTHBYTES == 1
 #define put_val_into_bytes(x, b) convert_uint8_to_hex(x, (b), true)
 #define get_val_from_bytes(b) convert_hex_to_uint8((b))
