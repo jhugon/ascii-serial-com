@@ -164,6 +164,15 @@ def print_FW_size(targets):
     )
 
 
+def run_doxygen():
+    cmpltProc = subprocess.run(
+        ["doxygen", "doc/Doxyfile"],
+        # stdout=subprocess.PIPE,
+        # stderr=subprocess.STDOUT,
+        # text=True,
+    )
+
+
 def main():
 
     available_targets = [
@@ -209,6 +218,12 @@ def main():
         "--coverage",
         "-c",
         help="Collect coverage info when unittests are performed (sets -u)",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--doxygen",
+        "-d",
+        help="Build Doxygen source documentation",
         action="store_true",
     )
     args = parser.parse_args()
@@ -262,6 +277,9 @@ def main():
     integrationTestsPass = False
     if args.integrationtest:
         integrationTestsPass, testOutput = run_integration_tests()
+
+    if args.doxygen:
+        run_doxygen()
 
     print_FW_size(targets)
 
