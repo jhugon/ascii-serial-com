@@ -4,6 +4,10 @@ Serial communication library between computers and microcontrollers, FPGAs,
 etc. Uses only ASCII. Not the most efficient protocol, but meant to be easy to
 read.
 
+## How to flash:
+
+  avrdude -p atmega328p -c arduino -P /dev/ttyACM0 -Uflash:w:build/avr5_gcc_debug/arduino_uno_blink
+
 ## Transmit/Receive Data Interface
 
 Will need to be able to transmit and receive messages. This could mean just
