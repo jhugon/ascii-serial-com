@@ -17,7 +17,7 @@
 
 void ascii_serial_com_register_pointers_init(
     ascii_serial_com_register_pointers *register_pointers_state,
-    REGTYPE **pointers, REGTYPE *write_masks, uint16_t n_regs) {
+    volatile REGTYPE **pointers, REGTYPE *write_masks, uint16_t n_regs) {
   register_pointers_state->pointers = pointers;
   register_pointers_state->write_masks = write_masks;
   register_pointers_state->n_regs = n_regs;
@@ -41,8 +41,8 @@ void ascii_serial_com_register_pointers_handle_message(
   if (reg_num >= register_pointers_state->n_regs) {
     Throw(ASC_ERROR_REGNUM_OOB);
   }
+  volatile REGTYPE *pointer = register_pointers_state->pointers[reg_num];
   if (command == 'r') {
-    REGTYPE *pointer = register_pointers_state->pointers[reg_num];
     REGTYPE reg_val = 0;
     if (pointer) {
       reg_val = *pointer;
@@ -54,10 +54,10 @@ void ascii_serial_com_register_pointers_handle_message(
     if (dataLen < 5 + REGWIDTHBYTES) {
       Throw(ASC_ERROR_REGVAL_LEN);
     }
-    REGTYPE *pointer = register_pointers_state->pointers[reg_num];
     if (pointer) {
       REGTYPE new_reg_val = get_val_from_bytes(data + 5);
-      *pointer = new_reg_val;
+      REGTYPE mask = register_pointers_state->write_masks[reg_num];
+      *pointer = (new_reg_val & mask) | (*pointer & ~mask);
     }
     dataLen = 4;
   }

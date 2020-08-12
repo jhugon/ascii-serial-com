@@ -32,7 +32,6 @@
  *  0
  * }
  *
- *
  * ascii_serial_com_register_pointers_init(&rps,reg_pointers,reg_write_masks,NREGS);
  *
  */
@@ -51,7 +50,7 @@
  *
  */
 typedef struct ascii_serial_com_register_pointers_struct {
-  REGTYPE *
+  volatile REGTYPE *
       *pointers; /**< points to start of block of register pointers of memory */
   REGTYPE *write_masks; /**< points to start of block write masks */
   uint16_t n_regs; /**< number of registers (number of registers not necessarily
@@ -66,7 +65,8 @@ typedef struct ascii_serial_com_register_pointers_struct {
  * ascii_serial_com_register_pointers object
  *
  * \param pointers points to an array of pointers to registers (entries may be
- * NULL)
+ * NULL). It's volatile so that it can point to device registers without
+ * reads/writes to them being optimized out.
  *
  * \param an array of write masks. Every one bit in these masks is a bit that
  * may be written to the registers.
@@ -77,7 +77,7 @@ typedef struct ascii_serial_com_register_pointers_struct {
  */
 void ascii_serial_com_register_pointers_init(
     ascii_serial_com_register_pointers *register_pointers_state,
-    REGTYPE **pointers, REGTYPE *write_masks, uint16_t n_regs);
+    volatile REGTYPE **pointers, REGTYPE *write_masks, uint16_t n_regs);
 
 /** \brief ASCII Serial Com Register Pointers handle message
  *
