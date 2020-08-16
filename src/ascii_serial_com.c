@@ -162,10 +162,16 @@ void ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
   if (iStop >= size) {
     Throw(ASC_ERROR_INVALID_FRAME_PERIOD);
   }
+  if (iStop >= MAXMESSAGELEN - NCHARCHECKSUM - 1) {
+    Throw(ASC_ERROR_CHECKSUM_PROBLEM);
+  }
   if (iStop <= iStart || iStop - iStart < 4) {
     Throw(ASC_ERROR_INVALID_FRAME_PERIOD);
   }
   for (size_t iElement = iStart; iElement <= iStop; iElement++) {
+    if (iElement >= MAXMESSAGELEN - NCHARCHECKSUM - 1) {
+      Throw(ASC_ERROR_CHECKSUM_PROBLEM);
+    }
     checksumbuffer[iElement - iStart] =
         circular_buffer_get_element_uint8(circ_buf, iElement);
   }

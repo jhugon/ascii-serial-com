@@ -11,7 +11,6 @@ char dataBuffer[MAXDATALEN];
 ascii_serial_com asc;
 
 CEXCEPTION_T e;
-bool rawLoopback;
 char ascVersion, appVersion, command;
 size_t dataLen;
 
@@ -43,7 +42,7 @@ int main(void) {
         }
       }
 
-      if (circular_buffer_get_size_uint8(asc_out_buf) > 0 &&
+      if (!circular_buffer_is_empty_uint8(asc_out_buf) > 0 &&
           USART0_can_write_Tx_data) {
         UDR0 = circular_buffer_pop_front_uint8(asc_out_buf);
       }
