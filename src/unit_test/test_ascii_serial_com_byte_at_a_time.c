@@ -42,12 +42,25 @@ const char *badMessages[nBadMessages] = {
     ">abc.C104\n", // bad checksum
 };
 
-void send_out(uint8_t byte) { output_str[i_output_str++] = (char)byte; }
+void send_out(uint8_t byte) {
+  if (i_output_str < MAXMESSAGELEN) {
+    output_str[i_output_str++] = (char)byte;
+  } else {
+    printf("output_str: %s\n", output_str);
+    TEST_FAIL_MESSAGE(
+        "trying to send message larger than MAXMESSAGELEN using send_out");
+  }
+}
+
 uint8_t receive_in(void) {
-  if (anything_to_receive()) {
+  if (anything_to_receive() && i_input_str < MAXMESSAGELEN) {
     return (uint8_t)input_str[i_input_str++];
-  } else
+  } else {
+    printf("input_str: %s\n", input_str);
+    TEST_FAIL_MESSAGE(
+        "trying to receive_in when nothing to receive (problem in test code?)");
     return 0xFF;
+  }
 }
 
 bool anything_to_receive(void) { return i_input_str < input_str_size; }
@@ -207,6 +220,8 @@ void test_ascii_serial_com_loopback_random_order_bad_messages(void) {
       setup_inout_strs(messages[iMessage]);
       thisMessage = messages[iMessage];
     }
+    //    printf("iTry: %zu isBad: %d thisMessage:
+    //    %s\n",iTry,isBadMessage,thisMessage);
     while (anything_to_receive() || !circular_buffer_is_empty_uint8(out_buf) ||
            iExtraIters < 15) {
       Try {
@@ -228,15 +243,19 @@ void test_ascii_serial_com_loopback_random_order_bad_messages(void) {
               !circular_buffer_is_empty_uint8(out_buf))) {
           iExtraIters++;
         }
-        // printf("######################################\n");
-        // printf("iExtraIters: %zu\n",iExtraIters);
-        // circular_buffer_print_uint8(in_buf,stdout);
-        // circular_buffer_print_uint8(out_buf,stdout);
+        //        printf("######################################\n");
+        //        printf("iExtraIters: %zu\n",iExtraIters);
+        //        circular_buffer_print_uint8(in_buf,stdout);
+        //        circular_buffer_print_uint8(out_buf,stdout);
       }
       Catch(e1) {
-        if (e1 != 13) {
+        if (e1 == ASC_ERROR_INVALID_FRAME_PERIOD) {
+          printf("Uncaught exception: ASC_ERROR_INVALID_FRAME_PERIOD\n");
+          // TEST_FAIL_MESSAGE("Uncaught exception
+          // ASC_ERROR_INVALID_FRAME_PERIOD!");
+        } else {
           printf("Uncaught exception: %u\n", e1);
-          // TEST_FAIL_MESSAGE("Uncaught exception!");
+          TEST_FAIL_MESSAGE("Uncaught exception!");
         }
       }
     }
@@ -247,9 +266,7 @@ void test_ascii_serial_com_loopback_random_order_bad_messages(void) {
       // printf("Observed: '%s'\n",output_str);
       // circular_buffer_print_uint8(in_buf,stdout);
       // circular_buffer_print_uint8(out_buf,stdout);
-      if (iTry == nTries - 1) {
-        TEST_ASSERT_EQUAL_STRING(thisMessage, output_str);
-      }
+      TEST_ASSERT_EQUAL_STRING(thisMessage, output_str);
     }
   }
 }

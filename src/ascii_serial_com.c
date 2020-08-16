@@ -7,6 +7,7 @@
 //#include <stdio.h>
 
 #define error_message_data_len 12
+#define max_remove_unfinished_frames_tries 10
 
 void ascii_serial_com_init(ascii_serial_com *asc) {
 
@@ -66,6 +67,13 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
     *dataLen = 0;
     return;
   }
+  size_t iPeriod = circular_buffer_find_first_uint8(&asc->in_buf, '.');
+  if (iPeriod > iEnd) {
+    for (size_t i = 0; i <= iEnd; i++) {
+      circular_buffer_pop_front_uint8(&asc->in_buf); // pop off bad frame
+    }
+    Throw(ASC_ERROR_INVALID_FRAME_PERIOD);
+  }
   ascii_serial_com_compute_checksum(asc, computeChecksum, false);
   // fprintf(stderr,"Received message: \n");
   // circular_buffer_print_uint8(&asc->in_buf,stderr);
@@ -74,7 +82,7 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
   *appVersion = circular_buffer_pop_front_uint8(&asc->in_buf);
   *command = circular_buffer_pop_front_uint8(&asc->in_buf);
   *dataLen = 0;
-  for (size_t iData = 0; iData < MAXDATALEN; iData++) {
+  for (size_t iData = 0; iData < iPeriod - 4; iData++) {
     char dataByte = circular_buffer_pop_front_uint8(&asc->in_buf);
     if (dataByte == '.') {
       break;
@@ -82,21 +90,9 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
     data[iData] = dataByte;
     *dataLen += 1;
   }
-  if (*dataLen == MAXDATALEN &&
-      circular_buffer_pop_front_uint8(&asc->in_buf) != '.') {
-    //// never found '.', so bad message
-    // fprintf(stderr, "Error invalid message frame (no '.' found)\n");
-    circular_buffer_pop_front_uint8(
-        &asc->in_buf); // pop off starting '>' to move to next frame
-    Throw(ASC_ERROR_INVALID_FRAME_PERIOD);
-    //*command = '\0';
-    //*dataLen = 0;
-    // return;
-  }
+  circular_buffer_pop_front_uint8(&asc->in_buf); // pop off '.'
   if (circular_buffer_get_size_uint8(&asc->in_buf) < NCHARCHECKSUM + 1 ||
       circular_buffer_get_element_uint8(&asc->in_buf, NCHARCHECKSUM) != '\n') {
-    circular_buffer_pop_front_uint8(
-        &asc->in_buf); // pop off starting '>' to move to next frame
     Throw(ASC_ERROR_INVALID_FRAME);
     // fprintf(stderr, "Error: checksum incorrect length\n");
     //*command = '\0';
@@ -111,16 +107,15 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
     if (receiveChecksum[iChk] != computeChecksum[iChk]) {
       // checksum mismatch!
       //      fprintf(stderr, "Error: checksum mismatch, computed: ");
-      for (size_t i = 0; i < NCHARCHECKSUM; i++) {
-        //        fprintf(stderr, "%c", computeChecksum[i]);
-      }
+      //      for (size_t i = 0; i < NCHARCHECKSUM; i++) {
+      //        fprintf(stderr, "%c", computeChecksum[i]);
+      //      }
       //      fprintf(stderr, ", received: ");
-      for (size_t i = 0; i < NCHARCHECKSUM; i++) {
-        //        fprintf(stderr, "%c", receiveChecksum[i]);
-      }
+      //      for (size_t i = 0; i < NCHARCHECKSUM; i++) {
+      //        fprintf(stderr, "%c", receiveChecksum[i]);
+      //      }
       //      fprintf(stderr, "\n");
-      circular_buffer_pop_front_uint8(
-          &asc->in_buf); // pop off starting '>' to move to next frame
+      circular_buffer_pop_front_uint8(&asc->in_buf); // pop off remaining '\n'
       *command = '\0';
       *dataLen = 0;
       return;
@@ -169,9 +164,6 @@ void ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
     Throw(ASC_ERROR_INVALID_FRAME_PERIOD);
   }
   for (size_t iElement = iStart; iElement <= iStop; iElement++) {
-    if (iElement >= MAXMESSAGELEN - NCHARCHECKSUM - 1) {
-      Throw(ASC_ERROR_CHECKSUM_PROBLEM);
-    }
     checksumbuffer[iElement - iStart] =
         circular_buffer_get_element_uint8(circ_buf, iElement);
   }
