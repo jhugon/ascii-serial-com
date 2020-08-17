@@ -49,7 +49,7 @@ void circular_buffer_init_uint8(circular_buffer_uint8 *circ_buf,
   circ_buf->iStop = 0;
   circ_buf->buffer = buffer;
   for (size_t i = 0; i < capacity; i++) {
-    buffer[i] = 0xAA;
+    buffer[i] = 0x40; // '@'
   }
 }
 

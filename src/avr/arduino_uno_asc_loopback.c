@@ -1,7 +1,9 @@
 #include "asc_exception.h"
 #include "ascii_serial_com.h"
 #include "avr/avr_uart.h"
+#include "avr/interrupt.h"
 #include "circular_buffer.h"
+#include "util/atomic.h"
 
 #include <stdio.h>
 
@@ -9,8 +11,13 @@
 #define BAUD 9600
 #define MYUBRR (FOSC / 16 / BAUD - 1)
 
+#define NCHARINLINE 16
+
 char dataBuffer[MAXDATALEN];
 ascii_serial_com asc;
+
+// uint8_t extraInputBuffer_raw[64];
+// circular_buffer_uint8 extraInputBuffer;
 
 CEXCEPTION_T e;
 char ascVersion, appVersion, command;
@@ -46,11 +53,53 @@ static void print_buffer(const char *title, const circular_buffer_uint8 *cb) {
       printf("%c", el);
     }
   }
+  printf("\n  ");
+  for (size_t i = 0; i < cb->capacity; i++) {
+    char el = cb->buffer[i];
+    if (el == '\n') {
+      printf("\\n");
+    } else {
+      printf("%c", el);
+    }
+  }
+  printf("\n  ");
+  if (cb->iStart == cb->iStop) {
+    for (size_t i = 0; i < cb->capacity; i++) {
+      if (i == cb->iStart) {
+        printf("X");
+      } else {
+        printf(" ");
+      }
+    }
+  } else {
+    for (size_t i = 0; i < cb->capacity; i++) {
+      if (i == cb->iStart) {
+        printf(">");
+      } else if (i == cb->iStop) {
+        printf("<");
+      } else {
+        printf(" ");
+      }
+    }
+  }
   printf("\n");
 }
 
-#define NLINES 16
-#define NCHARINLINE 16
+static void print_memory(const char *title, void *address, size_t nBytes);
+static void print_memory(const char *title, void *address, size_t nBytes) {
+  const size_t nLines = nBytes / NCHARINLINE;
+  printf("%s\n", title);
+  for (size_t iLine = 0; iLine < nLines; iLine++) {
+    printf("%p  ", address + iLine * NCHARINLINE);
+    size_t nCharThisLine = NCHARINLINE;
+    if (iLine == nLines - 1)
+      nCharThisLine = nBytes % NCHARINLINE;
+    for (size_t iChar = 0; iChar < nCharThisLine; iChar++) {
+      printf("%02hhX", *((uint8_t *)(address + iLine * NCHARINLINE + iChar)));
+    }
+    printf("\n");
+  }
+}
 
 int main(void) {
 
@@ -62,7 +111,11 @@ int main(void) {
   circular_buffer_uint8 *asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
   circular_buffer_uint8 *asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
 
+  //  circular_buffer_init_uint8(&extraInputBuffer,64,extraInputBuffer_raw);
+
   USART0_Init(MYUBRR);
+
+  //  sei();
 
   printf("####\n");
   printf("asc loc:                    %p\n", &asc);
@@ -73,56 +126,46 @@ int main(void) {
   printf("asc_in_buf->buffer loc:     %p\n", asc_in_buf->buffer);
   printf("asc_out_buf->buffer loc:    %p\n", asc_out_buf->buffer);
   printf("####\n");
-  for (size_t iLine = 0; iLine < NLINES; iLine++) {
-    printf("%p  ", &asc + iLine * NCHARINLINE);
-    for (size_t iChar = 0; iChar < NCHARINLINE; iChar++) {
-      printf("%02hhX", *((uint8_t *)(&asc + iLine * NCHARINLINE + iChar)));
-    }
-    printf("\n");
-  }
+  print_memory("ASC:", &asc, 256);
   printf("####\n");
-  printf("asc.raw_buffer\n");
-  for (size_t iLine = 0; iLine < 8; iLine++) {
-    printf("%p  ", ((uint8_t *)asc.raw_buffer) + iLine * NCHARINLINE);
-    for (size_t iChar = 0; iChar < NCHARINLINE; iChar++) {
-      printf("%02hhX",
-             *(((uint8_t *)asc.raw_buffer) + iLine * NCHARINLINE + iChar));
-    }
-    printf("\n");
-  }
+  print_memory("asc.raw_buffer", asc.raw_buffer, 128);
   printf("####\n");
-  printf("asc_in_buf.buffer\n");
-  for (size_t iLine = 0; iLine < 4; iLine++) {
-    printf("%p  ", asc_in_buf->buffer + iLine * NCHARINLINE);
-    for (size_t iChar = 0; iChar < NCHARINLINE; iChar++) {
-      printf("%02hhX",
-             *((uint8_t *)(asc_in_buf->buffer + iLine * NCHARINLINE + iChar)));
-    }
-    printf("\n");
-  }
+  print_memory("asc_in_buf.buffer", asc_in_buf->buffer, 64);
   printf("####\n");
-  printf("asc_out_buf.buffer\n");
-  for (size_t iLine = 0; iLine < 4; iLine++) {
-    printf("%p  ", asc_out_buf->buffer + iLine * NCHARINLINE);
-    for (size_t iChar = 0; iChar < NCHARINLINE; iChar++) {
-      printf("%02hhX",
-             *((uint8_t *)(asc_out_buf->buffer + iLine * NCHARINLINE + iChar)));
-    }
-    printf("\n");
-  }
+  print_memory("asc_out_buf.buffer", asc_out_buf->buffer, 64);
   printf("####\n");
 
   while (true) {
     Try {
 
       if (USART0_can_read_Rx_data) {
-        circular_buffer_push_back_uint8(asc_in_buf, UDR0);
+        uint8_t byte = UDR0;
+        if (byte == 0x3F) { // '?'
+          print_buffer("in", asc_in_buf);
+          print_buffer("out", asc_out_buf);
+        } else {
+          circular_buffer_push_back_uint8(asc_in_buf, byte);
+        }
       }
+
+      //      if (!circular_buffer_is_empty_uint8(&extraInputBuffer)) {
+      //        uint8_t byte;
+      //        ATOMIC_BLOCK(ATOMIC_FORCEON) {
+      //          byte = circular_buffer_pop_front_uint8(&extraInputBuffer);
+      //        }
+      //        if (byte == 0x3F) { // '?'
+      //          print_buffer("in", asc_in_buf);
+      //          print_buffer("out", asc_out_buf);
+      //        } else {
+      //            circular_buffer_push_back_uint8(asc_in_buf, byte);
+      //        }
+      //      }
 
       if (!circular_buffer_is_empty_uint8(asc_in_buf)) {
         ascii_serial_com_get_message_from_input_buffer(
             &asc, &ascVersion, &appVersion, &command, dataBuffer, &dataLen);
         if (command != '\0') {
+          printf("Got a message!:\n");
           print_buffer("in", asc_in_buf);
           ascii_serial_com_put_message_in_output_buffer(
               &asc, ascVersion, appVersion, command, dataBuffer, dataLen);
@@ -130,7 +173,7 @@ int main(void) {
         }
       }
 
-      if (!circular_buffer_is_empty_uint8(asc_out_buf) > 0 &&
+      if (!circular_buffer_is_empty_uint8(asc_out_buf) &&
           USART0_can_write_Tx_data) {
         UDR0 = circular_buffer_pop_front_uint8(asc_out_buf);
       }
@@ -140,3 +183,8 @@ int main(void) {
 
   return 0;
 }
+
+// ISR(USART_RX_vect) {
+//    char c = UDR0;
+//    circular_buffer_push_back_uint8(&extraInputBuffer,c);
+//}
