@@ -32,8 +32,14 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
     prompt = "(ASCII Serial Com) "
     file = None
 
-    def __init__(self, fin, fout, registerBitWidth):
-        self.asc = Ascii_Serial_Com(fin, fout, registerBitWidth, crcFailBehavior="warn")
+    def __init__(self, fin, fout, registerBitWidth, printMessages):
+        self.asc = Ascii_Serial_Com(
+            fin,
+            fout,
+            registerBitWidth,
+            crcFailBehavior="warn",
+            printMessages=printMessages,
+        )
         super().__init__()
 
     def _to_int(self, s):
@@ -146,6 +152,12 @@ def main():
         default=32,
         help="Device register bit width (default: 32)",
     )
+    parser.add_argument(
+        "--printMessages",
+        "-p",
+        action="store_true",
+        help="Print each message sent or received",
+    )
 
     args = parser.parse_args()
 
@@ -157,4 +169,6 @@ def main():
 
     with open(outFname, "wb", buffering=0) as fout:
         with open(inFname, "rb", buffering=0) as fin:
-            Ascii_Serial_Com_Shell(fin, fout, args.registerBitWidth).cmdloop()
+            Ascii_Serial_Com_Shell(
+                fin, fout, args.registerBitWidth, args.printMessages
+            ).cmdloop()

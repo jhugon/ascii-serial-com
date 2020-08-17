@@ -30,6 +30,7 @@ class Ascii_Serial_Com(object):
         ascVersionMismatchThrow=True,
         appVersionMismatchThrow=False,
         sleepIfNothingReadTime=0.1,
+        printMessages=False,
     ):
         """
         fin: binary file object streaming from the device
@@ -66,6 +67,7 @@ class Ascii_Serial_Com(object):
         self.ascVersionMismatchThrow = ascVersionMismatchThrow
         self.appVersionMismatchThrow = appVersionMismatchThrow
         self.sleepIfNothingReadTime = sleepIfNothingReadTime
+        self.printMessages = printMessages
         self.nBytesT = 0
         self.nBytesR = 0
         self.nCrcErrors = 0
@@ -151,7 +153,12 @@ class Ascii_Serial_Com(object):
         returns None
         """
         message = self._pack_message(command, data)
-        # print("send_message: command: {} data: {} message: {}".format(command,data,message))
+        if self.printMessages:
+            print(
+                "send_message: command: {} data: {} message: {}".format(
+                    command, data, message
+                )
+            )
         self.fout.write(message)
         self.fout.flush()
 
@@ -171,6 +178,8 @@ class Ascii_Serial_Com(object):
         frame = self._frame_from_stream(timeout)
         if frame is None:
             return None, None, None, None
+        if self.printMessages:
+            print("received message: {}".format(frame))
         ascVersion, appVersion, command, data = self._unpack_message(frame)
         ascVersion = bytes(ascVersion)
         appVersion = bytes(appVersion)
