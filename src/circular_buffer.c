@@ -48,6 +48,9 @@ void circular_buffer_init_uint8(circular_buffer_uint8 *circ_buf,
   circ_buf->iStart = 0;
   circ_buf->iStop = 0;
   circ_buf->buffer = buffer;
+  for (size_t i = 0; i < capacity; i++) {
+    buffer[i] = 0xAA;
+  }
 }
 
 size_t circular_buffer_get_size_uint8(const circular_buffer_uint8 *circ_buf) {

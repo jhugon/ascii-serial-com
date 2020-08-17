@@ -14,6 +14,7 @@ void ascii_serial_com_init(ascii_serial_com *asc) {
   circular_buffer_init_uint8(&(asc->in_buf), MAXMESSAGELEN, asc->raw_buffer);
   circular_buffer_init_uint8(&(asc->out_buf), MAXMESSAGELEN,
                              asc->raw_buffer + MAXMESSAGELEN);
+  asc->ignoreCRCMismatch = false;
 }
 
 void ascii_serial_com_put_message_in_output_buffer(
@@ -74,7 +75,9 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
     }
     Throw(ASC_ERROR_INVALID_FRAME_PERIOD);
   }
-  ascii_serial_com_compute_checksum(asc, computeChecksum, false);
+  if (!asc->ignoreCRCMismatch) {
+    ascii_serial_com_compute_checksum(asc, computeChecksum, false);
+  }
   // fprintf(stderr,"Received message: \n");
   // circular_buffer_print_uint8(&asc->in_buf,stderr);
   circular_buffer_pop_front_uint8(&asc->in_buf); // pop off starting '>'
@@ -103,22 +106,24 @@ void ascii_serial_com_get_message_from_input_buffer(ascii_serial_com *asc,
   for (size_t iChk = 0; iChk < NCHARCHECKSUM; iChk++) {
     receiveChecksum[iChk] = circular_buffer_pop_front_uint8(&asc->in_buf);
   }
-  for (size_t iChk = 0; iChk < NCHARCHECKSUM; iChk++) {
-    if (receiveChecksum[iChk] != computeChecksum[iChk]) {
-      // checksum mismatch!
-      //      fprintf(stderr, "Error: checksum mismatch, computed: ");
-      //      for (size_t i = 0; i < NCHARCHECKSUM; i++) {
-      //        fprintf(stderr, "%c", computeChecksum[i]);
-      //      }
-      //      fprintf(stderr, ", received: ");
-      //      for (size_t i = 0; i < NCHARCHECKSUM; i++) {
-      //        fprintf(stderr, "%c", receiveChecksum[i]);
-      //      }
-      //      fprintf(stderr, "\n");
-      circular_buffer_pop_front_uint8(&asc->in_buf); // pop off remaining '\n'
-      *command = '\0';
-      *dataLen = 0;
-      return;
+  if (!asc->ignoreCRCMismatch) {
+    for (size_t iChk = 0; iChk < NCHARCHECKSUM; iChk++) {
+      if (receiveChecksum[iChk] != computeChecksum[iChk]) {
+        // checksum mismatch!
+        //      fprintf(stderr, "Error: checksum mismatch, computed: ");
+        //      for (size_t i = 0; i < NCHARCHECKSUM; i++) {
+        //        fprintf(stderr, "%c", computeChecksum[i]);
+        //      }
+        //      fprintf(stderr, ", received: ");
+        //      for (size_t i = 0; i < NCHARCHECKSUM; i++) {
+        //        fprintf(stderr, "%c", receiveChecksum[i]);
+        //      }
+        //      fprintf(stderr, "\n");
+        circular_buffer_pop_front_uint8(&asc->in_buf); // pop off remaining '\n'
+        *command = '\0';
+        *dataLen = 0;
+        return;
+      }
     }
   }
   circular_buffer_pop_front_uint8(&asc->in_buf); // pop off trailing '\n'
@@ -189,6 +194,14 @@ void ascii_serial_com_put_error_in_output_buffer(ascii_serial_com *asc,
   }
   ascii_serial_com_put_message_in_output_buffer(asc, ascVersion, appVersion,
                                                 'e', outData, outDataLen);
+}
+
+void ascii_serial_com_set_ignore_CRC_mismatch(ascii_serial_com *asc) {
+  asc->ignoreCRCMismatch = true;
+}
+
+void ascii_serial_com_unset_ignore_CRC_mismatch(ascii_serial_com *asc) {
+  asc->ignoreCRCMismatch = false;
 }
 
 /////////////////////////////////////////////////////

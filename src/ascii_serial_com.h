@@ -55,6 +55,7 @@ typedef struct ascii_serial_com_struct {
   circular_buffer_uint8 out_buf; /**< Output buffer */
   uint8_t
       raw_buffer[2 * MAXMESSAGELEN]; /**< Raw buffer used by circular buffers */
+  bool ignoreCRCMismatch; /**< if true, ignore CRC errors. default false */
 } ascii_serial_com;
 
 /** \brief ASCII Serial Com Interface init method
@@ -158,6 +159,10 @@ void ascii_serial_com_put_error_in_output_buffer(ascii_serial_com *asc,
                                                  char appVersion, char command,
                                                  char *data, size_t dataLen,
                                                  enum asc_exception errorCode);
+
+void ascii_serial_com_set_ignore_CRC_mismatch(ascii_serial_com *asc);
+
+void ascii_serial_com_unset_ignore_CRC_mismatch(ascii_serial_com *asc);
 
 ////////////////////////////////////////////////////
 ////////////////////////////////////////////////////
