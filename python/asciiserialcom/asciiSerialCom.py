@@ -12,6 +12,38 @@ from .ascErrors import *
 from .circularBuffer import Circular_Buffer_Bytes
 
 
+class ASC_Message(object):
+    """
+    Struct-type class to hold a message
+
+    The user should access members:
+
+    ascVersion
+    appVersion
+    command
+    data
+    """
+
+    def __init__(self, ascVersion, appVersion, command, data):
+        self.ascVersion = ascVersion
+        self.appVersion = appVersion
+        self.command = command
+        self.data = data
+
+    def __bool__(self):
+        if self.command is None:
+            return False
+        return True
+
+    def __eq__(self, other):
+        return (
+            self.ascVersion == other.ascVersion
+            and self.appVersion == other.appVersion
+            and self.command == other.command
+            and self.data == other.data
+        )
+
+
 class Ascii_Serial_Com(object):
     """
     ASCII Serial Com Python Interface Class
@@ -75,6 +107,8 @@ class Ascii_Serial_Com(object):
         self.buffer = Circular_Buffer_Bytes(128)
         self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
 
+        ### Receiver Thread
+
         self.selectorIn = selectors.DefaultSelector()
         self.selectorIn.register(self.fin, selectors.EVENT_READ)
 
@@ -95,11 +129,11 @@ class Ascii_Serial_Com(object):
         self.send_message(b"r", regnum_hex)
         timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.datetime.now() < timeout_time:
-            _, _, command, data = self.receive_message()
-            if command is None:
+            msg = self.receive_message()
+            if not msg:
                 continue
-            if command == b"r":
-                splitdata = data.split(b",")
+            if msg.command == b"r":
+                splitdata = msg.data.split(b",")
                 try:
                     rec_regnum, rec_value = splitdata
                 except ValueError:
@@ -134,11 +168,11 @@ class Ascii_Serial_Com(object):
         self.send_message(b"w", data)
         timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.datetime.now() < timeout_time:
-            _, _, rec_command, rec_data = self.receive_message()
-            if rec_command is None:
+            msg = self.receive_message()
+            if not msg.command:
                 continue
-            if rec_command == b"w":
-                if int(rec_data, 16) == int(regnum_hex, 16):
+            if msg.command == b"w":
+                if int(msg.data, 16) == int(regnum_hex, 16):
                     return
         raise ResponseTimeoutError("Timout while waiting for response")
 
@@ -166,18 +200,16 @@ class Ascii_Serial_Com(object):
         """
         timeout: (optional) time to wait for a reply in seconds. defaults to 100 ms
 
-        returns (ascVersion, appVersion, command, data) all as bytes
-            ascVersion is the ASCII-Serial-Com format version
-            appVersion is a user supplied application version
+        returns a ASC_Message
 
-        if no frame is received, all members of return tuple will be None
+        if no frame is received, all members ASC_Message will be None
 
         """
         if timeout is None:
             timeout = 0.1
         frame = self._frame_from_stream(timeout)
         if frame is None:
-            return None, None, None, None
+            return ASC_Message(None, None, None, None)
         if self.printMessages:
             print("received message: {}".format(frame))
         ascVersion, appVersion, command, data = self._unpack_message(frame)
@@ -197,7 +229,8 @@ class Ascii_Serial_Com(object):
                     appVersion, self.appVersion
                 )
             )
-        return ascVersion, appVersion, command, data
+        msg = ASC_Message(ascVersion, appVersion, command, data)
+        return msg
 
     def getRegisterBitWidth(self):
         return self.registerBitWidth

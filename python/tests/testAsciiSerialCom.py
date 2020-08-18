@@ -1,7 +1,7 @@
 import unittest
 import unittest.mock
 from unittest.mock import patch
-from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
+from asciiserialcom.asciiSerialCom import Ascii_Serial_Com, ASC_Message
 from asciiserialcom.ascErrors import *
 import crcmod
 import datetime
@@ -281,11 +281,14 @@ class TestMessaging(unittest.TestCase):
         asc.selectorIn.select.return_value = [0]
 
         for frame, returnval in [
-            (b">00w.", (b"0", b"0", b"w", b"")),
-            (b">09x.", (b"0", b"9", b"x", b"")),
-            (b">00w0123456789ABCDEF.", (b"0", b"0", b"w", b"0123456789ABCDEF")),
-            (b">0Fw" + b"A" * 56 + b".", (b"0", b"F", b"w", b"A" * 56)),
-            (b">00zERrPhU10mfn.", (b"0", b"0", b"z", b"ERrPhU10mfn")),
+            (b">00w.", ASC_Message(b"0", b"0", b"w", b"")),
+            (b">09x.", ASC_Message(b"0", b"9", b"x", b"")),
+            (
+                b">00w0123456789ABCDEF.",
+                ASC_Message(b"0", b"0", b"w", b"0123456789ABCDEF"),
+            ),
+            (b">0Fw" + b"A" * 56 + b".", ASC_Message(b"0", b"F", b"w", b"A" * 56)),
+            (b">00zERrPhU10mfn.", ASC_Message(b"0", b"0", b"z", b"ERrPhU10mfn")),
         ]:
             with self.subTest(i="frame={}, returnval={}".format(frame, returnval)):
                 frame += "{:04X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"

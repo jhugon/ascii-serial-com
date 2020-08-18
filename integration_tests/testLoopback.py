@@ -60,9 +60,9 @@ class TestTrivialLoopback(unittest.TestCase):
             for testCommand in [b"a", b"b", b"c"]:
                 for testData in [b"", b"abcdefg", b"x" * 54]:
                     asc.send_message(testCommand, testData)
-                    ascVersion, appVersion, command, data = asc.receive_message()
-                    self.assertEqual(testCommand, command)
-                    self.assertEqual(testData, data)
+                    msg = asc.receive_message()
+                    self.assertEqual(testCommand, msg.command)
+                    self.assertEqual(testData, msg.data)
 
     def test_host_device_random(self):
         with subprocess.Popen(
@@ -81,9 +81,9 @@ class TestTrivialLoopback(unittest.TestCase):
                 testData = bytes(random.choices(alphanumeric, k=nData))
                 # print(testCommand,testData)
                 asc.send_message(testCommand, testData)
-                ascVersion, appVersion, command, data = asc.receive_message()
-                self.assertEqual(testCommand, command)
-                self.assertEqual(testData, data)
+                msg = asc.receive_message()
+                self.assertEqual(testCommand, msg.command)
+                self.assertEqual(testData, msg.data)
 
 
 class TestASCLoopback(unittest.TestCase):
@@ -157,9 +157,9 @@ class TestASCLoopback(unittest.TestCase):
             for testCommand in [b"a", b"b", b"c"]:
                 for testData in [b"", b"abcdefg", b"x" * 54]:
                     asc.send_message(testCommand, testData)
-                    ascVersion, appVersion, command, data = asc.receive_message()
-                    self.assertEqual(testCommand, command)
-                    self.assertEqual(testData, data)
+                    msg = asc.receive_message()
+                    self.assertEqual(testCommand, msg.command)
+                    self.assertEqual(testData, msg.data)
 
     def test_host_device_random(self):
         with subprocess.Popen(
@@ -178,6 +178,6 @@ class TestASCLoopback(unittest.TestCase):
                 testData = bytes(random.choices(alphanumeric, k=nData))
                 # print(testCommand,testData)
                 asc.send_message(testCommand, testData)
-                ascVersion, appVersion, command, data = asc.receive_message()
-                self.assertEqual(testCommand, command)
-                self.assertEqual(testData, data)
+                msg = asc.receive_message()
+                self.assertEqual(testCommand, msg.command)
+                self.assertEqual(testData, msg.data)

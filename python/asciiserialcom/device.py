@@ -36,21 +36,21 @@ class Ascii_Serial_Com_Device(object):
         self.registers = [0] * self.nRegisters
 
     def poll(self, timeout=1.0):
-        ascVersion, appVersion, command, data = self.asc.receive_message(timeout)
-        if command is None:
+        msg = self.asc.receive_message(timeout)
+        if not msg:
             return
-        elif command == b"w":
-            regNumB, regValB = data.split(b",")
+        elif msg.command == b"w":
+            regNumB, regValB = msg.data.split(b",")
             regNum = self.asc._convert_from_hex(regNumB)
             regVal = self.asc._convert_from_hex(regValB)
             regValOld = self.registers[regNum]
             self.registers[regNum] = regVal
-            self.asc.send_message(command, regNumB)
+            self.asc.send_message(msg.command, regNumB)
             print(
                 f"Write message received: {regNumB} changed from {regValOld:X} to {regValB}"
             )
-        elif command == b"r":
-            regNum = self.asc._convert_from_hex(data)
+        elif msg.command == b"r":
+            regNum = self.asc._convert_from_hex(msg.data)
             if regNum > 0xFFFF:
                 raise BadRegisterNumberError(
                     f"register number, {regNum} = 0x{regNum:04X}, larger than 0xFFFF"
@@ -60,11 +60,13 @@ class Ascii_Serial_Com_Device(object):
                     f"Only {self.nRegisters} registers; regNum, {regNum} = 0x{regNum:04X}, too big"
                 )
             regVal = self.registers[regNum]
-            response = data + b"," + self.asc._convert_to_hex(regVal)
-            self.asc.send_message(command, response)
+            response = msg.data + b"," + self.asc._convert_to_hex(regVal)
+            self.asc.send_message(msg.command, response)
             print(f"Read message received: {regNum} = 0x{regNum:04X} is {regVal}")
         else:
-            print(f"Warning: received command '{command}', which is not implemented")
+            print(
+                f"Warning: received command '{msg.command}', which is not implemented"
+            )
 
     def printRegisters(self):
         dtstr = datetime.datetime.now().replace(microsecond=0).isoformat(" ")
