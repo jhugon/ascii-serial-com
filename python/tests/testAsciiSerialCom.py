@@ -1,7 +1,8 @@
 import unittest
 import unittest.mock
 from unittest.mock import patch
-from asciiserialcom.asciiSerialCom import Ascii_Serial_Com, ASC_Message
+from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
+from asciiserialcom.ascMessage import ASC_Message
 from asciiserialcom.ascErrors import *
 import crcmod
 import datetime
@@ -65,62 +66,9 @@ class TestConvert(unittest.TestCase):
                 asc._convert_from_hex(x)
 
 
-class TestCRC(unittest.TestCase):
-    def setUp(self):
-        self.fileMock = unittest.mock.MagicMock()
-        self.asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
-        self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
-
-    def test_crc(self):
-        reg_num = 2
-        reg_val = 0x1234567A
-        reply_message = b">00r%02X,%08X." % (reg_num, reg_val)
-        good_crc = "{:04X}".format(self.crcFunc(reply_message)).encode("ascii")
-        self.assertEqual(self.asc._compute_checksum(reply_message), good_crc)
-        self.assertEqual(
-            self.asc._compute_checksum(reply_message + b"aslkdgasbv\n"), good_crc
-        )
-
-    def test_crc_raises(self):
-        asc = self.asc
-        for x in (b"", b"1251235", b">235235", b".", b"235.", b"22235\n", b"\n", b">"):
-            with self.assertRaises(MalformedFrameError):
-                asc._compute_checksum(x)
-
-
 class TestChecks(unittest.TestCase):
     def setUp(self):
         self.fileMock = unittest.mock.MagicMock()
-
-    def test_check_command(self):
-        asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
-
-        for i in [b"w", b"W", bytearray(b"W"), "W"]:
-            with self.subTest(i=i):
-                self.assertEqual(asc._check_command(i), b"w")
-
-        for i in [b"www", b"", 3, b"2"]:
-            with self.subTest(i=i):
-                with self.assertRaises(BadCommandError):
-                    asc._check_command(i)
-
-    def test_check_data(self):
-        asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
-
-        for i in [
-            (b"12345", b"12345"),
-            ("12345", b"12345"),
-            (bytearray(b"12345"), b"12345"),
-            (b"", b""),
-            (b"0" * 56, b"0" * 56),
-        ]:
-            with self.subTest(i=i):
-                self.assertEqual(asc._check_data(b"w", i[0]), i[1])
-
-        for i in [3, 2.4, b"0" * 57, b"0" * 200]:
-            with self.subTest(i=i):
-                with self.assertRaises(BadDataError):
-                    asc._check_data(b"w", i)
 
     def test_check_register_content(self):
 
@@ -179,50 +127,6 @@ class TestFramingAndStreaming(unittest.TestCase):
             now + datetime.timedelta(seconds=i / 10.0) for i in range(100)
         ]
         self.times1s = [now + datetime.timedelta(seconds=i) for i in range(100)]
-
-    def test_pack_message(self):
-        asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
-
-        for args, returnval in [
-            ((b"w", b""), b">00w."),
-            ((b"w", b"0"), b">00w0."),
-            ((b"w", b"00000000"), b">00w00000000."),
-        ]:
-            with self.subTest(i="args={}, returnval={}".format(args, returnval)):
-                returnval += (
-                    "{:04X}".format(self.crcFunc(returnval)).encode("ascii") + b"\n"
-                )
-                self.assertEqual(asc._pack_message(*args), returnval)
-
-    def test_unpack_message(self):
-        asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
-
-        for frame, returnval in [
-            (b">00w.", (b"0", b"0", b"w", b"")),
-            (b">09x.", (b"0", b"9", b"x", b"")),
-            (b">00w0123456789ABCDEF.", (b"0", b"0", b"w", b"0123456789ABCDEF")),
-            (b">0Fw" + b"A" * 56 + b".", (b"0", b"F", b"w", b"A" * 56)),
-        ]:
-            with self.subTest(i="frame={}, returnval={}".format(frame, returnval)):
-                frame += "{:04X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
-                self.assertEqual(asc._unpack_message(frame), returnval)
-
-        frame = b">\n"
-        with self.assertRaises(MalformedFrameError):
-            asc._unpack_message(frame)
-        frame = b">.\n"
-        with self.assertRaises(MessageIntegrityError):
-            asc._unpack_message(frame)
-        frame = b">."
-        frame += "{:04X}".format(self.crcFunc(frame) + 1).encode("ascii") + b"\n"
-        with self.assertRaises(MessageIntegrityError):
-            asc._unpack_message(frame)
-
-        for frame in [b">.", b">00.", b">0w.", b">w.", b""]:
-            with self.subTest(i="frame: {}".format(frame)):
-                frame += "{:04X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
-                with self.assertRaises(MalformedFrameError):
-                    asc._unpack_message(frame)
 
     def test_frame_from_stream(self):
         fileMock = self.fileMock

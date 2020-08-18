@@ -7,41 +7,9 @@ import datetime
 import time
 import io
 import selectors
-import crcmod
 from .ascErrors import *
 from .circularBuffer import Circular_Buffer_Bytes
-
-
-class ASC_Message(object):
-    """
-    Struct-type class to hold a message
-
-    The user should access members:
-
-    ascVersion
-    appVersion
-    command
-    data
-    """
-
-    def __init__(self, ascVersion, appVersion, command, data):
-        self.ascVersion = ascVersion
-        self.appVersion = appVersion
-        self.command = command
-        self.data = data
-
-    def __bool__(self):
-        if self.command is None:
-            return False
-        return True
-
-    def __eq__(self, other):
-        return (
-            self.ascVersion == other.ascVersion
-            and self.appVersion == other.appVersion
-            and self.command == other.command
-            and self.data == other.data
-        )
+from .ascMessage import ASC_Message
 
 
 class Ascii_Serial_Com(object):
@@ -105,7 +73,6 @@ class Ascii_Serial_Com(object):
         self.nCrcErrors = 0
 
         self.buffer = Circular_Buffer_Bytes(128)
-        self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
 
         ### Receiver Thread
 
@@ -186,7 +153,8 @@ class Ascii_Serial_Com(object):
 
         returns None
         """
-        message = self._pack_message(command, data)
+        msg = ASC_Message(self.asciiSerialComVersion, self.appVersion, command, data)
+        message = msg.get_packed()
         if self.printMessages:
             print(
                 "send_message: command: {} data: {} message: {}".format(
@@ -212,24 +180,22 @@ class Ascii_Serial_Com(object):
             return ASC_Message(None, None, None, None)
         if self.printMessages:
             print("received message: {}".format(frame))
-        ascVersion, appVersion, command, data = self._unpack_message(frame)
-        ascVersion = bytes(ascVersion)
-        appVersion = bytes(appVersion)
-        command = bytes(command)
-        data = bytes(data)
-        if ascVersion != self.asciiSerialComVersion and self.ascVersionMismatchThrow:
+        msg = ASC_Message.unpack(frame)
+        if (
+            msg.ascVersion != self.asciiSerialComVersion
+            and self.ascVersionMismatchThrow
+        ):
             raise AsciiSerialComVersionMismatchError(
                 "Message version: {} Expected version: {}".format(
-                    ascVersion, self.asciiSerialComVersion
+                    msg.ascVersion, self.asciiSerialComVersion
                 )
             )
-        if appVersion != self.appVersion and self.appVersionMismatchThrow:
+        if msg.appVersion != self.appVersion and self.appVersionMismatchThrow:
             raise ApplicationVersionMismatchError(
                 "Message version: {} Expected version: {}".format(
-                    appVersion, self.appVersion
+                    msg.appVersion, self.appVersion
                 )
             )
-        msg = ASC_Message(ascVersion, appVersion, command, data)
         return msg
 
     def getRegisterBitWidth(self):
@@ -246,72 +212,6 @@ class Ascii_Serial_Com(object):
             self
         )
         return result
-
-    def _pack_message(self, command, data):
-        """
-        Packs command and data into a frame with checksum
-
-        command: length 1 bytes
-
-        data: data as bytes
-
-        returns data frame as bytes
-        """
-        command = self._check_command(command)
-        data = self._check_data(command, data)
-        message = b">%c%c%c%b." % (
-            self.asciiSerialComVersion,
-            self.appVersion,
-            command,
-            data,
-        )
-        checksum = self._compute_checksum(message)
-        message += checksum + b"\n"
-        return message
-
-    def _unpack_message(self, frame):
-        """
-        Unpacks a data frame into command and data while verifying checksum
-
-        frame: bytes or bytearray
-
-        returns (ascVersion, appVersion, command, data) all as bytes
-            ascVersion is the ASCII-Serial-Com format version
-            appVersion is a user supplied application version
-        """
-        original_frame = frame
-        comp_checksum = self._compute_checksum(frame)
-        frame, checksum = frame.split(b".")
-        checksum = checksum.rstrip(b"\n")
-        if checksum != comp_checksum:
-            self.nCrcErrors += 1
-            if self.crcFailBehavior != "pass":
-                print(
-                    "Checksum mismatch, computed: {} received: {}".format(
-                        comp_checksum, checksum
-                    )
-                )
-                if self.crcFailBehavior == "throw":
-                    raise MessageIntegrityError("Message checksums don't match")
-                elif self.crcFailBehavior == "warn":
-                    pass
-                else:
-                    raise ConfigurationError(
-                        "crcFailBehavior value not understood: ", self.crcFailBehavior
-                    )
-        frame = frame.lstrip(b">")
-        try:
-            ascVersion = frame[0]
-            appVersion = frame[1]
-            command = frame[2]
-            data = frame[3:]
-        except IndexError:
-            raise MalformedFrameError(original_frame)
-        else:
-            ascVersion = chr(ascVersion).encode("ascii")
-            appVersion = chr(appVersion).encode("ascii")
-            command = chr(command).encode("ascii")
-            return ascVersion, appVersion, command, data
 
     def _frame_from_stream(self, timeout):
         """
@@ -338,60 +238,6 @@ class Ascii_Serial_Com(object):
                     if iNewline is None:
                         continue
                 return self.buffer.pop_front(iNewline + 1)
-
-    def _check_command(self, command):
-        """
-        Checks command meets format specification
-
-        command: length 1 byte or bytearray
-
-        returns properly formatted command byte
-
-        raises BadCommandError if not fomatted correctly
-        """
-        if isinstance(command, str):
-            command = command.encode("ascii")
-        if isinstance(command, bytearray):
-            command = bytes(command)
-        if not isinstance(command, bytes):
-            raise BadCommandError(
-                "command argument", command, "isn't bytes, str, or bytearray type"
-            )
-        if len(command) != 1:
-            raise BadCommandError(
-                "command argument should be len 1, is len ", len(command)
-            )
-        if not command.isalpha():
-            raise BadCommandError(
-                "command argument must be an ASCII letter not: ", command
-            )
-        return command.lower()
-
-    def _check_data(self, command, data):
-        """
-        Checks data payload meets format specification for given command
-
-        command: length 1 byte or bytearray
-
-        data: bytes, bytearray, or str data payload of message
-
-        returns None
-
-        raises BadDataError if not fomatted correctly
-        """
-
-        ## since max frame length is 64, and other parts of frame are 8 bytes
-        ## data must be length <= 56
-        if isinstance(data, str):
-            data = data.encode("ascii")
-        if isinstance(data, bytearray):
-            data = bytes(data)
-        if not isinstance(data, bytes):
-            raise BadDataError("Data must be bytes or bytearray")
-        MAXDATALEN = 56
-        if len(data) > MAXDATALEN:
-            raise BadDataError("Data can only be <= len", MAXDATALEN, "is", len(data))
-        return data
 
     def _check_register_number(self, num):
         """
@@ -493,27 +339,6 @@ class Ascii_Serial_Com(object):
                 "content argument", content, "requires more bits than registerBitWidth"
             )
         return content.upper()
-
-    def _compute_checksum(self, frame):
-        """
-        Computes the checksum for the given data frame from the `>' through the `.'
-
-        frame: bytes representing the frame
-
-        returns checksum as hexadecimal (capitals) bytes
-        """
-        if len(frame) == 0:
-            raise MalformedFrameError("Zero length frame")
-        if frame[0] != b">"[0] or ((frame[-1] != b"\n"[0]) and (frame[-1] != b"."[0])):
-            raise MalformedFrameError("Incorrect start and/or end chars: ", frame)
-        if frame.count(b".") != 1:
-            raise MalformedFrameError(
-                "Inproperly formatted frame: no end of data character '.': ", frame
-            )
-        frame = frame.split(b".")[0] + b"."
-        result = "{:04X}".format(self.crcFunc(frame)).encode("ascii")
-        # print("checksum computed to be: ",result)
-        return result
 
     def _convert_to_hex(self, num, N=2):
         """
