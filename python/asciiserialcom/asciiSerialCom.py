@@ -6,7 +6,8 @@ import math
 import datetime
 import time
 import io
-import selectors
+import queue
+import threading
 from .ascErrors import *
 from .circularBuffer import Circular_Buffer_Bytes
 from .ascMessage import ASC_Message
@@ -76,10 +77,12 @@ class Ascii_Serial_Com(object):
 
         ### Receiver Thread
 
-        self.selectorIn = selectors.DefaultSelector()
-        self.selectorIn.register(self.fin, selectors.EVENT_READ)
+        self.receiver_thread = threading.Thread(self.receiver_loop)
+        self.receiver_queue_w = queue.Queue()
+        self.receiver_queue_r = queue.Queue()
+        self.receiver_queue_s = queue.Queue()
 
-    def read_register(self, regnum, timeout=None):
+    def read_register(self, regnum, timeout=1):
         """
         Read register on device
 
@@ -89,16 +92,16 @@ class Ascii_Serial_Com(object):
 
         returns register content as bytes
         """
-        if timeout is None:
-            timeout = 1.0
 
         regnum_hex = self._check_register_number(regnum)
         self.send_message(b"r", regnum_hex)
-        timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
-        while datetime.datetime.now() < timeout_time:
-            msg = self.receive_message()
-            if not msg:
-                continue
+        try:
+            msg = self.receiver_queue_r.get(timeout=timeout)
+        except Queue.Empty:
+            raise ResponseTimeoutError(
+                f"Timout while waiting for response to read {regnum} timeout={timeout} s"
+            )
+        else:
             if msg.command == b"r":
                 splitdata = msg.data.split(b",")
                 try:
@@ -107,11 +110,31 @@ class Ascii_Serial_Com(object):
                     raise BadDataError(
                         f"read response data, {data!r}, can't be split into a reg num and reg val (no comma!)"
                     )
-                if int(rec_regnum, 16) == int(regnum_hex, 16):
-                    return rec_value
-        raise ResponseTimeoutError("Timout while waiting for response")
+                else:
+                    if int(rec_regnum, 16) == int(regnum_hex, 16):
+                        return rec_value
+        # get here because got a non 'r' or wrong regnum message
+        # read all messages in queue until one is correct or queue is empty
+        while True:
+            try:
+                msg = self.receiver_queue_r.get_nowait()
+                if msg.command == b"r":
+                    splitdata = msg.data.split(b",")
+                    try:
+                        rec_regnum, rec_value = splitdata
+                    except ValueError:
+                        raise BadDataError(
+                            f"read response data, {data!r}, can't be split into a reg num and reg val (no comma!)"
+                        )
+                    else:
+                        if int(rec_regnum, 16) == int(regnum_hex, 16):
+                            return rec_value
+            except Queue.Empty:
+                raise ResponseTimeoutError(
+                    f"Timout while waiting for response to read {regnum} timeout={timeout} s"
+                )
 
-    def write_register(self, regnum, content, timeout=None):
+    def write_register(self, regnum, content, timeout=1):
         """
         write register on device
 
@@ -127,21 +150,32 @@ class Ascii_Serial_Com(object):
 
         raises exception if not success
         """
-        if timeout is None:
-            timeout = 1.0
         regnum_hex = self._check_register_number(regnum)
         content_hex = self._check_register_content(content)
         data = regnum_hex + b"," + content_hex
         self.send_message(b"w", data)
-        timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
-        while datetime.datetime.now() < timeout_time:
-            msg = self.receive_message()
-            if not msg.command:
-                continue
-            if msg.command == b"w":
-                if int(msg.data, 16) == int(regnum_hex, 16):
-                    return
-        raise ResponseTimeoutError("Timout while waiting for response")
+        try:
+            msg = self.receiver_queue_w.get(timeout=timeout)
+        except Queue.Empty:
+            raise ResponseTimeoutError(
+                f"Timout while waiting for response to write {regnum} {content} timeout={timeout} s"
+            )
+        else:
+            if msg.command == b"w" and int(msg.data, 16) == int(regnum_hex, 16):
+                return
+            else:
+                # read all messages in queue until one is correct or queue is empty
+                while True:
+                    try:
+                        msg = self.receiver_queue_w.get_nowait()
+                        if msg.command == b"w" and int(msg.data, 16) == int(
+                            regnum_hex, 16
+                        ):
+                            return
+                    except Queue.Empty:
+                        raise ResponseTimeoutError(
+                            f"Timout while waiting for response to write {regnum} {content} timeout={timeout} s"
+                        )
 
     def send_message(self, command, data):
         """
@@ -164,18 +198,44 @@ class Ascii_Serial_Com(object):
         self.fout.write(message)
         self.fout.flush()
 
-    def receive_message(self, timeout=None):
+    def receiver_loop(self):
+        while True:
+            msg = self._receive_message()
+            if msg:
+                if msg.command == "w":
+                    self.receiver_queue_w.put(msg)
+                elif msg.command == "r":
+                    self.receiver_queue_r.put(msg)
+                elif msg.command == "s":
+                    self.receiver_queue_s.put(msg)
+                else:
+                    pass
+
+    def getRegisterBitWidth(self):
+        return self.registerBitWidth
+
+    def getRegisterByteWidth(self):
+        return self.registerByteWidth
+
+    def __str__(self):
+        result = """Ascii_Serial_Com Object:
+  Register width: {0.registerBitWidth:} bits, {0.registerByteWidth} bytes
+  N CRC Errors: {0.nCrcErrors:6}, CRC fail behavior: {0.crcFailBehavior}
+  N Bytes transmit: {0.nBytesT:8}, receive: {0.nBytesR:8}""".format(
+            self
+        )
+        return result
+
+    def _receive_message(self):
         """
-        timeout: (optional) time to wait for a reply in seconds. defaults to 100 ms
+        Blocks until message received
 
         returns a ASC_Message
 
         if no frame is received, all members ASC_Message will be None
 
         """
-        if timeout is None:
-            timeout = 0.1
-        frame = self._frame_from_stream(timeout)
+        frame = self._frame_from_stream()
         if frame is None:
             return ASC_Message(None, None, None, None)
         if self.printMessages:
@@ -198,46 +258,24 @@ class Ascii_Serial_Com(object):
             )
         return msg
 
-    def getRegisterBitWidth(self):
-        return self.registerBitWidth
-
-    def getRegisterByteWidth(self):
-        return self.registerByteWidth
-
-    def __str__(self):
-        result = """Ascii_Serial_Com Object:
-  Register width: {0.registerBitWidth:} bits, {0.registerByteWidth} bytes
-  N CRC Errors: {0.nCrcErrors:6}, CRC fail behavior: {0.crcFailBehavior}
-  N Bytes transmit: {0.nBytesT:8}, receive: {0.nBytesR:8}""".format(
-            self
-        )
-        return result
-
-    def _frame_from_stream(self, timeout):
+    def _frame_from_stream(self):
         """
         Reads bytes from file-like object and attempts to identify a message frame.
 
-        timeout: float in seconds to wait for bytes on stream
+        Blocks
 
         returns: frame as bytes; None if no frame found in stream
         """
-        timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
-        while datetime.datetime.now() < timeout_time:
-            readyfiles = self.selectorIn.select(self.sleepIfNothingReadTime)
-            if len(readyfiles) > 0:
-                b = self.fin.read(16)
-                if len(b) == 0:
-                    time.sleep(self.sleepIfNothingReadTime)
-                    continue
-                else:
-                    self.buffer.push_back(b)
-                    self.buffer.removeFrontTo(b">", inclusive=False)
-                    if len(self.buffer) == 0:
-                        continue
-                    iNewline = self.buffer.findFirst(b"\n")
-                    if iNewline is None:
-                        continue
-                return self.buffer.pop_front(iNewline + 1)
+        while True:
+            b = self.fin.read(16)
+            self.buffer.push_back(b)
+            self.buffer.removeFrontTo(b">", inclusive=False)
+            if len(self.buffer) == 0:
+                continue
+            iNewline = self.buffer.findFirst(b"\n")
+            if iNewline is None:
+                continue
+            return self.buffer.pop_front(iNewline + 1)
 
     def _check_register_number(self, num):
         """
