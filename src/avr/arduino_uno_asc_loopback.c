@@ -20,8 +20,9 @@
 char dataBuffer[MAXDATALEN];
 ascii_serial_com asc;
 
-// uint8_t extraInputBuffer_raw[64];
-// circular_buffer_uint8 extraInputBuffer;
+#define extraInputBuffer_size 64
+uint8_t extraInputBuffer_raw[extraInputBuffer_size];
+circular_buffer_uint8 extraInputBuffer;
 
 CEXCEPTION_T e;
 char ascVersion, appVersion, command;
@@ -111,13 +112,14 @@ int main(void) {
   stdout = &mystdout;
 
   ascii_serial_com_init(&asc);
-  ascii_serial_com_set_ignore_CRC_mismatch(&asc);
+  // ascii_serial_com_set_ignore_CRC_mismatch(&asc);
   circular_buffer_uint8 *asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
   circular_buffer_uint8 *asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
 
-  //  circular_buffer_init_uint8(&extraInputBuffer,64,extraInputBuffer_raw);
+  circular_buffer_init_uint8(&extraInputBuffer, extraInputBuffer_size,
+                             extraInputBuffer_raw);
 
-  USART0_Init(MYUBRR, 0);
+  USART0_Init(MYUBRR, 1);
 
   TIMER0_Init(5, 0, 1);
   DDRB |= _BV(5);
@@ -145,8 +147,21 @@ int main(void) {
   while (true) {
     Try {
 
-      if (USART0_can_read_Rx_data) {
-        uint8_t byte = UDR0;
+      // if (USART0_can_read_Rx_data) {
+      //  uint8_t byte = UDR0;
+      //  if (byte == 0x3F) { // '?'
+      //    print_buffer("in", asc_in_buf);
+      //    print_buffer("out", asc_out_buf);
+      //  } else {
+      //    circular_buffer_push_back_uint8(asc_in_buf, byte);
+      //  }
+      //}
+
+      if (!circular_buffer_is_empty_uint8(&extraInputBuffer)) {
+        uint8_t byte;
+        ATOMIC_BLOCK(ATOMIC_FORCEON) {
+          byte = circular_buffer_pop_front_uint8(&extraInputBuffer);
+        }
         if (byte == 0x3F) { // '?'
           print_buffer("in", asc_in_buf);
           print_buffer("out", asc_out_buf);
@@ -154,19 +169,6 @@ int main(void) {
           circular_buffer_push_back_uint8(asc_in_buf, byte);
         }
       }
-
-      //      if (!circular_buffer_is_empty_uint8(&extraInputBuffer)) {
-      //        uint8_t byte;
-      //        ATOMIC_BLOCK(ATOMIC_FORCEON) {
-      //          byte = circular_buffer_pop_front_uint8(&extraInputBuffer);
-      //        }
-      //        if (byte == 0x3F) { // '?'
-      //          print_buffer("in", asc_in_buf);
-      //          print_buffer("out", asc_out_buf);
-      //        } else {
-      //            circular_buffer_push_back_uint8(asc_in_buf, byte);
-      //        }
-      //      }
 
       if (!circular_buffer_is_empty_uint8(asc_in_buf)) {
         ascii_serial_com_get_message_from_input_buffer(
@@ -191,10 +193,10 @@ int main(void) {
   return 0;
 }
 
-// ISR(USART_RX_vect) {
-//    char c = UDR0;
-//    circular_buffer_push_back_uint8(&extraInputBuffer,c);
-//}
+ISR(USART_RX_vect) {
+  char c = UDR0;
+  circular_buffer_push_back_uint8(&extraInputBuffer, c);
+}
 
 ISR(TIMER0_OVF_vect) {
   static uint16_t timer_overflow_count;
