@@ -16,7 +16,7 @@ int main(void) {
 
   circular_buffer_init_uint8(&cb, bufCap, rawBuffer);
 
-  USART0_Init(MYUBRR);
+  USART0_Init(MYUBRR, 0);
 
   while (1) {
     if (USART0_can_read_Rx_data) {

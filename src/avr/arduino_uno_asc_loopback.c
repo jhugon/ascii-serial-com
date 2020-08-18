@@ -1,15 +1,19 @@
 #include "asc_exception.h"
 #include "ascii_serial_com.h"
+#include "avr/avr_timers.h"
 #include "avr/avr_uart.h"
-#include "avr/interrupt.h"
 #include "circular_buffer.h"
-#include "util/atomic.h"
 
+#include <avr/interrupt.h>
 #include <stdio.h>
+#include <util/atomic.h>
 
-#define FOSC 16000000L
+#define F_CPU 16000000L
 #define BAUD 9600
-#define MYUBRR (FOSC / 16 / BAUD - 1)
+#define MYUBRR (F_CPU / 16 / BAUD - 1)
+
+// period = 1024*256*n_overflows / F_CPU
+#define n_overflows F_CPU / 1024 / 256 / 2
 
 #define NCHARINLINE 16
 
@@ -113,9 +117,12 @@ int main(void) {
 
   //  circular_buffer_init_uint8(&extraInputBuffer,64,extraInputBuffer_raw);
 
-  USART0_Init(MYUBRR);
+  USART0_Init(MYUBRR, 0);
 
-  //  sei();
+  TIMER0_Init(5, 0, 1);
+  DDRB |= _BV(5);
+
+  sei();
 
   printf("####\n");
   printf("asc loc:                    %p\n", &asc);
@@ -188,3 +195,12 @@ int main(void) {
 //    char c = UDR0;
 //    circular_buffer_push_back_uint8(&extraInputBuffer,c);
 //}
+
+ISR(TIMER0_OVF_vect) {
+  static uint16_t timer_overflow_count;
+  timer_overflow_count += 1;
+  if (timer_overflow_count == n_overflows) {
+    PORTB ^= _BV(5); // flip bit
+    timer_overflow_count = 0;
+  }
+}

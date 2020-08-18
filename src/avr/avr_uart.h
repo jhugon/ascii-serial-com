@@ -16,13 +16,15 @@
  *
  *  \param ubrr: 12 bits of uint16_t: should be clock / 16 / baud - 1
  *
+ *  \param rxIntEnable: 1 bit enable RX interrupt
+ *
  */
-#define USART0_Init(ubrr)                                                      \
+#define USART0_Init(ubrr, rxIntEnable)                                         \
   UBRR0H = (uint8_t)(ubrr >> 8) & 0xFF;                                        \
   UBRR0L = (uint8_t)(ubrr)&0xFF;                                               \
   UCSR0A = 0;                                                                  \
   UCSR0C = (3 << UCSZ00);                                                      \
-  UCSR0B = (1 << RXEN0) | (1 << TXEN0);
+  UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (rxIntEnable << RXCIE0);
 
 /** \brief Transmit data with USART0 (blocking)
  *

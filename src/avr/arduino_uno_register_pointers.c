@@ -42,6 +42,8 @@ int main(void) {
   circular_buffer_uint8 *asc_out_buf =
       ascii_serial_com_device_get_output_buffer(&ascd);
 
+  USART0_Init(MYUBRR, 0);
+
   while (true) {
     Try {
       if (USART0_can_read_Rx_data) {

@@ -1,5 +1,5 @@
 
-atmega328pfirmware=src/avr/arduino_uno_blink src/avr/arduino_uno_char_loopback src/avr/arduino_uno_cb_loopback src/avr/arduino_uno_asc_loopback src/avr/arduino_uno_dummy_register_block src/avr/arduino_uno_register_pointers
+atmega328pfirmware=src/avr/arduino_uno_blink src/avr/arduino_uno_blink_interrupt src/avr/arduino_uno_char_loopback src/avr/arduino_uno_cb_loopback src/avr/arduino_uno_asc_loopback src/avr/arduino_uno_dummy_register_block src/avr/arduino_uno_register_pointers
 
 atmega2560firmware=src/avr/arduino_mega2560_blink
 
