@@ -8,9 +8,21 @@ import time
 import io
 import queue
 import threading
+import traceback
+import sys
 from .ascErrors import *
 from .circularBuffer import Circular_Buffer_Bytes
 from .ascMessage import ASC_Message
+
+
+def dummy_s_consumer(q, event):
+    while True:
+        try:
+            q.get(timeout=0.01)
+        except queue.Empty:
+            pass
+        if event.is_set():
+            return
 
 
 class Ascii_Serial_Com(object):
@@ -25,6 +37,7 @@ class Ascii_Serial_Com(object):
         fin,
         fout,
         registerBitWidth,
+        receiver_queue_s_consumer=None,
         crcFailBehavior="throw",
         appVersion=b"0",
         asciiSerialComVersion=b"0",
@@ -37,6 +50,12 @@ class Ascii_Serial_Com(object):
         fin: binary file object streaming from the device
         fout: binary file object streaming to the device
         registerBitWidth: an int, probably 8 or 32
+        receiver_queueu_s_consumer: a callable that takes
+            a Queue object and threading.Event as
+            arguments and deals with 's' messages. Will be
+            ran in another thread. Should periodically
+            check if the event.is_set(), and if true,
+            return.
         crcFailBehavior: a str: "throw", "warn", "pass"
         appVersion: a len 1 byte
         asciiSerialComVersion: a len 1 byte
@@ -61,6 +80,7 @@ class Ascii_Serial_Com(object):
         self.fin = fin
         self.fout = fout
         self.registerBitWidth = registerBitWidth
+        self.receiver_queue_s_consumer = receiver_queue_s_consumer
         self.registerByteWidth = int(math.ceil(registerBitWidth / 8))
         self.crcFailBehavior = crcFailBehavior
         self.appVersion = appVersion
@@ -77,10 +97,32 @@ class Ascii_Serial_Com(object):
 
         ### Receiver Thread
 
-        self.receiver_thread = threading.Thread(self.receiver_loop)
+        self.receiver_thread = threading.Thread(target=self.receiver_loop, daemon=True)
         self.receiver_queue_w = queue.Queue()
         self.receiver_queue_r = queue.Queue()
         self.receiver_queue_s = queue.Queue()
+        self.receiver_thread_del_event = threading.Event()
+
+        if self.receiver_queue_s_consumer is None:
+            self.receiver_queue_s_consumer = dummy_s_consumer
+        self.receiver_queue_s_consumer_thread_del_event = threading.Event()
+        self.receiver_queue_s_consumer_thread = threading.Thread(
+            target=self.receiver_queue_s_consumer,
+            args=(
+                self.receiver_queue_s,
+                self.receiver_queue_s_consumer_thread_del_event,
+            ),
+            daemon=True,
+        )
+
+        self.receiver_queue_s_consumer_thread.start()
+        self.receiver_thread.start()
+
+    def __del__(self):
+        self.receiver_queue_s_consumer_thread_del_event.set()
+        self.receiver_thread_del_event.set()
+        self.receiver_queue_s_consumer_thread.join(0.5)
+        self.receiver_thread.join(0.5)
 
     def read_register(self, regnum, timeout=1):
         """
@@ -97,7 +139,7 @@ class Ascii_Serial_Com(object):
         self.send_message(b"r", regnum_hex)
         try:
             msg = self.receiver_queue_r.get(timeout=timeout)
-        except Queue.Empty:
+        except queue.Empty:
             raise ResponseTimeoutError(
                 f"Timout while waiting for response to read {regnum} timeout={timeout} s"
             )
@@ -129,7 +171,7 @@ class Ascii_Serial_Com(object):
                     else:
                         if int(rec_regnum, 16) == int(regnum_hex, 16):
                             return rec_value
-            except Queue.Empty:
+            except queue.Empty:
                 raise ResponseTimeoutError(
                     f"Timout while waiting for response to read {regnum} timeout={timeout} s"
                 )
@@ -156,7 +198,7 @@ class Ascii_Serial_Com(object):
         self.send_message(b"w", data)
         try:
             msg = self.receiver_queue_w.get(timeout=timeout)
-        except Queue.Empty:
+        except queue.Empty:
             raise ResponseTimeoutError(
                 f"Timout while waiting for response to write {regnum} {content} timeout={timeout} s"
             )
@@ -172,7 +214,7 @@ class Ascii_Serial_Com(object):
                             regnum_hex, 16
                         ):
                             return
-                    except Queue.Empty:
+                    except queue.Empty:
                         raise ResponseTimeoutError(
                             f"Timout while waiting for response to write {regnum} {content} timeout={timeout} s"
                         )
@@ -200,16 +242,23 @@ class Ascii_Serial_Com(object):
 
     def receiver_loop(self):
         while True:
-            msg = self._receive_message()
-            if msg:
-                if msg.command == "w":
-                    self.receiver_queue_w.put(msg)
-                elif msg.command == "r":
-                    self.receiver_queue_r.put(msg)
-                elif msg.command == "s":
-                    self.receiver_queue_s.put(msg)
-                else:
-                    pass
+            try:
+                msg = self._receive_message(0.05)
+            except Exception as e:
+                traceback.print_exception(type(e), e, sys.last_traceback)
+            else:
+                if msg:
+                    if msg.command == b"w":
+                        self.receiver_queue_w.put(msg)
+                    elif msg.command == b"r":
+                        self.receiver_queue_r.put(msg)
+                    elif msg.command == b"s":
+                        self.receiver_queue_s.put(msg)
+                    else:
+                        pass
+                    # print(f" len of r queue: {self.receiver_queue_r.qsize()}")
+            if self.receiver_thread_del_event.is_set():
+                return
 
     def getRegisterBitWidth(self):
         return self.registerBitWidth
@@ -226,16 +275,14 @@ class Ascii_Serial_Com(object):
         )
         return result
 
-    def _receive_message(self):
+    def _receive_message(self, timeout):
         """
-        Blocks until message received
-
         returns a ASC_Message
 
         if no frame is received, all members ASC_Message will be None
 
         """
-        frame = self._frame_from_stream()
+        frame = self._frame_from_stream(timeout)
         if frame is None:
             return ASC_Message(None, None, None, None)
         if self.printMessages:
@@ -258,16 +305,15 @@ class Ascii_Serial_Com(object):
             )
         return msg
 
-    def _frame_from_stream(self):
+    def _frame_from_stream(self, timeout):
         """
         Reads bytes from file-like object and attempts to identify a message frame.
 
-        Blocks
-
         returns: frame as bytes; None if no frame found in stream
         """
-        while True:
-            b = self.fin.read(16)
+        timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
+        while datetime.datetime.now() < timeout_time:
+            b = self.fin.read()
             self.buffer.push_back(b)
             self.buffer.removeFrontTo(b">", inclusive=False)
             if len(self.buffer) == 0:
@@ -276,6 +322,7 @@ class Ascii_Serial_Com(object):
             if iNewline is None:
                 continue
             return self.buffer.pop_front(iNewline + 1)
+        return None
 
     def _check_register_number(self, num):
         """

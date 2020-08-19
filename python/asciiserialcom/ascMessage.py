@@ -34,19 +34,6 @@ class ASC_Message(object):
             assert len(self.ascVersion) == 1
             assert len(self.appVersion) == 1
 
-    def __bool__(self):
-        if self.command is None:
-            return False
-        return True
-
-    def __eq__(self, other):
-        return (
-            self.ascVersion == other.ascVersion
-            and self.appVersion == other.appVersion
-            and self.command == other.command
-            and self.data == other.data
-        )
-
     def get_packed(self):
         """
         Packs command and data into a frame with checksum
@@ -192,3 +179,22 @@ class ASC_Message(object):
         if len(data) > MAXDATALEN:
             raise BadDataError("Data can only be <= len", MAXDATALEN, "is", len(data))
         return data
+
+    def __bool__(self):
+        if self.command is None:
+            return False
+        return True
+
+    def __eq__(self, other):
+        return (
+            self.ascVersion == other.ascVersion
+            and self.appVersion == other.appVersion
+            and self.command == other.command
+            and self.data == other.data
+        )
+
+    def __str__(self):
+        result = "ASC_Message: ascVersion: {0.ascVersion:}, appVersion: {0.appVersion}, command: {0.command:}, data: {0.data}".format(
+            self
+        )
+        return result
