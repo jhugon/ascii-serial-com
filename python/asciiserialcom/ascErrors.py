@@ -92,3 +92,9 @@ class ShellArgumentError(ASCErrorBase):
     """
     Incorrect argument(s) to shell command
     """
+
+
+class FileReadError(ASCErrorBase):
+    """
+    Incorrect argument(s) to shell command
+    """

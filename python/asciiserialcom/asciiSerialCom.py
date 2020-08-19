@@ -164,7 +164,7 @@ class Ascii_Serial_Com(object):
                     rec_regnum, rec_value = splitdata
                 except ValueError:
                     raise BadDataError(
-                        f"read response data, {data!r}, can't be split into a reg num and reg val (no comma!)"
+                        f"read response data, {msg.data!r}, can't be split into a reg num and reg val (no comma!)"
                     )
                 else:
                     if int(rec_regnum, 16) == int(regnum_hex, 16):
@@ -210,28 +210,37 @@ class Ascii_Serial_Com(object):
         content_hex = self._check_register_content(content)
         data = regnum_hex + b"," + content_hex
         self.send_message(b"w", data)
+        msg = None
         try:
             msg = self.receiver_queue_w.get(timeout=timeout)
         except queue.Empty:
             raise ResponseTimeoutError(
                 f"Timout while waiting for response to write {regnum} {content} timeout={timeout} s"
             )
-        else:
-            if msg.command == b"w" and int(msg.data, 16) == int(regnum_hex, 16):
-                return
+        if msg.command == b"w":
+            try:
+                msg_regnum = int(msg.data, 16)
+            except ValueError:
+                pass
             else:
-                # read all messages in queue until one is correct or queue is empty
-                while True:
+                if msg_regnum == int(regnum_hex, 16):
+                    return
+        # read all messages in queue until one is correct or queue is empty
+        while True:
+            try:
+                msg = self.receiver_queue_w.get_nowait()
+                if msg.command == b"w":
                     try:
-                        msg = self.receiver_queue_w.get_nowait()
-                        if msg.command == b"w" and int(msg.data, 16) == int(
-                            regnum_hex, 16
-                        ):
+                        msg_regnum = int(msg.data, 16)
+                    except ValueError:
+                        pass
+                    else:
+                        if msg_regnum == int(regnum_hex, 16):
                             return
-                    except queue.Empty:
-                        raise ResponseTimeoutError(
-                            f"Timout while waiting for response to write {regnum} {content} timeout={timeout} s"
-                        )
+            except queue.Empty:
+                raise ResponseTimeoutError(
+                    f"Timout while waiting for response to write {regnum} {content} timeout={timeout} s"
+                )
 
     def send_message(self, command, data):
         """
@@ -251,13 +260,21 @@ class Ascii_Serial_Com(object):
                     command, data, message
                 )
             )
-        self.fout.write(message)
-        self.fout.flush()
+        try:
+            self.fout.write(message)
+            self.fout.flush()
+        except IOError:
+            print(
+                "Error: Ascii_Serial_Com.send_message caught error while writing to output file!",
+                file=sys.stderr,
+            )
 
     def receiver_loop(self):
         while True:
             try:
                 msg = self._receive_message(0.05)
+            except FileReadError:
+                return
             except Exception as e:
                 # traceback.print_exception(type(e), e, sys.last_traceback)
                 print(type(e), e)
@@ -328,7 +345,12 @@ class Ascii_Serial_Com(object):
         """
         timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
         while datetime.datetime.now() < timeout_time:
-            b = self.fin.read()
+            try:
+                b = self.fin.read()
+            except ValueError:
+                raise FileReadError
+            except IOError:
+                raise FileReadError
             self.buffer.push_back(b)
             self.buffer.removeFrontTo(b">", inclusive=False)
             if len(self.buffer) == 0:
