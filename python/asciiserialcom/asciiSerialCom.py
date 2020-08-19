@@ -15,7 +15,7 @@ from .circularBuffer import Circular_Buffer_Bytes
 from .ascMessage import ASC_Message
 
 
-def dummy_s_consumer(q, event):
+def dummy_queue_consumer(q, event):
     while True:
         try:
             q.get(timeout=0.01)
@@ -37,7 +37,8 @@ class Ascii_Serial_Com(object):
         fin,
         fout,
         registerBitWidth,
-        receiver_queue_s_consumer=None,
+        receiver_queue_s_consumer=dummy_queue_consumer,
+        receiver_queue_other_consumer=dummy_queue_consumer,
         crcFailBehavior="throw",
         appVersion=b"0",
         asciiSerialComVersion=b"0",
@@ -50,7 +51,7 @@ class Ascii_Serial_Com(object):
         fin: binary file object streaming from the device
         fout: binary file object streaming to the device
         registerBitWidth: an int, probably 8 or 32
-        receiver_queueu_s_consumer: a callable that takes
+        receiver_queue_s_consumer: a callable that takes
             a Queue object and threading.Event as
             arguments and deals with 's' messages. Will be
             ran in another thread. Should periodically
@@ -81,6 +82,7 @@ class Ascii_Serial_Com(object):
         self.fout = fout
         self.registerBitWidth = registerBitWidth
         self.receiver_queue_s_consumer = receiver_queue_s_consumer
+        self.receiver_queue_other_consumer = receiver_queue_other_consumer
         self.registerByteWidth = int(math.ceil(registerBitWidth / 8))
         self.crcFailBehavior = crcFailBehavior
         self.appVersion = appVersion
@@ -101,10 +103,9 @@ class Ascii_Serial_Com(object):
         self.receiver_queue_w = queue.Queue()
         self.receiver_queue_r = queue.Queue()
         self.receiver_queue_s = queue.Queue()
+        self.receiver_queue_other = queue.Queue()
         self.receiver_thread_del_event = threading.Event()
 
-        if self.receiver_queue_s_consumer is None:
-            self.receiver_queue_s_consumer = dummy_s_consumer
         self.receiver_queue_s_consumer_thread_del_event = threading.Event()
         self.receiver_queue_s_consumer_thread = threading.Thread(
             target=self.receiver_queue_s_consumer,
@@ -115,13 +116,26 @@ class Ascii_Serial_Com(object):
             daemon=True,
         )
 
+        self.receiver_queue_other_consumer_thread_del_event = threading.Event()
+        self.receiver_queue_other_consumer_thread = threading.Thread(
+            target=self.receiver_queue_other_consumer,
+            args=(
+                self.receiver_queue_other,
+                self.receiver_queue_other_consumer_thread_del_event,
+            ),
+            daemon=True,
+        )
+
         self.receiver_queue_s_consumer_thread.start()
+        self.receiver_queue_other_consumer_thread.start()
         self.receiver_thread.start()
 
     def __del__(self):
         self.receiver_queue_s_consumer_thread_del_event.set()
+        self.receiver_queue_other_consumer_thread_del_event.set()
         self.receiver_thread_del_event.set()
         self.receiver_queue_s_consumer_thread.join(0.5)
+        self.receiver_queue_other_consumer_thread.join(0.5)
         self.receiver_thread.join(0.5)
 
     def read_register(self, regnum, timeout=1):
@@ -245,7 +259,8 @@ class Ascii_Serial_Com(object):
             try:
                 msg = self._receive_message(0.05)
             except Exception as e:
-                traceback.print_exception(type(e), e, sys.last_traceback)
+                # traceback.print_exception(type(e), e, sys.last_traceback)
+                print(type(e), e)
             else:
                 if msg:
                     if msg.command == b"w":

@@ -90,21 +90,22 @@ static void print_buffer(const char *title, const circular_buffer_uint8 *cb) {
   printf("\n");
 }
 
-static void print_memory(const char *title, void *address, size_t nBytes);
-static void print_memory(const char *title, void *address, size_t nBytes) {
-  const size_t nLines = nBytes / NCHARINLINE;
-  printf("%s\n", title);
-  for (size_t iLine = 0; iLine < nLines; iLine++) {
-    printf("%p  ", address + iLine * NCHARINLINE);
-    size_t nCharThisLine = NCHARINLINE;
-    if (iLine == nLines - 1)
-      nCharThisLine = nBytes % NCHARINLINE;
-    for (size_t iChar = 0; iChar < nCharThisLine; iChar++) {
-      printf("%02hhX", *((uint8_t *)(address + iLine * NCHARINLINE + iChar)));
-    }
-    printf("\n");
-  }
-}
+// static void print_memory(const char *title, void *address, size_t nBytes);
+// static void print_memory(const char *title, void *address, size_t nBytes) {
+//   const size_t nLines = nBytes / NCHARINLINE;
+//   printf("%s\n", title);
+//   for (size_t iLine = 0; iLine < nLines; iLine++) {
+//     printf("%p  ", address + iLine * NCHARINLINE);
+//     size_t nCharThisLine = NCHARINLINE;
+//     if (iLine == nLines - 1)
+//       nCharThisLine = nBytes % NCHARINLINE;
+//     for (size_t iChar = 0; iChar < nCharThisLine; iChar++) {
+//       printf("%02hhX", *((uint8_t *)(address + iLine * NCHARINLINE +
+//       iChar)));
+//     }
+//     printf("\n");
+//   }
+// }
 
 int main(void) {
 
@@ -112,7 +113,7 @@ int main(void) {
   stdout = &mystdout;
 
   ascii_serial_com_init(&asc);
-  // ascii_serial_com_set_ignore_CRC_mismatch(&asc);
+  ascii_serial_com_set_ignore_CRC_mismatch(&asc);
   circular_buffer_uint8 *asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
   circular_buffer_uint8 *asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
 
@@ -126,23 +127,23 @@ int main(void) {
 
   sei();
 
-  printf("####\n");
-  printf("asc loc:                    %p\n", &asc);
-  printf("asc_in_buf loc:             %p\n", asc_in_buf);
-  printf("asc_out_buf loc:            %p\n", asc_out_buf);
-  printf("asc->raw_buffer loc:        %p\n", &asc.raw_buffer);
-  printf("asc->ignoreCRCMismatch loc: %p\n", &asc.ignoreCRCMismatch);
-  printf("asc_in_buf->buffer loc:     %p\n", asc_in_buf->buffer);
-  printf("asc_out_buf->buffer loc:    %p\n", asc_out_buf->buffer);
-  printf("####\n");
-  print_memory("ASC:", &asc, 256);
-  printf("####\n");
-  print_memory("asc.raw_buffer", asc.raw_buffer, 128);
-  printf("####\n");
-  print_memory("asc_in_buf.buffer", asc_in_buf->buffer, 64);
-  printf("####\n");
-  print_memory("asc_out_buf.buffer", asc_out_buf->buffer, 64);
-  printf("####\n");
+  //  printf("####\n");
+  //  printf("asc loc:                    %p\n", &asc);
+  //  printf("asc_in_buf loc:             %p\n", asc_in_buf);
+  //  printf("asc_out_buf loc:            %p\n", asc_out_buf);
+  //  printf("asc->raw_buffer loc:        %p\n", &asc.raw_buffer);
+  //  printf("asc->ignoreCRCMismatch loc: %p\n", &asc.ignoreCRCMismatch);
+  //  printf("asc_in_buf->buffer loc:     %p\n", asc_in_buf->buffer);
+  //  printf("asc_out_buf->buffer loc:    %p\n", asc_out_buf->buffer);
+  //  printf("####\n");
+  //  print_memory("ASC:", &asc, 256);
+  //  printf("####\n");
+  //  print_memory("asc.raw_buffer", asc.raw_buffer, 128);
+  //  printf("####\n");
+  //  print_memory("asc_in_buf.buffer", asc_in_buf->buffer, 64);
+  //  printf("####\n");
+  //  print_memory("asc_out_buf.buffer", asc_out_buf->buffer, 64);
+  //  printf("####\n");
 
   while (true) {
     Try {
@@ -174,11 +175,11 @@ int main(void) {
         ascii_serial_com_get_message_from_input_buffer(
             &asc, &ascVersion, &appVersion, &command, dataBuffer, &dataLen);
         if (command != '\0') {
-          printf("Got a message!:\n");
-          print_buffer("in", asc_in_buf);
+          // printf("Got a message!:\n");
+          // print_buffer("in", asc_in_buf);
           ascii_serial_com_put_message_in_output_buffer(
               &asc, ascVersion, appVersion, command, dataBuffer, dataLen);
-          print_buffer("out", asc_out_buf);
+          // print_buffer("out", asc_out_buf);
         }
       }
 
