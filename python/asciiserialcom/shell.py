@@ -2,13 +2,12 @@
 Shell for interacting through ASCII Serial Com
 """
 
+import argparse
 import sys
-import os.path
 import math
 import cmd
-import argparse
-from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
-from asciiserialcom.ascErrors import *
+from .asciiSerialCom import Ascii_Serial_Com
+from .ascErrors import *
 
 
 class CmdArgumentParser(argparse.ArgumentParser):
@@ -47,12 +46,18 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
         Converts string to int
         """
 
-        if s[:2].lower() == "0x":
-            return int(s[2:], 16)
-        elif s[:2].lower() == "0b":
-            return int(s[2:], 2)
-        else:
-            return int(s, 10)
+        try:
+            if s[:2].lower() == "0x":
+                return int(s[2:], 16)
+            elif s[:2].lower() == "0b":
+                return int(s[2:], 2)
+            else:
+                return int(s, 10)
+        except ValueError:
+            try:
+                return int(s)
+            except ValueError:
+                raise ShellArgumentError(f'Couldn\'t convert "{s}" to int')
 
     # ----- commands -----
     def do_w(self, arg):
@@ -65,11 +70,8 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
 
         try:
             args = parser.parse_args(arg.split())
-        except ShellArgumentError:
-            return
-        reg_num = self._to_int(args.reg_num)
-        reg_val = self._to_int(args.reg_val)
-        try:
+            reg_num = self._to_int(args.reg_num)
+            reg_val = self._to_int(args.reg_val)
             self.asc.write_register(reg_num, reg_val)
         except ASCErrorBase as e:
             printError(e)
@@ -85,10 +87,7 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
 
         try:
             args = parser.parse_args(arg.split())
-        except ShellArgumentError:
-            return
-        reg_num = self._to_int(args.reg_num)
-        try:
+            reg_num = self._to_int(args.reg_num)
             result = self.asc.read_register(reg_num)
         except ASCErrorBase as e:
             printError(e)
@@ -140,6 +139,10 @@ class Ascii_Serial_Com_Shell(cmd.Cmd):
 
 
 def main():
+    import os
+    import os.path
+    from .tty_utils import setup_tty
+
     parser = argparse.ArgumentParser(
         description="ASCII Serial Com Shell. Useful for debugging ASCII Serial Com connections."
     )
@@ -149,14 +152,21 @@ def main():
         "--registerBitWidth",
         "-r",
         type=int,
-        default=32,
-        help="Device register bit width (default: 32)",
+        default=8,
+        help="Device register bit width (default: 8)",
     )
     parser.add_argument(
         "--printMessages",
         "-p",
         action="store_true",
         help="Print each message sent or received",
+    )
+    parser.add_argument(
+        "--baud",
+        "-b",
+        type=int,
+        default=9600,
+        help="If fin==fout and they are TTYs, use this baud rate (default: 9600)",
     )
 
     args = parser.parse_args()
@@ -169,6 +179,11 @@ def main():
 
     with open(outFname, "wb", buffering=0) as fout:
         with open(inFname, "rb", buffering=0) as fin:
+
+            if outFname == inFname and os.isatty(fout.fileno()):
+                print(f"Assuming this is a TTY and setting to {args.baud} baud")
+                setup_tty(fout, args.baud)
+
             Ascii_Serial_Com_Shell(
                 fin, fout, args.registerBitWidth, args.printMessages
             ).cmdloop()
