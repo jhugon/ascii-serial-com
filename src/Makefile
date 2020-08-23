@@ -1,5 +1,6 @@
 
-srcobjs := src/circular_buffer.o src/ascii_serial_com.o src/compute_crc.o src/ascii_serial_com_device.o src/ascii_serial_com_register_block.o src/ascii_serial_com_register_pointers.o
+srcobjs := src/circular_buffer.o src/ascii_serial_com.o src/ascii_serial_com_device.o src/ascii_serial_com_register_block.o src/ascii_serial_com_register_pointers.o \
+			 src/compute_crc.o src/crc_bbb.o src/crc_bbf.o src/crc_tbl4bit.o
 ifeq ($(platform),native)
   srcobjs := $(srcobjs) src/circular_buffer_io_fd_poll.o
 endif

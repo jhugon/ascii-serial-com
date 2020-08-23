@@ -56,3 +56,17 @@ needs to be parsed after input reads.
 gcc, clang, gcovr, python 3.5+
 
 for documentation: doxygen, LaTeX
+
+## The CRC
+
+CRC-16/DNP
+
+  pycrcdnp = pycrc.algorithms.Crc(width = 16, poly = 0x3d65, xor_in = 0, reflect_in = True, reflect_out = True, xor_out=0xFFFF)
+
+  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbb --generate h -o crc.h
+  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbb --generate h -o crc_bbb.h
+  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbb --generate c -o crc_bbb.c
+  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbf --generate c -o crc_bbf.c
+  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbf --generate h -o crc_bbf.h
+  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm tbl --table-idx-width=4 --generate h -o crc_tbl4bit.h
+  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm tbl --table-idx-width=4 --generate c -o crc_tbl4bit.c
