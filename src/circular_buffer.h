@@ -382,4 +382,47 @@ size_t circular_buffer_push_back_string_uint8(circular_buffer_uint8 *circ_buf,
 size_t circular_buffer_remove_front_unfinished_frames_uint8(
     circular_buffer_uint8 *circ_buf, const char startChar, const char endChar);
 
+/** \brief circular buffer access raw blocks of data for a given range of
+ * elements
+ *
+ *  Given a start element iStart, and a number of elements to access nElem,
+ *  gives access to the raw memory block(s) that contain the elements. This
+ *  may be a single block of memory or two, since the elements may wrap
+ *  around the end of the underlying memory.
+ *
+ *  Example use:
+ *
+ *  uint8_t* blocks[2];
+ *  size_t blocks_sizes[2];
+ *
+ *  size_t nBlocks = circular_buffer_get_blocks_uint8(cb, 3, 5, blocks,
+ * blocks_sizes);
+ *
+ *  for(size_t iBlock=0; iBlock < nBlocks; iBlock++) {
+ *      for(size_t iElem=0; iElem < blocks_sizes[iBlock]; iElem++) {
+ *          uint8_t elem = blocks[iBlock][iElem];
+ *      }
+ *  }
+ *
+ *  \param circ_buf is a pointer to an initialized circular buffer struct
+ *
+ *  \param iStart the first element of the block requested
+ *
+ *  \param nElem the size of the block requested
+ *
+ *  \param blocks output array of pointers to blocks. User should allocate
+ * uint8_t* blocks[2];
+ *
+ *  \param blocks_sizes output array of size of blocks. User should allocate
+ * size_t blocks_sizes[2];
+ *
+ *  \return the number of memory blocks
+ *
+ *  Throws ASC_ERROR_CB_OOB  if iStart + nElem is > size of buffer
+ *
+ */
+size_t circular_buffer_get_blocks_uint8(circular_buffer_uint8 *circ_buf,
+                                        size_t iStart, size_t nElem,
+                                        uint8_t **blocks, size_t *blocks_sizes);
+
 #endif

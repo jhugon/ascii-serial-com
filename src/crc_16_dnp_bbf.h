@@ -2,7 +2,7 @@
  * \file
  * Functions and types for CRC checks.
  *
- * Generated on Sun Aug 23 10:47:52 2020
+ * Generated on Mon Aug 24 06:27:49 2020
  * by pycrc v0.9.2, https://pycrc.org
  * using the configuration:
  *  - Width         = 16
@@ -13,32 +13,33 @@
  *  - ReflectOut    = True
  *  - Algorithm     = bit-by-bit-fast
  *
- * This file defines the functions crc_init(), crc_update() and crc_finalize().
+ * This file defines the functions crc_16_dnp_bbf_init(),
+ * crc_16_dnp_bbf_update() and crc_16_dnp_bbf_finalize().
  *
- * The crc_init() function returns the inital \c crc value and must be called
- * before the first call to crc_update().
- * Similarly, the crc_finalize() function must be called after the last call
- * to crc_update(), before the \c crc is being used.
- * is being used.
+ * The crc_16_dnp_bbf_init() function returns the inital \c crc value and must
+ * be called before the first call to crc_16_dnp_bbf_update(). Similarly, the
+ * crc_16_dnp_bbf_finalize() function must be called after the last call to
+ * crc_16_dnp_bbf_update(), before the \c crc is being used. is being used.
  *
- * The crc_update() function can be called any number of times (including zero
- * times) in between the crc_init() and crc_finalize() calls.
+ * The crc_16_dnp_bbf_update() function can be called any number of times
+ * (including zero times) in between the crc_16_dnp_bbf_init() and
+ * crc_16_dnp_bbf_finalize() calls.
  *
  * This pseudo-code shows an example usage of the API:
  * \code{.c}
- * crc_t crc;
+ * crc_16_dnp_bbf_t crc;
  * unsigned char data[MAX_DATA_LEN];
  * size_t data_len;
  *
- * crc = crc_init();
+ * crc = crc_16_dnp_bbf_init();
  * while ((data_len = read_data(data, MAX_DATA_LEN)) > 0) {
- *     crc = crc_update(crc, data, data_len);
+ *     crc = crc_16_dnp_bbf_update(crc, data, data_len);
  * }
- * crc = crc_finalize(crc);
+ * crc = crc_16_dnp_bbf_finalize(crc);
  * \endcode
  */
-#ifndef CRC_BBF_H
-#define CRC_BBF_H
+#ifndef CRC_16_DNP_BBF_H
+#define CRC_16_DNP_BBF_H
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -60,7 +61,7 @@ extern "C" {
  *
  * This type must be big enough to contain at least 16 bits.
  */
-typedef uint_fast16_t crc_t;
+typedef uint_fast16_t crc_16_dnp_bbf_t;
 
 /**
  * Reflect all bits of a \a data word of \a data_len bytes.
@@ -69,14 +70,14 @@ typedef uint_fast16_t crc_t;
  * \param[in] data_len The width of \a data expressed in number of bits.
  * \return             The reflected data.
  */
-crc_t crc_reflect(crc_t data, size_t data_len);
+crc_16_dnp_bbf_t crc_16_dnp_bbf_reflect(crc_16_dnp_bbf_t data, size_t data_len);
 
 /**
  * Calculate the initial crc value.
  *
  * \return     The initial crc value.
  */
-static inline crc_t crc_init(void) { return 0x0000; }
+static inline crc_16_dnp_bbf_t crc_16_dnp_bbf_init(void) { return 0x0000; }
 
 /**
  * Update the crc value with new data.
@@ -86,7 +87,8 @@ static inline crc_t crc_init(void) { return 0x0000; }
  * \param[in] data_len Number of bytes in the \a data buffer.
  * \return             The updated crc value.
  */
-crc_t crc_update(crc_t crc, const void *data, size_t data_len);
+crc_16_dnp_bbf_t crc_16_dnp_bbf_update(crc_16_dnp_bbf_t crc, const void *data,
+                                       size_t data_len);
 
 /**
  * Calculate the final crc value.
@@ -94,12 +96,12 @@ crc_t crc_update(crc_t crc, const void *data, size_t data_len);
  * \param[in] crc  The current crc value.
  * \return     The final crc value.
  */
-static inline crc_t crc_finalize(crc_t crc) {
-  return crc_reflect(crc, 16) ^ 0xffff;
+static inline crc_16_dnp_bbf_t crc_16_dnp_bbf_finalize(crc_16_dnp_bbf_t crc) {
+  return crc_16_dnp_bbf_reflect(crc, 16) ^ 0xffff;
 }
 
 #ifdef __cplusplus
 } /* closing brace for extern "C" */
 #endif
 
-#endif /* CRC_BBF_H */
+#endif /* CRC_16_DNP_BBF_H */

@@ -1,4 +1,4 @@
-#include "compute_crc.h"
+#include "crc_16_dnp_crcmod.h"
 
 /** \file */
 

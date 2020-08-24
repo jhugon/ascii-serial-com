@@ -2,7 +2,7 @@
  * \file
  * Functions and types for CRC checks.
  *
- * Generated on Sun Aug 23 10:47:47 2020
+ * Generated on Mon Aug 24 06:27:49 2020
  * by pycrc v0.9.2, https://pycrc.org
  * using the configuration:
  *  - Width         = 16
@@ -13,14 +13,15 @@
  *  - ReflectOut    = True
  *  - Algorithm     = bit-by-bit-fast
  */
-#include "crc_bbf.h" /* include the header file generated with pycrc */
+#include "crc_16_dnp_bbf.h" /* include the header file generated with pycrc */
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
-crc_t crc_reflect(crc_t data, size_t data_len) {
+crc_16_dnp_bbf_t crc_16_dnp_bbf_reflect(crc_16_dnp_bbf_t data,
+                                        size_t data_len) {
   unsigned int i;
-  crc_t ret;
+  crc_16_dnp_bbf_t ret;
 
   ret = data & 0x01;
   for (i = 1; i < data_len; i++) {
@@ -30,7 +31,8 @@ crc_t crc_reflect(crc_t data, size_t data_len) {
   return ret;
 }
 
-crc_t crc_update(crc_t crc, const void *data, size_t data_len) {
+crc_16_dnp_bbf_t crc_16_dnp_bbf_update(crc_16_dnp_bbf_t crc, const void *data,
+                                       size_t data_len) {
   const unsigned char *d = (const unsigned char *)data;
   unsigned int i;
   bool bit;

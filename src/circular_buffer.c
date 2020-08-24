@@ -413,3 +413,25 @@ size_t circular_buffer_remove_front_unfinished_frames_uint8(
   }
   return iElement;
 }
+
+size_t circular_buffer_get_blocks_uint8(circular_buffer_uint8 *circ_buf,
+                                        size_t iStart, size_t nElem,
+                                        uint8_t **blocks,
+                                        size_t *blocks_sizes) {
+  if (iStart + nElem > circular_buffer_get_size_uint8(circ_buf)) {
+    Throw(ASC_ERROR_CB_OOB);
+  }
+  bool wraps = circ_buf->iStart + iStart + nElem > circ_buf->capacity;
+  blocks[0] = circ_buf->buffer + circ_buf->iStart + iStart;
+  if (wraps) {
+    blocks[1] = circ_buf->buffer;
+    blocks_sizes[0] = circ_buf->capacity - circ_buf->iStart - iStart;
+    blocks_sizes[1] = nElem - blocks_sizes[0];
+    return 2;
+  } else {
+    blocks[1] = NULL;
+    blocks_sizes[0] = nElem;
+    blocks_sizes[1] = 0;
+    return 1;
+  }
+}

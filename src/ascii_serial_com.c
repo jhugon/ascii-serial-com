@@ -1,5 +1,31 @@
 #include "ascii_serial_com.h"
-#include "compute_crc.h"
+
+#define crc_bbb 0
+#define crc_bbf 1
+#define crc_tbl4bit 2
+#define crc_crcmod 3
+#define crc_option crc_tbl4bit
+
+#if crc_option == crc_bbb
+#include "crc_16_dnp_bbb.h"
+#define crc_init crc_16_dnp_bbb_init
+#define crc_update crc_16_dnp_bbb_update
+#define crc_finalize crc_16_dnp_bbb_finalize
+#elif crc_option == crc_bbf
+#include "crc_16_dnp_bbf.h"
+#define crc_init crc_16_dnp_bbf_init
+#define crc_update crc_16_dnp_bbf_update
+#define crc_finalize crc_16_dnp_bbf_finalize
+#elif crc_option == crc_tbl4bit
+#include "crc_16_dnp_tbl4bit.h"
+#define crc_init crc_16_dnp_tbl4bit_init
+#define crc_update crc_16_dnp_tbl4bit_update
+#define crc_finalize crc_16_dnp_tbl4bit_finalize
+#elif crc_option == crc_crcmod
+#include "crc_16_dnp_crcmod.h"
+#else
+#error "crc_option not supported!"
+#endif
 
 /** \file */
 
@@ -142,7 +168,6 @@ ascii_serial_com_get_output_buffer(ascii_serial_com *asc) {
 
 void ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
                                        bool outputBuffer) {
-  uint8_t checksumbuffer[MAXMESSAGELEN - NCHARCHECKSUM - 1];
   circular_buffer_uint8 *circ_buf;
   if (outputBuffer) {
     circ_buf = &asc->out_buf;
@@ -168,13 +193,23 @@ void ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
   if (iStop <= iStart || iStop - iStart < 4) {
     Throw(ASC_ERROR_INVALID_FRAME_PERIOD);
   }
-  for (size_t iElement = iStart; iElement <= iStop; iElement++) {
-    checksumbuffer[iElement - iStart] =
-        circular_buffer_get_element_uint8(circ_buf, iElement);
+  uint8_t *blocks[2];
+  size_t blocks_sizes[2];
+  size_t nBlocks = circular_buffer_get_blocks_uint8(
+      circ_buf, iStart, iStop - iStart + 1, blocks, blocks_sizes);
+#if crc_option == crc_crcmod
+  uint16_t crc = 0xFFFF;
+  for (size_t iBlock = 0; iBlock < nBlocks; iBlock++) {
+    crc = computeCRC_16_DNP(blocks[iBlock], blocks_sizes[iBlock], crc);
   }
-  uint16_t resultInt =
-      computeCRC_16_DNP(checksumbuffer, iStop - iStart + 1, 0xFFFF);
-  convert_uint16_to_hex(resultInt, checksumOut, true);
+#else
+  uint16_t crc = crc_init();
+  for (size_t iBlock = 0; iBlock < nBlocks; iBlock++) {
+    crc = crc_update(crc, blocks[iBlock], blocks_sizes[iBlock]);
+  }
+  crc = crc_finalize(crc);
+#endif
+  convert_uint16_to_hex(crc, checksumOut, true);
 }
 
 void ascii_serial_com_put_error_in_output_buffer(ascii_serial_com *asc,
