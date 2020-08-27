@@ -2,15 +2,15 @@
 #define F_CPU 3333333UL // 20 MHz / 6
 #include <util/delay.h>
 
-// F5 is the yellow LED
-// F6 is the user switch
+// A3 is the yellow user LED
+// B7 is the user button
 
 int main(void) {
 
-  PORTF.DIRSET = _BV(5);
+  PORTA.DIRSET = _BV(3);
 
   while (1) {
-    PORTF.OUTTGL = _BV(5);
+    PORTA.OUTTGL = _BV(3);
     _delay_ms(1000);
   }
   return 0;

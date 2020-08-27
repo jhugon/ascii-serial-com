@@ -35,6 +35,7 @@ include src/Makefile
 #$(info exes is ${exes})
 #$(info allobjs is ${allobjs})
 #$(info testexes is ${testexes})
+#$(info avrfirmware is ${avrfirmware})
 
 .PHONY: all_later
 all_later: $(alllibs) $(exes) $(testexes) $(avrfirmware) $(armfirmware)

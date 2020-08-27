@@ -6,7 +6,37 @@ read.
 
 ## How to flash:
 
-  avrdude -p atmega328p -c arduino -P /dev/ttyACM0 -Uflash:w:build/avr5_gcc_debug/arduino_uno_blink
+```
+avrdude -p atmega328p -c arduino -P /dev/ttyACM0 -Uflash:w:build/avr5_gcc_debug/arduino_uno_blink
+
+avrdude -p atmega4809 -c cnano -Uflash:w:build/avrxmega3_gcc_debug/atmega4809_cnano_blink
+
+# Usually has problems. Only worked once after flashing from Atmel Studio.
+avrdude -p attiny817 -c xplainedmini_updi -Uflash:w:build/avrxmega3_gcc_debug/attiny817_xplained_blink
+```
+
+Put this in your ~/.avrduderc:
+
+```
+programmer
+  id    = "cnano";
+  desc  = "Atmel Curiosity Nano Dev Board in UPDI mode";
+  type  = "jtagice3_updi";
+  connection_type = usb;
+  usbpid = 0x2175;
+;
+```
+
+## Useful udev rules
+
+Put in something like /etc/udev/rules.d/99-devboard.rules
+
+```
+# for Atmega4809 Curiosity Nano
+SUBSYSTEM=="usb", ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2175", MODE="0666"
+# for attiny817-xmini
+SUBSYSTEM=="usb", ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2145", MODE="0666"
+```
 
 ## Transmit/Receive Data Interface
 
@@ -57,15 +87,21 @@ gcc, clang, gcovr, python 3.5+
 
 for documentation: doxygen, LaTeX
 
+for tools: libusb-dev libusb-1.0-0-dev libftdi-dev libftdi1-dev libftdi1-2 libhidapi-dev bison
+
 ## The CRC
 
 CRC-16/DNP
 
+```
   pycrcdnp = pycrc.algorithms.Crc(width = 16, poly = 0x3d65, xor_in = 0, reflect_in = True, reflect_out = True, xor_out=0xFFFF)
+```
 
-  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbb --generate h -o crc_16_dnp_bbb.h --symbol-prefix=crc_16_dnp_bbb_
-  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbb --generate c -o crc_16_dnp_bbb.c --symbol-prefix=crc_16_dnp_bbb_
-  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbf --generate c -o crc_16_dnp_bbf.c --symbol-prefix=crc_16_dnp_bbf_
-  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbf --generate h -o crc_16_dnp_bbf.h --symbol-prefix=crc_16_dnp_bbf_
-  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm tbl --table-idx-width=4 --generate h -o crc_16_dnp_tbl4bit.h --symbol-prefix=crc_16_dnp_tbl4bit_
-  python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm tbl --table-idx-width=4 --generate c -o crc_16_dnp_tbl4bit.c --symbol-prefix=crc_16_dnp_tbl4bit_
+```
+python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbb --generate h -o crc_16_dnp_bbb.h --symbol-prefix=crc_16_dnp_bbb_
+python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbb --generate c -o crc_16_dnp_bbb.c --symbol-prefix=crc_16_dnp_bbb_
+python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbf --generate c -o crc_16_dnp_bbf.c --symbol-prefix=crc_16_dnp_bbf_
+python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm bbf --generate h -o crc_16_dnp_bbf.h --symbol-prefix=crc_16_dnp_bbf_
+python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm tbl --table-idx-width=4 --generate h -o crc_16_dnp_tbl4bit.h --symbol-prefix=crc_16_dnp_tbl4bit_
+python -m pycrc --width=16 --poly=0x3d65 --xor-in=0 --reflect-in=True --xor-out=0xffff --reflect-out=True --algorithm tbl --table-idx-width=4 --generate c -o crc_16_dnp_tbl4bit.c --symbol-prefix=crc_16_dnp_tbl4bit_
+```
