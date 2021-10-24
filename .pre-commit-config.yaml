@@ -1,9 +1,9 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
-exclude: 'src/externals/*'
+exclude: 'src/externals/.*'
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.4.0
+    rev: v4.0.1
     hooks:
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
@@ -15,7 +15,7 @@ repos:
 #    -   id: detect-private-key
     -   id: mixed-line-ending
 -   repo: https://github.com/psf/black
-    rev: 19.10b0
+    rev: 21.7b0
     hooks:
     -   id: black
 -   repo: https://github.com/pocc/pre-commit-hooks
@@ -30,7 +30,7 @@ repos:
 #        args: [--replace, --no-backup]
 #    -   id: cppcheck
 -   repo: https://github.com/doublify/pre-commit-rust
-    rev: master
+    rev: v1.0
     hooks:
     -   id: fmt
     -   id: cargo-check

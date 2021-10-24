@@ -48,8 +48,16 @@ ifneq (,$(findstring avr,$(platform)))
   CXXFLAGS=$(GCCFLAGS) -std=c++17 -Wsuggest-override -Wplacement-new=2 -mmcu=$(platform)
   ifeq ($(build_type),debug)
     CFLAGS+=-g -Og
+    CFLAGS+=-Ltools/avr-libc-install-debug/avr/lib
+    CFLAGS+=-Ltools/avr-libc-install-debug/avr/lib/avr5
+    CFLAGS+=-Ltools/avr-libc-install-debug/avr/lib/avr6
+    CFLAGS+=-Ltools/avr-libc-install-debug/avr/lib/avrxmega3
   else
     CFLAGS+=-Os -flto -Wstrict-aliasing -fstrict-aliasing
+    CFLAGS+=-Ltools/avr-libc-install-opt/avr/lib
+    CFLAGS+=-Ltools/avr-libc-install-opt/avr/lib/avr5
+    CFLAGS+=-Ltools/avr-libc-install-opt/avr/lib/avr6
+    CFLAGS+=-Ltools/avr-libc-install-opt/avr/lib/avrxmega3
   endif
 endif
 

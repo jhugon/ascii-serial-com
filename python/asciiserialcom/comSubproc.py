@@ -39,7 +39,7 @@ class Com_Subproc(object):
         self.frt.start()
 
     def send(self, data):
-        """ Write to stdin of the subprocess """
+        """Write to stdin of the subprocess"""
         self.proc.stdin.write(data)
 
     def receive(self):
