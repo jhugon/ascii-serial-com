@@ -1,60 +1,61 @@
 """
 ASCII Serial Com Python Interface
+
+Example of using the code in this module:
+
+    async def example_read_reg(fin, fout, regnum: int) -> Optional[bytes]:
+        result = None
+        with trio.move_on_after(
+            1e6
+        ) as cancel_scope:  # arbitrarily large; intend parent to actually set timeout
+            async with trio.open_nursery() as nursery:
+                send_w: trio.abc.SendChannel
+                send_r: trio.abc.SendChannel
+                send_w, recv_w = trio.open_memory_channel(0)
+                send_r, recv_r = trio.open_memory_channel(0)
+                # send_s, recv_s = trio.open_memory_channel(0)
+                send_s, recv_s = (
+                    None,
+                    None,
+                )  # since not implemented yet, don't do anything with these messages
+                nursery.start_soon(receiver_loop, fin, send_w, send_r, send_s, b"00", b"00")
+                result = await read_register(fout, recv_r, regnum)
+                cancel_scope.cancel()  # this stops the receiver_loop which is what I setup cancel_scope for in the first place
+        return result
+
+
+
 """
 
 import math
-from .ascErrors import *
-from .asciiSerialComLowLevel import send_message, receiver_loop
 import trio
 
-from typing import Optional, Any, Union
+from .ascErrors import *
+from .ascHelpers import (
+    check_register_content,
+    check_register_number,
+    convert_to_hex,
+    convert_from_hex,
+    frame_from_stream,
+)
+from .circularBuffer import Circular_Buffer_Bytes
+from .ascMessage import ASC_Message
 
-
-async def example_read_reg(fin, fout, regnum: int) -> Optional[bytes]:
-    """
-    Example of using the code in this module
-
-    Would probably want to wrap this in a cancel timeout:
-
-        with trio.move_on_after(5):
-
-    or just run it directly like:
-
-        trio.run(example_read_reg,trio.open_file("xxx",mode="br",buffering=0),trio.open_file("xxx",mode="bw",buffering=0),0)
-    """
-
-    result = None
-    with trio.move_on_after(
-        1e6
-    ) as cancel_scope:  # arbitrarily large; intend parent to actually set timeout
-        async with trio.open_nursery() as nursery:
-            send_w: trio.abc.SendChannel
-            send_r: trio.abc.SendChannel
-            send_w, recv_w = trio.open_memory_channel(0)
-            send_r, recv_r = trio.open_memory_channel(0)
-            # send_s, recv_s = trio.open_memory_channel(0)
-            send_s, recv_s = (
-                None,
-                None,
-            )  # since not implemented yet, don't do anything with these messages
-            nursery.start_soon(receiver_loop, fin, send_w, send_r, send_s, b"00", b"00")
-            result = await read_register(fout, recv_r, regnum)
-            cancel_scope.cancel()  # this stops the receiver_loop which is what I setup cancel_scope for in the first place
-    return result
+from typing import Any, Union
 
 
 async def read_register(fout, queue_r: trio.abc.ReceiveChannel, regnum: int) -> bytes:
     """
-        Read register on device
+    Read register on device
 
-        queue_r is a read queue where "r" messages are deposited, i.e. a trio.abc.ReceiveChannel
+    queue_r is a read queue where "r" messages are deposited, i.e. a trio.abc.ReceiveChannel
 
-        Assumes reciver_loop is running in another task
+    Assumes reciver_loop is running in another task
 
-        regnum: an integer register number from 0 to 0xFFFF
+    regnum: an integer register number from 0 to 0xFFFF
 
-        returns register content as bytes
-        """
+    returns register content as bytes
+    """
     asciiSerialComVersion = b"00"
     appVersion = b"00"
 
@@ -122,141 +123,85 @@ async def write_register(
                     return
 
 
-def check_register_number(num: Union[int, str, bytes, bytearray]) -> bytes:
+async def send_message(
+    fout, asciiSerialComVersion: bytes, appVersion: bytes, command: bytes, data: bytes
+) -> None:
     """
-        Checks register number passed to read_register/write_register matches format specification
+    Low-level message send command
+    Does not check if command is defined command
 
-        returns properly formatted content
+    command: single byte lower-case letter command/message type
+    data: bytes or None
 
-        raises BadRegisterNumberError if not fomatted correctly or incorrect bit width
-        """
-    if isinstance(num, int):
-        if num < 0:
-            raise BadRegisterNumberError(f"register number, {num}, must be positive")
-        if num.bit_length() > 16:
-            raise BadRegisterNumberError(
-                f"register number {num} = 0x{num:X} requires {num.bit_length()} bits which is > 16"
+    returns None
+    """
+    msg = ASC_Message(asciiSerialComVersion, appVersion, command, data)
+    message = msg.get_packed()
+    print(
+        "send_message: command: {!r} data: {!r} message: {!r}".format(
+            command, data, message
+        )
+    )
+    await fout.write(message)
+    await fout.flush()
+
+
+async def receiver_loop(
+    fin,
+    queue_w: trio.abc.SendChannel,
+    queue_r: trio.abc.SendChannel,
+    queue_s: trio.abc.SendChannel,
+    asciiSerialComVersion: bytes,
+    appVersion: bytes,
+) -> None:
+    """
+    This is the task that handles reading from the serial link with file like object fin
+    and then puts ASC_Message's in the queues
+
+    All "queue" are the write ends of trio channels i.e. trio.abc.SendChannel
+    """
+    buf = Circular_Buffer_Bytes(128)
+    while True:
+        msg = await receive_message(fin, buf, asciiSerialComVersion, appVersion)
+        if msg:
+            if msg.command == b"w" and queue_w:
+                await queue_w.send(msg)
+            elif msg.command == b"r" and queue_r:
+                await queue_r.send(msg)
+            elif msg.command == b"s" and queue_s:
+                await queue_s.send(msg)
+            else:
+                pass
+
+
+async def receive_message(
+    fin, buf: Circular_Buffer_Bytes, asciiSerialComVersion: bytes, appVersion: bytes
+) -> ASC_Message:
+    """
+    You usually won't need this, instead use receiver_loop
+
+    fin: file-like object to read from
+
+    uses Circular_Buffer_Bytes to keep track of input within and between invocations of receive_message
+
+    if no frame is received, all members ASC_Message will be None
+
+    """
+    frame = await frame_from_stream(fin, buf)
+    if frame is None:
+        return ASC_Message(None, None, None, None)
+    print("received message: {}".format(frame))
+    msg = ASC_Message.unpack(frame)
+    if msg.ascVersion != asciiSerialComVersion:
+        raise AsciiSerialComVersionMismatchError(
+            "Message version: {!r} Expected version: {!r}".format(
+                msg.ascVersion, asciiSerialComVersion
             )
-        num = b"%04X" % num
-    if isinstance(num, str):
-        num = num.encode("ascii")
-    if not (isinstance(num, bytes) or isinstance(num, bytearray)):
-        raise BadRegisterNumberError(
-            f"register number {num} isn't bytes or bytearray type or int is {type(num)}"
         )
-    if len(num) < 4:
-        num = b"0" * (4 - len(num)) + num
-    if len(num) != 4:
-        raise BadRegisterNumberError(
-            f"register number {num!r} should be 4 bytes, but is {len(num)} bytes"
-        )
-    if not num.isalnum():
-        raise BadRegisterNumberError(
-            f"register number must be ASCII letters and numbers not: {num!r}"
-        )
-    try:
-        int(num, 16)
-    except:
-        raise BadRegisterNumberError(
-            f"register number, {num!r},must be convertible to hexadecimal number"
-        )
-    if int(num, 16).bit_length() > 16:  # in case num is bytes so missed earlier check
-        raise BadRegisterNumberError(
-            f"register number, {num!r}, requires more than 16 bits"
-        )
-    return num.upper()
-
-
-def check_register_content(
-    content: Union[int, str, bytes, bytearray], registerBitWidth: int
-) -> bytes:
-    """
-        Checks register content passed to write_register matches format specification and register width
-
-        returns properly formatted content
-
-        raises BadRegisterContentError if not fomatted correctly or incorrect bit width
-        """
-    registerByteWidth = int(math.ceil(registerBitWidth / 8))
-    if isinstance(content, int):
-        if content < 0:
-            raise BadRegisterContentError(
-                "content argument", content, "must be positive"
+    if msg.appVersion != appVersion:
+        raise ApplicationVersionMismatchError(
+            "Message version: {!r} Expected version: {!r}".format(
+                msg.appVersion, appVersion
             )
-        if content.bit_length() > registerBitWidth:
-            raise BadRegisterContentError(
-                f"content argument {content} = 0x{content:X} requires {content.bit_length()} bits which is > registerBitWidth = {registerBitWidth}"
-            )
-        content = b"%0X" % content
-    if isinstance(content, str):
-        content = content.encode("ascii")
-    if not (isinstance(content, bytes) or isinstance(content, bytearray)):
-        raise BadRegisterContentError(
-            "content argument", content, "isn't bytes or bytearray type or int"
         )
-    if len(content) < registerByteWidth * 2:
-        content = b"0" * (registerByteWidth * 2 - len(content)) + content
-    if len(content) != registerByteWidth * 2:
-        raise BadRegisterContentError(
-            "content argument ",
-            content,
-            "should be len ",
-            registerByteWidth * 2,
-            ", is len ",
-            len(content),
-        )
-    if not content.isalnum():
-        raise BadRegisterContentError(
-            "content argument must be ASCII letters and numbers not: ", content
-        )
-    try:
-        int(content, 16)
-    except:
-        raise BadRegisterContentError(
-            "content argument must be convertible to hexadecimal number"
-        )
-    if (
-        int(content, 16).bit_length() > registerBitWidth
-    ):  # in case content is bytes so missed earlier check
-        raise BadRegisterContentError(
-            "content argument", content, "requires more bits than registerBitWidth"
-        )
-    return content.upper()
-
-
-def convert_to_hex(num: Union[bytes, bytearray, str, int], N: int = 2) -> bytes:
-    """
-    Converts integer to hexadecimal number as bytes
-
-    num: integer. If str, bytes, or bytearray just converts to bytes
-    N: (optional) amount to zero pad (but will use more if necessary). Default: 2
-
-    returns bytes
-    """
-
-    result = None
-    if isinstance(num, bytearray):
-        result = bytes(num)
-    elif isinstance(num, str):
-        result = num.encode("ascii")
-    elif isinstance(num, bytes):
-        result = num
-    else:
-        formatstr = b"%0" + str(N).encode("ascii") + b"X"
-        result = formatstr % (num)
-    result = result.upper()
-    if len(result) == 0:
-        raise ValueError("num is a zero length bytes, not valid hex")
-    lendiff = N - len(result)
-    if lendiff > 0:
-        result = b"0" * lendiff + result
-    return result
-
-
-def convert_from_hex(num: Union[bytes, bytearray, str, int]) -> int:
-    if isinstance(num, int):
-        return num
-    else:
-        if len(num) == 0:
-            raise ValueError("num is a zero length bytes, can't convert to int")
-        return int(num, 16)
+    return msg

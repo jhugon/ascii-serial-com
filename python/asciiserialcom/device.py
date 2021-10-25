@@ -10,8 +10,8 @@ import os.path
 import argparse
 import datetime
 import trio
-from .asciiSerialComLowLevel import receiver_loop, send_message
-from .asciiSerialCom import convert_from_hex, convert_to_hex
+from .asciiSerialCom import receiver_loop, send_message
+from .ascHelpers import convert_from_hex, convert_to_hex
 from .ascErrors import *
 
 from typing import Optional, Any, Union
@@ -43,7 +43,9 @@ async def deviceLoop(
             None,
             None,
         )  # since not implemented yet, don't do anything with these messages
-        nursery.start_soon(receiver_loop, fin, send_w, send_r, send_s, b"00", b"00")
+
+        # have to use type: ignore b/c mypy stub can't deal with so many arguments
+        nursery.start_soon(receiver_loop, fin, send_w, send_r, send_s, b"00", b"00")  # type: ignore
         nursery.start_soon(registers.printRegistersLoop, printInterval)
         nursery.start_soon(registers.handle_w_messages, fout, recv_w)
         nursery.start_soon(registers.handle_r_messages, fout, recv_r)
