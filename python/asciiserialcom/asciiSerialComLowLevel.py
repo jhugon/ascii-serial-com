@@ -5,9 +5,14 @@ ASCII Serial Com Python Interface
 from .ascErrors import *
 from .circularBuffer import Circular_Buffer_Bytes
 from .ascMessage import ASC_Message
+from typing import Any, Optional
+from collections.abc import Sequence
+import trio
 
 
-async def send_message(fout, asciiSerialComVersion, appVersion, command, data):
+async def send_message(
+    fout, asciiSerialComVersion: bytes, appVersion: bytes, command: bytes, data: bytes
+) -> None:
     """
     Low-level message send command
     Does not check if command is defined command
@@ -20,15 +25,22 @@ async def send_message(fout, asciiSerialComVersion, appVersion, command, data):
     msg = ASC_Message(asciiSerialComVersion, appVersion, command, data)
     message = msg.get_packed()
     print(
-        "send_message: command: {} data: {} message: {}".format(command, data, message)
+        "send_message: command: {!r} data: {!r} message: {!r}".format(
+            command, data, message
+        )
     )
     await fout.write(message)
     await fout.flush()
 
 
 async def receiver_loop(
-    fin, queue_w, queue_r, queue_s, asciiSerialComVersion, appVersion
-):
+    fin,
+    queue_w: trio.abc.SendChannel,
+    queue_r: trio.abc.SendChannel,
+    queue_s: trio.abc.SendChannel,
+    asciiSerialComVersion: bytes,
+    appVersion: bytes,
+) -> None:
     """
     This is the task that handles reading from the serial link with file like object fin
     and then puts ASC_Message's in the queues
@@ -49,7 +61,9 @@ async def receiver_loop(
                 pass
 
 
-async def receive_message(fin, buf, asciiSerialComVersion, appVersion):
+async def receive_message(
+    fin, buf: Circular_Buffer_Bytes, asciiSerialComVersion: bytes, appVersion: bytes
+) -> ASC_Message:
     """
     fin: file-like object to read from
     buf: circular buffer
@@ -66,20 +80,20 @@ async def receive_message(fin, buf, asciiSerialComVersion, appVersion):
     msg = ASC_Message.unpack(frame)
     if msg.ascVersion != asciiSerialComVersion:
         raise AsciiSerialComVersionMismatchError(
-            "Message version: {} Expected version: {}".format(
+            "Message version: {!r} Expected version: {!r}".format(
                 msg.ascVersion, asciiSerialComVersion
             )
         )
     if msg.appVersion != appVersion:
         raise ApplicationVersionMismatchError(
-            "Message version: {} Expected version: {}".format(
+            "Message version: {!r} Expected version: {!r}".format(
                 msg.appVersion, appVersion
             )
         )
     return msg
 
 
-async def frame_from_stream(fin, buf):
+async def frame_from_stream(fin, buf: Circular_Buffer_Bytes) -> Optional[Sequence[Any]]:
     """
     Reads bytes from file-like object and attempts to identify a message frame. Uses circular_buffer buf.
 

@@ -4,11 +4,13 @@ ASCII Serial Com Python Interface
 
 import math
 from .ascErrors import *
-from .asciiSerialComLowLevel import send_message
+from .asciiSerialComLowLevel import send_message, receiver_loop
 import trio
 
+from typing import Optional, Any, Union
 
-async def example_read_reg(fin, fout, regnum):
+
+async def example_read_reg(fin, fout, regnum: int) -> Optional[bytes]:
     """
     Example of using the code in this module
 
@@ -26,6 +28,8 @@ async def example_read_reg(fin, fout, regnum):
         1e6
     ) as cancel_scope:  # arbitrarily large; intend parent to actually set timeout
         async with trio.open_nursery() as nursery:
+            send_w: trio.abc.SendChannel
+            send_r: trio.abc.SendChannel
             send_w, recv_w = trio.open_memory_channel(0)
             send_r, recv_r = trio.open_memory_channel(0)
             # send_s, recv_s = trio.open_memory_channel(0)
@@ -39,7 +43,7 @@ async def example_read_reg(fin, fout, regnum):
     return result
 
 
-async def read_register(fout, queue_r, regnum):
+async def read_register(fout, queue_r: trio.abc.ReceiveChannel, regnum: int) -> bytes:
     """
         Read register on device
 
@@ -65,14 +69,20 @@ async def read_register(fout, queue_r, regnum):
                 rec_regnum, rec_value = splitdata
             except ValueError:
                 raise BadDataError(
-                    f"read response data, {data!r}, can't be split into a reg num and reg val (no comma!)"
+                    f"read response data, {msg!r}, can't be split into a reg num and reg val (no comma!)"
                 )
             else:
                 if int(rec_regnum, 16) == int(regnum_hex, 16):
                     return rec_value
 
 
-async def write_register(fout, queue_w, regnum, content, registerBitWidth):
+async def write_register(
+    fout,
+    queue_w: trio.abc.ReceiveChannel,
+    regnum: int,
+    content: bytes,
+    registerBitWidth: int,
+):
     """
         write register on device
 
@@ -95,7 +105,7 @@ async def write_register(fout, queue_w, regnum, content, registerBitWidth):
     regnum_hex = check_register_number(regnum)
     content_hex = check_register_content(content, registerBitWidth)
     data = regnum_hex + b"," + content_hex
-    send_message(b"w", data)
+    send_message(fout, asciiSerialComVersion, appVersion, b"w", data)
     await send_message(fout, asciiSerialComVersion, appVersion, b"w", data)
     # read all messages in queue until one is correct or get cancelled
     while True:
@@ -112,7 +122,7 @@ async def write_register(fout, queue_w, regnum, content, registerBitWidth):
                     return
 
 
-def check_register_number(num):
+def check_register_number(num: Union[int, str, bytes, bytearray]) -> bytes:
     """
         Checks register number passed to read_register/write_register matches format specification
 
@@ -138,26 +148,28 @@ def check_register_number(num):
         num = b"0" * (4 - len(num)) + num
     if len(num) != 4:
         raise BadRegisterNumberError(
-            f"register number {num} should be 4 bytes, but is {len(num)} bytes"
+            f"register number {num!r} should be 4 bytes, but is {len(num)} bytes"
         )
     if not num.isalnum():
         raise BadRegisterNumberError(
-            f"register number must be ASCII letters and numbers not: {num}"
+            f"register number must be ASCII letters and numbers not: {num!r}"
         )
     try:
         int(num, 16)
     except:
         raise BadRegisterNumberError(
-            f"register number, {num},must be convertible to hexadecimal number"
+            f"register number, {num!r},must be convertible to hexadecimal number"
         )
     if int(num, 16).bit_length() > 16:  # in case num is bytes so missed earlier check
         raise BadRegisterNumberError(
-            f"register number, {num}, requires more than 16 bits"
+            f"register number, {num!r}, requires more than 16 bits"
         )
     return num.upper()
 
 
-def check_register_content(content, registerBitWidth):
+def check_register_content(
+    content: Union[int, str, bytes, bytearray], registerBitWidth: int
+) -> bytes:
     """
         Checks register content passed to write_register matches format specification and register width
 
@@ -212,7 +224,7 @@ def check_register_content(content, registerBitWidth):
     return content.upper()
 
 
-def convert_to_hex(num, N=2):
+def convert_to_hex(num: Union[bytes, bytearray, str, int], N: int = 2) -> bytes:
     """
     Converts integer to hexadecimal number as bytes
 
@@ -241,9 +253,9 @@ def convert_to_hex(num, N=2):
     return result
 
 
-def convert_from_hex(num):
+def convert_from_hex(num: Union[bytes, bytearray, str, int]) -> int:
     if isinstance(num, int):
-        return result
+        return num
     else:
         if len(num) == 0:
             raise ValueError("num is a zero length bytes, can't convert to int")

@@ -6,7 +6,8 @@ import argparse
 import sys
 import math
 import cmd
-from .asciiSerialCom import Ascii_Serial_Com
+from .asciiSerialCom import write_register, read_register
+from .asciiSerialComLowLevel import send_message
 from .ascErrors import *
 
 

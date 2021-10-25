@@ -14,16 +14,28 @@ from .asciiSerialComLowLevel import receiver_loop, send_message
 from .asciiSerialCom import convert_from_hex, convert_to_hex
 from .ascErrors import *
 
+from typing import Optional, Any, Union
 
-async def main(finname, foutname, registersBitWidth, nRegisters, printInterval):
+
+async def deviceLoopOpenFiles(
+    finname: str,
+    foutname: str,
+    registersBitWidth: int,
+    nRegisters: int,
+    printInterval: float,
+) -> None:
     async with await trio.open_file(foutname, "wb", buffering=0) as fout:
         async with await trio.open_file(finname, "rb", buffering=0) as fin:
             await deviceLoop(fin, fout, registersBitWidth, nRegisters, printInterval)
 
 
-async def deviceLoop(fin, fout, registersBitWidth, nRegisters, printInterval):
+async def deviceLoop(
+    fin, fout, registersBitWidth: int, nRegisters: int, printInterval: float
+) -> None:
     registers = DeviceRegisters(registersBitWidth, nRegisters)
     async with trio.open_nursery() as nursery:
+        send_w: trio.abc.SendChannel
+        send_r: trio.abc.SendChannel
         send_w, recv_w = trio.open_memory_channel(0)
         send_r, recv_r = trio.open_memory_channel(0)
         # send_s, recv_s = trio.open_memory_channel(0)
@@ -38,14 +50,14 @@ async def deviceLoop(fin, fout, registersBitWidth, nRegisters, printInterval):
 
 
 class DeviceRegisters:
-    def __init__(self, registerBitWidth, nRegisters):
+    def __init__(self, registerBitWidth: int, nRegisters: int) -> None:
         self.registerBitWidth = registerBitWidth
         self.nRegisters = nRegisters
         self.registers = [0] * self.nRegisters
         self.asciiSerialComVersion = b"0"
         self.appVersion = b"0"
 
-    def printRegisters(self):
+    def printRegisters(self) -> None:
         dtstr = datetime.datetime.now().replace(microsecond=0).isoformat(" ")
         if self.registerBitWidth <= 8:
             print("{0:>8}    {1:>19}    {2}".format("Reg Num", "Register Value", dtstr))
@@ -62,7 +74,7 @@ class DeviceRegisters:
             else:
                 print("{0:3d} 0x{0:02X}    {1:10d} 0x{1:08X}".format(i, val))
 
-    async def printRegistersLoop(self, interval):
+    async def printRegistersLoop(self, interval: float) -> None:
         """
         Print the registers every interval seconds
         """
@@ -71,7 +83,7 @@ class DeviceRegisters:
             self.printRegisters()
             await trio.sleep(interval)
 
-    async def handle_r_messages(self, fout, recv_r):
+    async def handle_r_messages(self, fout, recv_r: trio.abc.ReceiveChannel) -> None:
         while True:
             msg = await recv_r.receive()
             if not msg:
@@ -99,7 +111,7 @@ class DeviceRegisters:
             else:
                 print(f"Warning: received command '{msg.command}', in read channel")
 
-    async def handle_w_messages(self, fout, recv_w):
+    async def handle_w_messages(self, fout, recv_w: trio.abc.ReceiveChannel) -> None:
         while True:
             msg = await recv_w.receive()
             if not msg:
@@ -124,7 +136,7 @@ class DeviceRegisters:
                 print(f"Warning: received command '{msg.command}', in write channel")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="ASCII Serial Com Device. Useful as a test device."
     )
@@ -162,7 +174,7 @@ def main():
     print(f"Time between prints: {args.timeBetweenPrint}")
 
     trio.run(
-        main,
+        deviceLoopOpenFiles,
         inFname,
         outFname,
         args.registerBitWidth,

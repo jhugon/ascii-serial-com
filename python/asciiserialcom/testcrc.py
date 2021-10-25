@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 
-class CrcMkr(object):
+class CrcMkr:
     def __init__(self, nBits, poly):
         """
         nBits is number of bits in the register
@@ -53,7 +53,7 @@ class CrcMkr(object):
 
 
 if __name__ == "__main__":
-    import crcmod
+    import crcmod  # type: ignore
 
     ##message = b"123456789"
     # message = b"~"
@@ -66,8 +66,8 @@ if __name__ == "__main__":
     print("starting...\n")
     crc4 = CrcMkr(4, 0b0011)
     print(crc4)
-    bs = chr(0b11) + chr(0b01011011)
-    bs = bs.encode("ASCII")
+    bsStr = chr(0b11) + chr(0b01011011)
+    bs = bsStr.encode("ASCII")
     print(bs, len(bs))
     print("crc2:", bin(crc4(bs)))  # should be 0b1110
 

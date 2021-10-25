@@ -2,11 +2,13 @@
 ASCII Serial Com Message Class
 """
 
-import crcmod
+import crcmod  # type: ignore
 from .ascErrors import *
 
+from typing import Any, Optional, Union, cast, ClassVar
 
-class ASC_Message(object):
+
+class ASC_Message:
     """
     Struct-type class to hold a message
 
@@ -18,9 +20,20 @@ class ASC_Message(object):
     data
     """
 
-    crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
+    ascVersion: Optional[bytes]
+    appVersion: Optional[bytes]
+    command: Optional[bytes]
+    data: Optional[bytes]
 
-    def __init__(self, ascVersion, appVersion, command, data):
+    crcFunc: ClassVar[Any] = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
+
+    def __init__(
+        self,
+        ascVersion: Optional[bytes],
+        appVersion: Optional[bytes],
+        command: Optional[bytes],
+        data: Optional[bytes],
+    ) -> None:
         if ascVersion is None or appVersion is None or command is None or data is None:
             self.ascVersion = None
             self.appVersion = None
@@ -34,7 +47,7 @@ class ASC_Message(object):
             assert len(self.ascVersion) == 1
             assert len(self.appVersion) == 1
 
-    def get_packed(self):
+    def get_packed(self) -> Optional[bytes]:
         """
         Packs command and data into a frame with checksum
 
@@ -46,6 +59,12 @@ class ASC_Message(object):
         """
         if not self:
             return None
+        # message = b">%c%c%c%b." % (
+        #    cast(self.ascVersion,bytes),
+        #    cast(self.appVersion,bytes),
+        #    cast(self.command,bytes),
+        #    cast(self.data,bytes),
+        # )
         message = b">%c%c%c%b." % (
             self.ascVersion,
             self.appVersion,
@@ -57,7 +76,7 @@ class ASC_Message(object):
         return message
 
     @staticmethod
-    def unpack(frame):
+    def unpack(frame: Union[bytes, bytearray]) -> ASC_Message:
         """
         Unpacks a data frame into a ASC_Message while verifying checksum
 
@@ -95,14 +114,14 @@ class ASC_Message(object):
         except IndexError:
             raise MalformedFrameError(original_frame)
         else:
-            ascVersion = chr(ascVersion).encode("ascii")
-            appVersion = chr(appVersion).encode("ascii")
-            command = chr(command).encode("ascii")
-            result = ASC_Message(ascVersion, appVersion, command, data)
+            ascVersionEnc = chr(ascVersion).encode("ascii")
+            appVersionEnc = chr(appVersion).encode("ascii")
+            commandEnc = chr(command).encode("ascii")
+            result = ASC_Message(ascVersionEnc, appVersionEnc, commandEnc, data)
             return result
 
     @staticmethod
-    def compute_checksum(frame):
+    def compute_checksum(frame: Union[bytes, bytearray]) -> bytes:
         """
         computes the checksum of the given message
         Computes the checksum for the given data frame from the `>' through the `.'
@@ -125,7 +144,7 @@ class ASC_Message(object):
         return result
 
     @staticmethod
-    def _check_command(command):
+    def _check_command(command: Union[str, bytes, bytearray]) -> bytes:
         """
         Checks command meets format specification
 
@@ -154,7 +173,7 @@ class ASC_Message(object):
         return command.lower()
 
     @staticmethod
-    def _check_data(command, data):
+    def _check_data(command, data: Union[str, bytes, bytearray]) -> bytes:
         """
         Checks data payload meets format specification for given command
 
@@ -180,12 +199,12 @@ class ASC_Message(object):
             raise BadDataError("Data can only be <= len", MAXDATALEN, "is", len(data))
         return data
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         if self.command is None:
             return False
         return True
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return (
             self.ascVersion == other.ascVersion
             and self.appVersion == other.appVersion
@@ -193,7 +212,7 @@ class ASC_Message(object):
             and self.data == other.data
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         result = "ASC_Message: ascVersion: {0.ascVersion:}, appVersion: {0.appVersion}, command: {0.command:}, data: {0.data}".format(
             self
         )
