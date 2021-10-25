@@ -1,118 +1,33 @@
 import unittest
 import unittest.mock
 from unittest.mock import patch
-from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
+from asciiserialcom.asciiSerialCom import send_message, receive_message
 from asciiserialcom.ascMessage import ASC_Message
+from asciiserialcom.circularBuffer import Circular_Buffer_Bytes
 from asciiserialcom.ascErrors import *
 import crcmod
 import datetime
+import trio
+import trio.testing
 
 
-class TestConvert(unittest.TestCase):
-    def setUp(self):
-        self.fileMock = unittest.mock.MagicMock()
-        self.asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
+class MemoryWriteStream:
+    def __init__(self, stream):
+        self.stream = stream
 
-    def test_to_hex(self):
-        asc = self.asc
-        self.assertEqual(asc._convert_to_hex(b"e"), b"0E")
-        self.assertEqual(asc._convert_to_hex(b"e", 5), b"0000E")
-        self.assertEqual(asc._convert_to_hex(b"e", 0), b"E")
-        self.assertEqual(asc._convert_to_hex(b"e", 1), b"E")
+    async def write(self, data):
+        await self.stream.send_all(data)
 
-        self.assertEqual(asc._convert_to_hex("e"), b"0E")
-        self.assertEqual(asc._convert_to_hex("e", 5), b"0000E")
-        self.assertEqual(asc._convert_to_hex("e", 0), b"E")
-        self.assertEqual(asc._convert_to_hex("e", 1), b"E")
-
-        self.assertEqual(asc._convert_to_hex(bytearray(b"e")), b"0E")
-        self.assertEqual(asc._convert_to_hex(bytearray(b"e"), 5), b"0000E")
-        self.assertEqual(asc._convert_to_hex(bytearray(b"e"), 0), b"E")
-        self.assertEqual(asc._convert_to_hex(bytearray(b"e"), 1), b"E")
-
-        self.assertEqual(asc._convert_to_hex(255), b"FF")
-        self.assertEqual(asc._convert_to_hex(255, 5), b"000FF")
-        self.assertEqual(asc._convert_to_hex(255, 0), b"FF")
-        self.assertEqual(asc._convert_to_hex(255, 1), b"FF")
-
-        self.assertEqual(asc._convert_to_hex(0), b"00")
-        self.assertEqual(asc._convert_to_hex(0, 5), b"00000")
-        self.assertEqual(asc._convert_to_hex(0, 0), b"0")
-        self.assertEqual(asc._convert_to_hex(0, 1), b"0")
-
-        for x in (b"", "", bytearray(b"")):
-            with self.assertRaises(ValueError):
-                asc._convert_to_hex(x)
-
-    def test_from_hex(self):
-        asc = self.asc
-
-        self.assertEqual(asc._convert_from_hex(b"e"), 14)
-        self.assertEqual(asc._convert_from_hex(bytearray(b"e")), 14)
-        self.assertEqual(asc._convert_from_hex("e"), 14)
-
-        self.assertEqual(asc._convert_from_hex(b"123"), 291)
-        self.assertEqual(asc._convert_from_hex(bytearray(b"123")), 291)
-        self.assertEqual(asc._convert_from_hex("123"), 291)
-
-        self.assertEqual(asc._convert_from_hex(b"0" * 20), 0)
-
-        for x in (b"", "", bytearray(b"")):
-            with self.assertRaises(ValueError):
-                asc._convert_from_hex(x)
-
-        for x in (b"g", b"135x235", "x125"):
-            with self.assertRaises(ValueError):
-                asc._convert_from_hex(x)
+    async def flush(self):
+        return
 
 
-class TestChecks(unittest.TestCase):
-    def setUp(self):
-        self.fileMock = unittest.mock.MagicMock()
+class MemoryReadStream:
+    def __init__(self, stream):
+        self.stream = stream
 
-    def test_check_register_content(self):
-
-        for nBits in [8, 16, 32, 64]:
-            asc = Ascii_Serial_Com(self.fileMock, self.fileMock, nBits)
-            for arg, comp in [
-                (b"0", b"0"),
-                (b"FF", b"FF"),
-                (bytearray(b"ff"), b"FF"),
-                ("ff", b"FF"),
-                (0xFF, b"FF"),
-                (0x3A, b"3A"),
-                (3, b"3"),
-            ]:
-                lencomp = nBits // 4 - len(comp)
-                if lencomp > 0:
-                    comp = b"0" * lencomp + comp
-                with self.subTest(i="nBits={}, arg={}".format(nBits, arg)):
-                    self.assertEqual(asc._check_register_content(arg), comp)
-
-            for arg in [-3, 2.4, b"0" * (nBits // 4 + 1), b"0" * 200]:
-                with self.subTest(i="nBits={}, arg={}".format(nBits, arg)):
-                    with self.assertRaises(BadRegisterContentError):
-                        asc._check_register_content(arg)
-
-    def test_check_register_number(self):
-
-        asc = Ascii_Serial_Com(self.fileMock, self.fileMock, 32)
-        for arg, comp in [
-            (b"0", b"0000"),
-            (b"FF", b"00FF"),
-            (bytearray(b"ff"), b"00FF"),
-            ("ff", b"00FF"),
-            (0xFF, b"00FF"),
-            (0x3A, b"003A"),
-            (3, b"0003"),
-        ]:
-            with self.subTest(i="arg={}".format(arg)):
-                self.assertEqual(asc._check_register_number(arg), comp)
-
-        for arg in [-3, 2.4, 0x1FFFF, b"0" * 5, b"0" * 200]:
-            with self.subTest(i="arg={}".format(arg)):
-                with self.assertRaises(BadRegisterNumberError):
-                    asc._check_register_number(arg)
+    async def read(self):
+        return await self.stream.receive_some()
 
 
 class TestMessaging(unittest.TestCase):
@@ -120,8 +35,30 @@ class TestMessaging(unittest.TestCase):
         self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
 
     def test_send_message(self):
-        fileMock = unittest.mock.MagicMock()
-        asc = Ascii_Serial_Com(fileMock, fileMock, 32)
+        async def run_test(args):
+            send_stream, receive_stream = trio.testing.memory_stream_one_way_pair()
+            write_stream = MemoryWriteStream(send_stream)
+            await send_message(write_stream, b"0", b"0", *args)
+            return await receive_stream.receive_some()
+
+        for frame, args in [
+            (b">00w.", (b"w", b"")),
+            (b">00w0123456789ABCDEF.", (b"w", b"0123456789ABCDEF")),
+            (b">00w" + b"A" * 56 + b".", (b"w", b"A" * 56)),
+            (b">00zERrPhU10mfn.", (b"z", b"ERrPhU10mfn")),
+        ]:
+            with self.subTest(i="frame={}, args={}".format(frame, args)):
+                written_data = trio.run(run_test, args)
+                frame += "{:04X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
+                self.assertEqual(written_data, frame)
+
+    def test_receive_message(self):
+        async def run_test(frame):
+            send_stream, receive_stream = trio.testing.memory_stream_one_way_pair()
+            read_stream = MemoryReadStream(receive_stream)
+            buf = Circular_Buffer_Bytes(128)
+            await send_stream.send_all(frame)
+            return await receive_message(read_stream, buf, b"0", b"0")
 
         for frame, args in [
             (b">00w.", (b"w", b"")),
@@ -131,10 +68,11 @@ class TestMessaging(unittest.TestCase):
         ]:
             with self.subTest(i="frame={}, args={}".format(frame, args)):
                 frame += "{:04X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
-                asc.send_message(*args)
-                fileMock.write.assert_called_once_with(frame)
-                fileMock.write.reset_mock()
+                msg = trio.run(run_test, frame)
+                self.assertEqual(msg.command, args[0])
+                self.assertEqual(msg.data, args[1])
 
+    """
     def test_read_reg(self):
         fileMock = unittest.mock.MagicMock()
         asc = Ascii_Serial_Com(fileMock, fileMock, 32)
@@ -227,3 +165,4 @@ class TestMessaging(unittest.TestCase):
                     asc.write_register(*args, timeout=0.01)
                 fileMock.write.assert_called_once_with(written)
                 fileMock.write.reset_mock()
+    """

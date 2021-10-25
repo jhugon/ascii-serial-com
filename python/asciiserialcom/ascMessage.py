@@ -76,7 +76,7 @@ class ASC_Message:
         return message
 
     @staticmethod
-    def unpack(frame: Union[bytes, bytearray]) -> ASC_Message:
+    def unpack(frame: Union[bytes, bytearray]) -> "ASC_Message":
         """
         Unpacks a data frame into a ASC_Message while verifying checksum
 
