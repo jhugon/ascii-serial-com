@@ -5,11 +5,45 @@ ASCII Serial Com Python Interface
 import math
 from .ascErrors import *
 from .asciiSerialComLowLevel import send_message
+import trio
+
+
+async def example_read_reg(fin, fout, regnum):
+    """
+    Example of using the code in this module
+
+    Would probably want to wrap this in a cancel timeout:
+
+        with trio.move_on_after(5):
+
+    or just run it directly like:
+
+        trio.run(example_read_reg,trio.open_file("xxx",mode="br",buffering=0),trio.open_file("xxx",mode="bw",buffering=0),0)
+    """
+
+    result = None
+    with trio.move_on_after(
+        1e6
+    ) as cancel_scope:  # arbitrarily large; intend parent to actually set timeout
+        async with trio.open_nursery() as nursery:
+            send_w, recv_w = trio.open_memory_channel(0)
+            send_r, recv_r = trio.open_memory_channel(0)
+            # send_s, recv_s = trio.open_memory_channel(0)
+            send_s, recv_s = (
+                None,
+                None,
+            )  # since not implemented yet, don't do anything with these messages
+            nursery.start_soon(receiver_loop, fin, send_w, send_r, send_s, b"00", b"00")
+            result = await read_register(fout, recv_r, regnum)
+            cancel_scope.cancel()  # this stops the receiver_loop which is what I setup cancel_scope for in the first place
+    return result
 
 
 async def read_register(fout, queue_r, regnum):
     """
         Read register on device
+
+        queue_r is a read queue where "r" messages are deposited, i.e. a trio.abc.ReceiveChannel
 
         Assumes reciver_loop is running in another task
 
@@ -24,7 +58,7 @@ async def read_register(fout, queue_r, regnum):
     await send_message(fout, asciiSerialComVersion, appVersion, b"r", regnum_hex)
     # read all messages in queue until one is correct or get cancelled
     while True:
-        msg = await queue_r.get()
+        msg = await queue_r.receive()
         if msg.command == b"r":
             splitdata = msg.data.split(b",")
             try:
@@ -41,6 +75,8 @@ async def read_register(fout, queue_r, regnum):
 async def write_register(fout, queue_w, regnum, content, registerBitWidth):
     """
         write register on device
+
+        queue_w is a read queue where "w" messages are deposited, i.e. a trio.abc.ReceiveChannel
 
         Assumes reciver_loop is running in another task
 
@@ -63,7 +99,7 @@ async def write_register(fout, queue_w, regnum, content, registerBitWidth):
     await send_message(fout, asciiSerialComVersion, appVersion, b"w", data)
     # read all messages in queue until one is correct or get cancelled
     while True:
-        msg = await queue_w.get()
+        msg = await queue_w.receive()
         if msg.command == b"w":
             try:
                 msg_regnum = int(msg.data, 16)

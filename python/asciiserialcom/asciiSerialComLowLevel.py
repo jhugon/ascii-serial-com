@@ -32,17 +32,19 @@ async def receiver_loop(
     """
     This is the task that handles reading from the serial link with file like object fin
     and then puts ASC_Message's in the queues
+
+    All "queue" are the write ends of trio channels i.e. trio.abc.SendChannel
     """
     buf = Circular_Buffer_Bytes(128)
     while True:
         msg = await receive_message(fin, buf, asciiSerialComVersion, appVersion)
         if msg:
-            if msg.command == b"w":
-                queue_w.put(msg)
-            elif msg.command == b"r":
-                queue_r.put(msg)
-            elif msg.command == b"s":
-                queue_s.put(msg)
+            if msg.command == b"w" and queue_w:
+                await queue_w.send(msg)
+            elif msg.command == b"r" and queue_r:
+                await queue_r.send(msg)
+            elif msg.command == b"s" and queue_s:
+                await queue_s.send(msg)
             else:
                 pass
 
