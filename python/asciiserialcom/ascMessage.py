@@ -20,34 +20,24 @@ class ASC_Message:
     data
     """
 
-    ascVersion: Optional[bytes]
-    appVersion: Optional[bytes]
-    command: Optional[bytes]
-    data: Optional[bytes]
+    ascVersion: bytes
+    appVersion: bytes
+    command: bytes
+    data: bytes
 
     crcFunc: ClassVar[Any] = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
 
     def __init__(
-        self,
-        ascVersion: Optional[bytes],
-        appVersion: Optional[bytes],
-        command: Optional[bytes],
-        data: Optional[bytes],
+        self, ascVersion: bytes, appVersion: bytes, command: bytes, data: bytes,
     ) -> None:
-        if ascVersion is None or appVersion is None or command is None or data is None:
-            self.ascVersion = None
-            self.appVersion = None
-            self.command = None
-            self.data = None
-        else:
-            self.ascVersion = bytes(ascVersion)
-            self.appVersion = bytes(appVersion)
-            self.command = self._check_command(command)
-            self.data = self._check_data(command, data)
-            assert len(self.ascVersion) == 1
-            assert len(self.appVersion) == 1
+        self.ascVersion = bytes(ascVersion)
+        self.appVersion = bytes(appVersion)
+        self.command = self._check_command(command)
+        self.data = self._check_data(command, data)
+        assert len(self.ascVersion) == 1
+        assert len(self.appVersion) == 1
 
-    def get_packed(self) -> Optional[bytes]:
+    def get_packed(self) -> bytes:
         """
         Packs command and data into a frame with checksum
 
@@ -57,15 +47,8 @@ class ASC_Message:
 
         returns data frame as bytes
         """
-        if not self:
-            return None
         # message = b">%c%c%c%b." % (
-        #    cast(self.ascVersion,bytes),
-        #    cast(self.appVersion,bytes),
-        #    cast(self.command,bytes),
-        #    cast(self.data,bytes),
-        # )
-        message = b">%c%c%c%b." % (
+        message = b">%b%b%b%b." % (
             self.ascVersion,
             self.appVersion,
             self.command,
@@ -198,11 +181,6 @@ class ASC_Message:
         if len(data) > MAXDATALEN:
             raise BadDataError("Data can only be <= len", MAXDATALEN, "is", len(data))
         return data
-
-    def __bool__(self) -> bool:
-        if self.command is None:
-            return False
-        return True
 
     def __eq__(self, other) -> bool:
         return (

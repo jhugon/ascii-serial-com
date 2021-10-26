@@ -1,7 +1,7 @@
 import unittest
 import unittest.mock
 from unittest.mock import patch
-from asciiserialcom.asciiSerialCom import send_message, receive_message
+from asciiserialcom.asciiSerialCom import send_message, Ascii_Serial_Com
 from asciiserialcom.ascMessage import ASC_Message
 from asciiserialcom.circularBuffer import Circular_Buffer_Bytes
 from asciiserialcom.ascErrors import *
@@ -30,6 +30,13 @@ class MemoryReadStream:
         return await self.stream.receive_some()
 
 
+def breakStapledIntoWriteRead(stapledStream):
+    return (
+        MemoryWriteStream(stapledStream.send_stream),
+        MemoryReadStream(stapledStream.receive_stream),
+    )
+
+
 class TestMessaging(unittest.TestCase):
     def setUp(self):
         self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
@@ -52,83 +59,82 @@ class TestMessaging(unittest.TestCase):
                 frame += "{:04X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
                 self.assertEqual(written_data, frame)
 
-    def test_receive_message(self):
-        async def run_test(frame):
-            send_stream, receive_stream = trio.testing.memory_stream_one_way_pair()
-            read_stream = MemoryReadStream(receive_stream)
-            buf = Circular_Buffer_Bytes(128)
-            await send_stream.send_all(frame)
-            return await receive_message(read_stream, buf, b"0", b"0")
-
-        for frame, args in [
-            (b">00w.", (b"w", b"")),
-            (b">00w0123456789ABCDEF.", (b"w", b"0123456789ABCDEF")),
-            (b">00w" + b"A" * 56 + b".", (b"w", b"A" * 56)),
-            (b">00zERrPhU10mfn.", (b"z", b"ERrPhU10mfn")),
-        ]:
-            with self.subTest(i="frame={}, args={}".format(frame, args)):
-                frame += "{:04X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
-                msg = trio.run(run_test, frame)
-                self.assertEqual(msg.command, args[0])
-                self.assertEqual(msg.data, args[1])
-
-    """
     def test_read_reg(self):
-        fileMock = unittest.mock.MagicMock()
-        asc = Ascii_Serial_Com(fileMock, fileMock, 32)
-        read_array = []
+        async def run_func(send_chan, func, *args):
+            async with send_chan:
+                result = await func(*args)
+                await send_chan.send(result)
 
-        def read_func():
-            if len(read_array) > 0:
-                return read_array.pop(0)
-            else:
-                return b""
+        async def run_test(self, reg_num, reg_val):
+            dev_reply_message = b">00r%04X,%08X." % (reg_num, reg_val)
+            dev_reply_message += (
+                "{:04X}".format(self.crcFunc(dev_reply_message)).encode("ascii") + b"\n"
+            )
+            dev_expect_message = b">00r%04X." % (reg_num)
+            dev_expect_message += (
+                "{:04X}".format(self.crcFunc(dev_expect_message)).encode("ascii")
+                + b"\n"
+            )
 
-        fileMock.read.side_effect = read_func
+            host, device = trio.testing.memory_stream_pair()
+            host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
+            got_to_cancel = False
+            with trio.move_on_after(0.5) as cancel_scope:
+                result_send_chan, result_recv_chan, = trio.open_memory_channel(0)
+                async with result_recv_chan:
+                    async with trio.open_nursery() as nursery:
+                        asc = Ascii_Serial_Com(
+                            nursery, host_read_stream, host_write_stream, 32
+                        )
+                        nursery.start_soon(
+                            run_func, result_send_chan, asc.read_register, reg_num
+                        )
+                        dev_receive_message = await device.receive_some()
+                        self.assertEqual(dev_receive_message, dev_expect_message)
+                        await device.send_all(dev_reply_message)
+                        result = await result_recv_chan.receive()
+                        self.assertEqual(result, reg_val)
+                        got_to_cancel = True
+                        cancel_scope.cancel()
+            self.assertTrue(got_to_cancel)
+
         for reg_num, reg_val in [(2, 0x1234567A), (0xFF, 0)]:
             with self.subTest(i="reg_num={}, reg_val={}".format(reg_num, reg_val)):
-                reply_message = b">00r%04X,%08X." % (reg_num, reg_val)
-                reply_message += (
-                    "{:04X}".format(self.crcFunc(reply_message)).encode("ascii") + b"\n"
-                )
-                read_array.append(reply_message)
-                result = asc.read_register(reg_num)
-                self.assertEqual(result, b"%08X" % reg_val)
-                write_message = b">00r%04X." % (reg_num)
-                write_message += (
-                    "{:04X}".format(self.crcFunc(write_message)).encode("ascii") + b"\n"
-                )
-                fileMock.write.assert_called_once_with(write_message)
-                fileMock.write.reset_mock()
-
-                # reply with wrong reg number
-                reply_message = b">00r%04X,%08X." % (reg_num + 1, reg_val)
-                reply_message += (
-                    "{:04X}".format(self.crcFunc(reply_message)).encode("ascii") + b"\n"
-                )
-                # fileMock.read.return_value = reply_message
-                read_array.append(reply_message)
-                with self.assertRaises(ResponseTimeoutError):
-                    asc.read_register(reg_num, timeout=0.01)
-                fileMock.write.reset_mock()
-
-        # fileMock.read.return_value = b""
-        with self.assertRaises(ResponseTimeoutError):
-            asc.read_register(2, timeout=0.01)
+                trio.run(run_test, self, reg_num, reg_val)
 
     def test_write_reg(self):
-        fileMock = unittest.mock.MagicMock()
-        asc = Ascii_Serial_Com(fileMock, fileMock, 8)
+        async def run_func(send_chan, func, *args):
+            async with send_chan:
+                result = await func(*args)
+                await send_chan.send(result)
 
-        read_array = []
+        async def run_test(self, args, written, read, nRegBits):
+            written += "{:04X}".format(self.crcFunc(written)).encode("ascii") + b"\n"
+            read += "{:04X}".format(self.crcFunc(read)).encode("ascii") + b"\n"
+            host, device = trio.testing.memory_stream_pair()
+            host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
+            got_to_cancel = False
+            with trio.move_on_after(0.5) as cancel_scope:
+                result_send_chan, result_recv_chan, = trio.open_memory_channel(0)
+                async with result_recv_chan:
+                    async with trio.open_nursery() as nursery:
+                        asc = Ascii_Serial_Com(
+                            nursery, host_read_stream, host_write_stream, nRegBits
+                        )
+                        nursery.start_soon(
+                            run_func, result_send_chan, asc.write_register, *args
+                        )
+                        dev_receive_message = await device.receive_some()
+                        self.assertEqual(dev_receive_message, written)
+                        await device.send_all(read)
+                        result = await result_recv_chan.receive()
+                        self.assertEqual(
+                            result, None
+                        )  # b/c write returns non on success but want to check it does
+                        got_to_cancel = True
+                        cancel_scope.cancel()
+            self.assertTrue(got_to_cancel)
 
-        def read_func():
-            if len(read_array) > 0:
-                return read_array.pop(0)
-            else:
-                return b""
-
-        fileMock.read.side_effect = read_func
         for args, written, read in [
             ((b"0", b"00"), b">00w0000,00.", b">00w0000."),
             ((b"FF", b"E3"), b">00w00FF,E3.", b">00w00FF."),
@@ -140,29 +146,18 @@ class TestMessaging(unittest.TestCase):
             with self.subTest(
                 i="args={}, written={}, read={}".format(args, written, read)
             ):
-                written += (
-                    "{:04X}".format(self.crcFunc(written)).encode("ascii") + b"\n"
-                )
-                read += "{:04X}".format(self.crcFunc(read)).encode("ascii") + b"\n"
-                read_array.append(read)
-                asc.write_register(*args)
-                fileMock.write.assert_called_with(written)
-                fileMock.write.reset_mock()
+                trio.run(run_test, self, args, written, read, 8)
 
         for args, written in [
-            ((b"0", b"00"), b">00w0000,00."),
-            ((b"FF", b"E3"), b">00w00FF,E3."),
-            ((b"FFFF", b"E3"), b">00wFFFF,E3."),
-            ((0, 0), b">00w0000,00."),
-            ((0xFF, 0xE3), b">00w00FF,E3."),
-            ((0xFFFF, 0xE3), b">00wFFFF,E3."),
+            ((b"0", b"0000"), b">00w0000,00000000."),
+            ((b"FF", b"E3E3"), b">00w00FF,0000E3E3."),
+            ((b"FFFF", b"1F1F1F1F"), b">00wFFFF,1F1F1F1F."),
+            ((0, 0), b">00w0000,00000000."),
+            ((0xFF, 0xE3), b">00w00FF,000000E3."),
+            ((0xFFFF, 0x1F1F1F1F), b">00wFFFF,1F1F1F1F."),
         ]:
-            with self.subTest(i="args={}, written={}".format(args, written)):
-                written += (
-                    "{:04X}".format(self.crcFunc(written)).encode("ascii") + b"\n"
-                )
-                with self.assertRaises(ResponseTimeoutError):
-                    asc.write_register(*args, timeout=0.01)
-                fileMock.write.assert_called_once_with(written)
-                fileMock.write.reset_mock()
-    """
+            read = written[:-10] + b"."
+            with self.subTest(
+                i="args={}, written={} read={}".format(args, written, read)
+            ):
+                trio.run(run_test, self, args, written, read, 32)
