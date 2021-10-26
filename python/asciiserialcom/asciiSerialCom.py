@@ -17,7 +17,7 @@ from .ascHelpers import (
 from .circularBuffer import Circular_Buffer_Bytes
 from .ascMessage import ASC_Message
 
-from typing import cast, Optional
+from typing import cast, Optional, Union
 
 
 async def send_message(
@@ -81,7 +81,7 @@ class Ascii_Serial_Com:
             self.fout, self.asciiSerialComVersion, self.appVersion, command, data
         )
 
-    async def read_register(self, regnum: int) -> bytes:
+    async def read_register(self, regnum: int) -> int:
         """
         Read register on device
 
@@ -89,7 +89,7 @@ class Ascii_Serial_Com:
 
         regnum: an integer register number from 0 to 0xFFFF
 
-        returns register content as bytes
+        returns register content as int
         """
 
         regnum_hex = check_register_number(regnum)
@@ -122,7 +122,7 @@ class Ascii_Serial_Com:
                     self.recv_r = None
                     return convert_from_hex(rec_value)
 
-    async def write_register(self, regnum: int, content: bytes,) -> None:
+    async def write_register(self, regnum: int, content: Union[bytes, int]) -> None:
         """
             write register on device
 
