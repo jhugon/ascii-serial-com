@@ -6,7 +6,7 @@ import random
 import unittest
 from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
 from asciiserialcom.ascErrors import *
-from asciiserialcom.comSubproc import Com_Subproc
+import trio
 
 alphabytes = b"abcdefghijklmnopqrstuvwxyz"
 alphanumeric = alphabytes + bytes(alphabytes).upper() + b"0123456789"
@@ -34,17 +34,26 @@ class TestTrivialLoopback(unittest.TestCase):
             intexts[0] * 5,
             (intexts[0] * 20)[:64],
         ]
-        with Com_Subproc([self.exe, "-l"], env=self.env, hideStderr=True) as comSubproc:
-            for intext in intexts:
-                comSubproc.send(intext)
-                tstart = datetime.datetime.now()
-                data = bytearray()
-                while datetime.datetime.now() < tstart + datetime.timedelta(
-                    milliseconds=20
-                ):
-                    data += comSubproc.receive()
-                # print("Got data: '{}'".format(data.decode("UTF-8")),flush=True)
-                self.assertEqual(intext, data)
+
+        async def run_test(self, intexts):
+            got_to_cancel = False
+            with trio.move_on_after(1) as cancel_scope:
+                async with await trio.open_process(
+                    [self.exe, "-l"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                ) as device:
+                    # async with await trio.open_process([self.exe,"-l"],stdin=subprocess.PIPE,stdout=subprocess.PIPE) as device:
+                    for intext in intexts:
+                        await device.stdio.send_all(intext)
+                        data = await device.stdio.receive_some()
+                        self.assertEqual(intext, data)
+                    got_to_cancel = True
+                    cancel_scope.cancel()
+            self.assertTrue(got_to_cancel)
+
+        trio.run(run_test, self, intexts)
 
     def test_host_device(self):
         with subprocess.Popen(
