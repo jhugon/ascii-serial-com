@@ -62,6 +62,12 @@ class Ascii_Serial_Com:
         asciiSerialComVersion: bytes = b"0",
         appVersion: bytes = b"0",
     ) -> None:
+        if len(asciiSerialComVersion) != 1:
+            raise Exception(
+                f"asciiSerialComVersion must be a single byte not {asciiSerialComVersion:!r}"
+            )
+        if len(appVersion) != 1:
+            raise Exception(f"appVersion must be a single byte not {appVersion:!r}")
         self.fin = fin
         self.fout = fout
         self.asciiSerialComVersion = asciiSerialComVersion
@@ -164,7 +170,7 @@ class Ascii_Serial_Com:
                         self.recv_w = None
                         return
 
-    async def _receiver_task(self,) -> None:
+    async def _receiver_task(self) -> None:
         """
         This is the task that handles reading from the serial link (self.fin)
         and then puts ASC_Message's in queues

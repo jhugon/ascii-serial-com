@@ -2,6 +2,7 @@
 Circular buffer implementation in python
 """
 
+from __future__ import annotations
 from typing import Any, Callable, Optional, Union
 from collections.abc import Sequence, MutableSequence
 
@@ -11,9 +12,7 @@ class Circular_Buffer:
     Implements a circular buffer using a collection
     """
 
-    def __init__(
-        self, N: int, collInitFunc: Callable[[int], MutableSequence[Any]]
-    ) -> None:
+    def __init__(self, N: int, collInitFunc: Callable[[int], MutableSequence]) -> None:
         """
         N: int capacity of buffer
         collInitFunc: a function that returns
@@ -30,7 +29,7 @@ class Circular_Buffer:
         self.iStop = 0
         self.size = 0
 
-    def push_back(self, b: Sequence[Any]) -> None:
+    def push_back(self, b: Sequence) -> None:
         """
         Add elements to the end of the circular buffer
         Does so by overwriting earlier contents if necessary
@@ -46,7 +45,7 @@ class Circular_Buffer:
             else:
                 self.size += 1
 
-    def push_front(self, b: Sequence[Any]) -> None:
+    def push_front(self, b: Sequence) -> None:
         """
         Add elements to the start of the circular buffer
 
@@ -62,7 +61,7 @@ class Circular_Buffer:
             else:
                 self.size += 1
 
-    def pop_front(self, N: int) -> Sequence[Any]:
+    def pop_front(self, N: int) -> Sequence:
         """
         Pop the first N elements off of start of the circular buffer and return them
         """
@@ -78,7 +77,7 @@ class Circular_Buffer:
             self.size -= 1
         return result
 
-    def pop_back(self, N: int) -> Sequence[Any]:
+    def pop_back(self, N: int) -> Sequence:
         """
         Pop the last N elements off of the end of the circular buffer and return them
         """

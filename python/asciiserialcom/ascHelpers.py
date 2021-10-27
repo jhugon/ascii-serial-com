@@ -1,3 +1,4 @@
+from __future__ import annotations
 import math
 
 from .ascErrors import *
@@ -7,7 +8,7 @@ from typing import Union, Optional, Any
 from collections.abc import Sequence
 
 
-async def frame_from_stream(fin, buf: Circular_Buffer_Bytes) -> Optional[Sequence[Any]]:
+async def frame_from_stream(fin, buf: Circular_Buffer_Bytes) -> Optional[Sequence]:
     """
     Reads bytes from file-like object and attempts to identify a message frame. Uses circular_buffer buf.
 
