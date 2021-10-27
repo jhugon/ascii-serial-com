@@ -6,7 +6,7 @@ import datetime
 import trio
 import trio.testing
 import subprocess
-from .testAsciiSerialCom import breakStapledIntoWriteRead
+from asciiserialcom.utilities import breakStapledIntoWriteRead
 
 
 async def run(self):

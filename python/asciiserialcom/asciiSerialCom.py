@@ -51,6 +51,8 @@ class Ascii_Serial_Com:
     recv_w: Optional[trio.abc.ReceiveChannel] = None
     recv_r: Optional[trio.abc.ReceiveChannel] = None
     recv_s: Optional[trio.abc.ReceiveChannel] = None
+    send_all_received_channel: Optional[trio.abc.SendChannel] = None
+    send_all_received_channel_copy: bool = True
     buf: Circular_Buffer_Bytes = Circular_Buffer_Bytes(128)
 
     def __init__(
@@ -170,6 +172,31 @@ class Ascii_Serial_Com:
                         self.recv_w = None
                         return
 
+    def forward_received_s_messages_to(
+        self, channel: Optional[trio.abc.SendChannel]
+    ) -> None:
+        """
+        Send all future streaming frame "s" command messages to the given channel.
+
+        If channel is None, then "s" command messages are dropped.
+        """
+        self.send_s = channel
+
+    def forward_all_received_messages_to(
+        self, channel: Optional[trio.abc.SendChannel], copy: bool = False
+    ) -> None:
+        """
+        This lets you send all recieved messages to a channel for handling. Useful for testing and debugging.
+
+        If copy is True, then sends each message to channel and also sends them to the channel for each command (if present).
+
+        If copy is False, then sends each message to channel only. This will break some commands like write_register and read_register.
+
+        If channel is None, then resets to normal behavior
+        """
+        self.send_all_received_channel = channel
+        self.send_all_received_channel_copy = copy
+
     async def _receiver_task(self) -> None:
         """
         This is the task that handles reading from the serial link (self.fin)
@@ -178,12 +205,18 @@ class Ascii_Serial_Com:
         while True:
             msg = await self._receive_message()
             if msg:
+                if self.send_all_received_channel:
+                    await self.send_all_received_channel.send(msg)
+                    if not self.send_all_received_channel_copy:
+                        continue  # skip all of the other sends
                 if msg.command == b"w" and self.send_w:
                     await self.send_w.send(msg)
                 elif msg.command == b"r" and self.send_r:
                     await self.send_r.send(msg)
                 elif msg.command == b"s" and self.send_s:
                     await self.send_s.send(msg)
+                elif msg.command == b"e":
+                    print(f"Error message received: {msg}")
                 else:
                     pass
 
