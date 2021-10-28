@@ -1,5 +1,6 @@
 from __future__ import annotations
 import math
+import logging
 
 from .errors import *
 from .circularBuffer import Circular_Buffer_Bytes
@@ -15,12 +16,14 @@ async def frame_from_stream(fin, buf: Circular_Buffer_Bytes) -> Optional[Sequenc
     returns: frame as bytes; None if no frame found in stream
     """
     try:
+        logging.debug("about to read from fin")
         b = await fin.read()
     except ValueError:
         raise FileReadError
     except IOError:
         raise FileReadError
     else:
+        logging.debug("got something from fin")
         buf.push_back(b)
         buf.removeFrontTo(b">", inclusive=False)
         if len(buf) == 0:
@@ -28,6 +31,7 @@ async def frame_from_stream(fin, buf: Circular_Buffer_Bytes) -> Optional[Sequenc
         iNewline = buf.findFirst(b"\n")
         if iNewline is None:
             return None
+        logging.debug("have a whole message")
         return buf.pop_front(iNewline + 1)
 
 

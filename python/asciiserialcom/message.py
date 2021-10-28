@@ -124,7 +124,7 @@ class ASC_Message:
             )
         frame = frame.split(b".")[0] + b"."
         result = "{:04X}".format(ASC_Message.crcFunc(frame)).encode("ascii")
-        logging.debug("checksum computed to be: ", result)
+        logging.debug(f"checksum computed to be: {result!r}")
         return result
 
     @staticmethod

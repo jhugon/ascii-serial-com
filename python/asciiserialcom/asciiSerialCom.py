@@ -3,9 +3,11 @@ ASCII Serial Com Python Interface
 
 """
 
+import io
 import math
 import logging
 import trio
+from trio._file_io import AsyncIOWrapper
 
 from .errors import *
 from .helpers import (
@@ -18,7 +20,7 @@ from .helpers import (
 from .circularBuffer import Circular_Buffer_Bytes
 from .message import ASC_Message
 
-from typing import cast, Optional, Union
+from typing import cast, Optional, Union, Any
 
 
 async def send_message(
@@ -45,9 +47,9 @@ class Ascii_Serial_Com:
     send_w: Optional[trio.abc.SendChannel] = None
     send_r: Optional[trio.abc.SendChannel] = None
     send_s: Optional[trio.abc.SendChannel] = None
+    write_s: Optional[Any] = None
     recv_w: Optional[trio.abc.ReceiveChannel] = None
     recv_r: Optional[trio.abc.ReceiveChannel] = None
-    recv_s: Optional[trio.abc.ReceiveChannel] = None
     send_all_received_channel: Optional[trio.abc.SendChannel] = None
     send_all_received_channel_copy: bool = True
     buf: Circular_Buffer_Bytes = Circular_Buffer_Bytes(128)
@@ -170,14 +172,26 @@ class Ascii_Serial_Com:
                         return
 
     def forward_received_s_messages_to(
-        self, channel: Optional[trio.abc.SendChannel]
+        self, channel: Union[None, trio.abc.SendChannel, io.IOBase, AsyncIOWrapper]
     ) -> None:
         """
         Send all future streaming frame "s" command messages to the given channel.
 
         If channel is None, then "s" command messages are dropped.
         """
-        self.send_s = channel
+        self.send_s = None
+        self.write_s = None
+        if channel is None:
+            self.send_s = channel
+        elif isinstance(channel, trio.abc.SendChannel):
+            self.send_s = channel
+        elif isinstance(channel, AsyncIOWrapper):
+            channel.wrapped.write
+            self.write_s = channel
+        elif isinstance(channel, io.IOBase):
+            self.write_s = trio.wrap_file(channel)
+        else:
+            raise Exception("Channel wrong type")
 
     def forward_all_received_messages_to(
         self, channel: Optional[trio.abc.SendChannel], copy: bool = False
@@ -210,8 +224,12 @@ class Ascii_Serial_Com:
                     await self.send_w.send(msg)
                 elif msg.command == b"r" and self.send_r:
                     await self.send_r.send(msg)
-                elif msg.command == b"s" and self.send_s:
-                    await self.send_s.send(msg)
+                elif msg.command == b"s":
+                    if self.send_s:
+                        logging.debug(f"About to send to send_s {msg}")
+                        await self.send_s.send(msg)
+                    elif self.write_s:
+                        await self.write_s.write(msg.get_packed())
                 elif msg.command == b"e":
                     logging.warning(f"Error message received: {msg}")
                 else:
@@ -230,6 +248,7 @@ class Ascii_Serial_Com:
         """
         frame = await frame_from_stream(self.fin, self.buf)
         if frame is None:
+            logging.debug("received frame is None")
             return None
         logging.debug("received: {!r}".format(frame))
         msg = ASC_Message.unpack(frame)
