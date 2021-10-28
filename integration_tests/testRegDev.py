@@ -6,11 +6,18 @@ import subprocess
 import random
 import unittest
 from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
-from asciiserialcom.ascErrors import *
-from asciiserialcom.comSubproc import Com_Subproc
+from asciiserialcom.errors import *
+from asciiserialcom.utilities import (
+    MemoryWriteStream,
+    MemoryReadStream,
+    ChannelWriteStream,
+    ChannelReadStream,
+    breakStapledIntoWriteRead,
+)
+import trio
 
 
-class TestTrivialLoopback(unittest.TestCase):
+class TestRegisterReadback(unittest.TestCase):
     def setUp(self):
         self.env = os.environ.copy()
         platform = "native"
@@ -23,76 +30,91 @@ class TestTrivialLoopback(unittest.TestCase):
         self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
 
     def test_just_device(self):
-        with Com_Subproc([self.exe], env=self.env, hideStderr=True) as comSubproc:
-            for i in range(10):
-                regNum = random.randrange(10)
-                regVal = random.randrange(256)
-                wmessage = ">00w{:04X},{:02X}.".format(regNum, regVal).encode("ascii")
-                wmessage += (
-                    "{:04X}".format(self.crcFunc(wmessage)).encode("ascii") + b"\n"
-                )
-                rmessage = ">00r{:04X}.".format(regNum).encode("ascii")
-                rmessage += (
-                    "{:04X}".format(self.crcFunc(rmessage)).encode("ascii") + b"\n"
-                )
-                wresponse_check = ">00w{:04X}.".format(regNum).encode("ascii")
-                wresponse_check += (
-                    "{:04X}".format(self.crcFunc(wresponse_check)).encode("ascii")
-                    + b"\n"
-                )
-                rresponse_check = ">00r{:04X},{:02X}.".format(regNum, regVal).encode(
-                    "ascii"
-                )
-                rresponse_check += (
-                    "{:04X}".format(self.crcFunc(rresponse_check)).encode("ascii")
-                    + b"\n"
-                )
+        async def run_test(self):
+            got_to_cancel = False
+            with trio.move_on_after(1) as cancel_scope:
+                async with await trio.open_process(
+                    [self.exe],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                ) as device:
+                    for i in range(10):
+                        regNum = random.randrange(10)
+                        regVal = random.randrange(256)
+                        wmessage = ">00w{:04X},{:02X}.".format(regNum, regVal).encode(
+                            "ascii"
+                        )
+                        wmessage += (
+                            "{:04X}".format(self.crcFunc(wmessage)).encode("ascii")
+                            + b"\n"
+                        )
+                        rmessage = ">00r{:04X}.".format(regNum).encode("ascii")
+                        rmessage += (
+                            "{:04X}".format(self.crcFunc(rmessage)).encode("ascii")
+                            + b"\n"
+                        )
+                        wresponse_check = ">00w{:04X}.".format(regNum).encode("ascii")
+                        wresponse_check += (
+                            "{:04X}".format(self.crcFunc(wresponse_check)).encode(
+                                "ascii"
+                            )
+                            + b"\n"
+                        )
+                        rresponse_check = ">00r{:04X},{:02X}.".format(
+                            regNum, regVal
+                        ).encode("ascii")
+                        rresponse_check += (
+                            "{:04X}".format(self.crcFunc(rresponse_check)).encode(
+                                "ascii"
+                            )
+                            + b"\n"
+                        )
 
-                ### Test Write
-                comSubproc.send(wmessage)
-                tstart = datetime.datetime.now()
-                wresponse = bytearray()
-                while datetime.datetime.now() < tstart + datetime.timedelta(
-                    milliseconds=20
-                ):
-                    wresponse += comSubproc.receive()
-                # print("Got w response: '{}'".format(wresponse),flush=True)
-                self.assertEqual(wresponse_check, wresponse)
-                ### Test Readback
-                comSubproc.send(rmessage)
-                tstart = datetime.datetime.now()
-                rresponse = bytearray()
-                while datetime.datetime.now() < tstart + datetime.timedelta(
-                    milliseconds=20
-                ):
-                    rresponse += comSubproc.receive()
-                # print("Got r response: '{}'".format(rresponse),flush=True)
-                self.assertEqual(rresponse_check, rresponse)
+                        """
+                        await device.stdio.send_all(intext)
+                        data = await device.stdio.receive_some()
+                        self.assertEqual(data, intext)
+                        """
 
-    def test_host_device(self):
-        with subprocess.Popen(
-            [self.exe],
-            env=self.env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            bufsize=0,
-            close_fds=True,
-        ) as proc:
-            asc = Ascii_Serial_Com(proc.stdout, proc.stdin, 8)
-            for i in range(250):
-                regNum = random.randrange(10)
-                regVal = random.randrange(256)
-                asc.write_register(regNum, regVal)
-                regVal_read_bytes = asc.read_register(regNum)
-                regVal_read = int(regVal_read_bytes, 16)
-                self.assertEqual(regVal, regVal_read)
+                        ### Test Write
+                        await device.stdio.send_all(wmessage)
+                        wresponse = await device.stdio.receive_some()
+                        # print("Got w response: '{}'".format(wresponse),flush=True)
+                        self.assertEqual(wresponse_check, wresponse)
+                        ### Test Readback
+                        await device.stdio.send_all(rmessage)
+                        rresponse = await device.stdio.receive_some()
+                        # print("Got r response: '{}'".format(rresponse),flush=True)
+                        self.assertEqual(rresponse_check, rresponse)
+                    got_to_cancel = True
+                    cancel_scope.cancel()
+            self.assertTrue(got_to_cancel)
 
-            for i in range(3):
-                vals = random.choices(range(256), k=10)
-                for regNum, regVal in enumerate(vals):
-                    asc.write_register(regNum, regVal)
-                for regNum, regVal in enumerate(vals):
-                    regVal_read_bytes = asc.read_register(regNum)
-                    regVal_read = int(regVal_read_bytes, 16)
-                    self.assertEqual(regVal, regVal_read)
+        trio.run(run_test, self)
+
+    def test_host_device_8bit(self):
+        async def run_test(self):
+            nRegisterBits = 8
+            testDataMax = 2 ** nRegisterBits
+            got_to_cancel = False
+            with trio.move_on_after(1) as cancel_scope:
+                async with await trio.open_process(
+                    [self.exe],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                ) as device:
+                    host_w, host_r = breakStapledIntoWriteRead(device.stdio)
+                    async with trio.open_nursery() as nursery:
+                        asc = Ascii_Serial_Com(nursery, host_r, host_w, nRegisterBits)
+                        for testRegNum in range(10):
+                            for testData in range(testDataMax):
+                                await asc.write_register(testRegNum, testData)
+                                result = await asc.read_register(testRegNum)
+                                self.assertEqual(result, testData)
+                        got_to_cancel = True
+                        cancel_scope.cancel()
+            self.assertTrue(got_to_cancel)
+
+        trio.run(run_test, self)

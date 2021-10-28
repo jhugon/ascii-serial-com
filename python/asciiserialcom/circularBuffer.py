@@ -2,13 +2,17 @@
 Circular buffer implementation in python
 """
 
+from __future__ import annotations
+from typing import Any, Callable, Optional, Union
+from collections.abc import Sequence, MutableSequence
 
-class Circular_Buffer(object):
+
+class Circular_Buffer:
     """
     Implements a circular buffer using a collection
     """
 
-    def __init__(self, N, collInitFunc):
+    def __init__(self, N: int, collInitFunc: Callable[[int], MutableSequence]) -> None:
         """
         N: int capacity of buffer
         collInitFunc: a function that returns
@@ -25,7 +29,7 @@ class Circular_Buffer(object):
         self.iStop = 0
         self.size = 0
 
-    def push_back(self, b):
+    def push_back(self, b: Sequence) -> None:
         """
         Add elements to the end of the circular buffer
         Does so by overwriting earlier contents if necessary
@@ -41,7 +45,7 @@ class Circular_Buffer(object):
             else:
                 self.size += 1
 
-    def push_front(self, b):
+    def push_front(self, b: Sequence) -> None:
         """
         Add elements to the start of the circular buffer
 
@@ -57,7 +61,7 @@ class Circular_Buffer(object):
             else:
                 self.size += 1
 
-    def pop_front(self, N):
+    def pop_front(self, N: int) -> Sequence:
         """
         Pop the first N elements off of start of the circular buffer and return them
         """
@@ -73,7 +77,7 @@ class Circular_Buffer(object):
             self.size -= 1
         return result
 
-    def pop_back(self, N):
+    def pop_back(self, N: int) -> Sequence:
         """
         Pop the last N elements off of the end of the circular buffer and return them
         """
@@ -90,7 +94,7 @@ class Circular_Buffer(object):
         self.size -= N
         return result
 
-    def removeFrontTo(self, val, inclusive=False):
+    def removeFrontTo(self, val: Any, inclusive: bool = False) -> None:
         """
         Remove front elements up to given val
 
@@ -112,7 +116,7 @@ class Circular_Buffer(object):
                 self.iStart = (self.iStart + 1) % self.capacity
                 self.size -= 1
 
-    def removeBackTo(self, val, inclusive=False):
+    def removeBackTo(self, val: Any, inclusive: bool = False) -> None:
         """
         Remove back elements to given val
 
@@ -132,7 +136,7 @@ class Circular_Buffer(object):
                 self.iStop = (self.iStop - 1) % self.capacity
                 self.size -= 1
 
-    def count(self, x):
+    def count(self, x: Any) -> int:
         """
         Returns number of elements equal to x in buffer
         """
@@ -143,7 +147,7 @@ class Circular_Buffer(object):
                 result += 1
         return result
 
-    def findFirst(self, x):
+    def findFirst(self, x: Any) -> Optional[int]:
         """
         Returns the index (from iStart) of the first occurance of x
 
@@ -155,10 +159,10 @@ class Circular_Buffer(object):
                 return i
         return None
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.size
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int) -> Any:
         """
         Access the circular buffer like a collection
         """
@@ -166,13 +170,13 @@ class Circular_Buffer(object):
             raise IndexError("index", i, " >= len: ", len(self))
         return self.data[(self.iStart + i) % self.capacity]
 
-    def isFull(self):
+    def isFull(self) -> bool:
         return len(self) == self.capacity
 
-    def isEmpty(self):
+    def isEmpty(self) -> bool:
         return len(self) == 0
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "{}: capacity: {} size: {} iStart: {} iStop: {}\n    {}".format(
             self.__class__.__name__,
             self.capacity,
@@ -188,10 +192,10 @@ class Circular_Buffer_Bytes(Circular_Buffer):
     Implements a circular buffer as a bytearray object
     """
 
-    def __init__(self, N):
+    def __init__(self, N: int):
         super().__init__(N, lambda n: bytearray(n))
 
-    def removeFrontTo(self, val, inclusive=False):
+    def removeFrontTo(self, val: Union[bytes, int], inclusive: bool = False) -> None:
         """
         Remove front elements up to given val
 
@@ -208,7 +212,7 @@ class Circular_Buffer_Bytes(Circular_Buffer):
                 val = val[0]
         super().removeFrontTo(val, inclusive=inclusive)
 
-    def removeBackTo(self, val, inclusive=False):
+    def removeBackTo(self, val: Union[bytes, int], inclusive: bool = False) -> None:
         """
         Remove back elements to given val
 
@@ -223,7 +227,7 @@ class Circular_Buffer_Bytes(Circular_Buffer):
                 val = val[0]
         super().removeBackTo(val, inclusive=inclusive)
 
-    def count(self, x):
+    def count(self, x: Union[bytes, int]) -> int:
         """
         Returns number of elements equal to x in buffer
         """
@@ -235,7 +239,7 @@ class Circular_Buffer_Bytes(Circular_Buffer):
 
         return super().count(x)
 
-    def findFirst(self, x):
+    def findFirst(self, x: Union[bytes, int]) -> Optional[int]:
         """
         Returns the index (from iStart) of the first occurance of x
 

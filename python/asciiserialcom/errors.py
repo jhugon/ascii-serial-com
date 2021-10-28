@@ -2,12 +2,13 @@
 Errors and Exceptions for ASCII Serial Com Python Interface
 """
 
+import typing
 
-def printError(error):
+
+def printError(error: Exception) -> None:
     args = error.args
-    if type(args) == tuple:
-        args = " ".join([str(x) for x in args])
-    print(f"{type(error).__name__}: {args}")
+    argsStr = " ".join([str(x) for x in args])
+    print(f"{type(error).__name__}: {argsStr}")
 
 
 class ASCErrorBase(Exception):

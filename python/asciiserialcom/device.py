@@ -9,66 +9,59 @@ import sys
 import os.path
 import argparse
 import datetime
-from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
-from asciiserialcom.ascErrors import *
+import trio
+from .asciiSerialCom import send_message
+from .circularBuffer import Circular_Buffer_Bytes
+from .message import ASC_Message
+from .helpers import convert_from_hex, convert_to_hex, frame_from_stream
+from .errors import *
+
+from typing import Optional, Any, Union
 
 
-class SimpleTimer(object):
-    def __init__(self):
-        self.lastReset = datetime.datetime.now()
+async def deviceLoopOpenFiles(
+    finname: str,
+    foutname: str,
+    registersBitWidth: int,
+    nRegisters: int,
+    printInterval: float,
+) -> None:
+    async with await trio.open_file(foutname, "wb", buffering=0) as fout:
+        async with await trio.open_file(finname, "rb", buffering=0) as fin:
+            await deviceLoop(fin, fout, registersBitWidth, nRegisters, printInterval)
 
-    def hasBeen(self, nSecs):
-        result = (
-            self.lastReset + datetime.timedelta(seconds=nSecs) < datetime.datetime.now()
-        )
-        if result:
-            self.lastReset = datetime.datetime.now()
-        return result
+
+async def deviceLoop(
+    fin, fout, registersBitWidth: int, nRegisters: int, printInterval: float
+) -> None:
+    registers = DeviceRegisters(registersBitWidth, nRegisters)
+    async with trio.open_nursery() as nursery:
+        send_w: trio.abc.SendChannel
+        send_r: trio.abc.SendChannel
+        send_w, recv_w = trio.open_memory_channel(0)
+        send_r, recv_r = trio.open_memory_channel(0)
+        # send_s, recv_s = trio.open_memory_channel(0)
+        send_s, recv_s = (
+            None,
+            None,
+        )  # since not implemented yet, don't do anything with these messages
+
+        # have to use type: ignore b/c mypy stub can't deal with so many arguments
+        nursery.start_soon(registers.receiver_loop, fin, send_w, send_r, send_s, b"0", b"0")  # type: ignore
+        nursery.start_soon(registers.printRegistersLoop, printInterval)
+        nursery.start_soon(registers.handle_w_messages, fout, recv_w)
+        nursery.start_soon(registers.handle_r_messages, fout, recv_r)
 
 
-class Ascii_Serial_Com_Device(object):
-    def __init__(self, fin, fout, registerBitWidth, nRegisters):
-        self.fin = fin
-        self.fout = fout
+class DeviceRegisters:
+    def __init__(self, registerBitWidth: int, nRegisters: int) -> None:
         self.registerBitWidth = registerBitWidth
         self.nRegisters = nRegisters
-        self.asc = Ascii_Serial_Com(fin, fout, registerBitWidth)
         self.registers = [0] * self.nRegisters
+        self.asciiSerialComVersion = b"0"
+        self.appVersion = b"0"
 
-    def poll(self, timeout=1.0):
-        msg = self.asc.receive_message(timeout)
-        if not msg:
-            return
-        elif msg.command == b"w":
-            regNumB, regValB = msg.data.split(b",")
-            regNum = self.asc._convert_from_hex(regNumB)
-            regVal = self.asc._convert_from_hex(regValB)
-            regValOld = self.registers[regNum]
-            self.registers[regNum] = regVal
-            self.asc.send_message(msg.command, regNumB)
-            print(
-                f"Write message received: {regNumB} changed from {regValOld:X} to {regValB}"
-            )
-        elif msg.command == b"r":
-            regNum = self.asc._convert_from_hex(msg.data)
-            if regNum > 0xFFFF:
-                raise BadRegisterNumberError(
-                    f"register number, {regNum} = 0x{regNum:04X}, larger than 0xFFFF"
-                )
-            if regNum >= self.nRegisters:
-                raise BadRegisterNumberError(
-                    f"Only {self.nRegisters} registers; regNum, {regNum} = 0x{regNum:04X}, too big"
-                )
-            regVal = self.registers[regNum]
-            response = msg.data + b"," + self.asc._convert_to_hex(regVal)
-            self.asc.send_message(msg.command, response)
-            print(f"Read message received: {regNum} = 0x{regNum:04X} is {regVal}")
-        else:
-            print(
-                f"Warning: received command '{msg.command}', which is not implemented"
-            )
-
-    def printRegisters(self):
+    def printRegisters(self) -> None:
         dtstr = datetime.datetime.now().replace(microsecond=0).isoformat(" ")
         if self.registerBitWidth <= 8:
             print("{0:>8}    {1:>19}    {2}".format("Reg Num", "Register Value", dtstr))
@@ -85,8 +78,143 @@ class Ascii_Serial_Com_Device(object):
             else:
                 print("{0:3d} 0x{0:02X}    {1:10d} 0x{1:08X}".format(i, val))
 
+    async def printRegistersLoop(self, interval: float) -> None:
+        """
+        Print the registers every interval seconds
+        """
 
-def main():
+        while True:
+            self.printRegisters()
+            await trio.sleep(interval)
+
+    async def handle_r_messages(self, fout, recv_r: trio.abc.ReceiveChannel) -> None:
+        while True:
+            msg = await recv_r.receive()
+            if not msg:
+                continue
+            elif msg.command == b"r":
+                regNum = convert_from_hex(msg.data)
+                if regNum > 0xFFFF:
+                    raise BadRegisterNumberError(
+                        f"register number, {regNum} = 0x{regNum:04X}, larger than 0xFFFF"
+                    )
+                if regNum >= self.nRegisters:
+                    raise BadRegisterNumberError(
+                        f"Only {self.nRegisters} registers; regNum, {regNum} = 0x{regNum:04X}, too big"
+                    )
+                regVal = self.registers[regNum]
+                response = msg.data + b"," + convert_to_hex(regVal)
+                await send_message(
+                    fout,
+                    self.asciiSerialComVersion,
+                    self.appVersion,
+                    msg.command,
+                    response,
+                )
+                print(
+                    f"device Read message received: {regNum} = 0x{regNum:04X} is {regVal}"
+                )
+            else:
+                print(
+                    f"Warning: device received command '{msg.command}', in read channel"
+                )
+
+    async def handle_w_messages(self, fout, recv_w: trio.abc.ReceiveChannel) -> None:
+        while True:
+            msg = await recv_w.receive()
+            if not msg:
+                continue
+            elif msg.command == b"w":
+                regNumB, regValB = msg.data.split(b",")
+                regNum = convert_from_hex(regNumB)
+                regVal = convert_from_hex(regValB)
+                regValOld = self.registers[regNum]
+                self.registers[regNum] = regVal
+                await send_message(
+                    fout,
+                    self.asciiSerialComVersion,
+                    self.appVersion,
+                    msg.command,
+                    regNumB,
+                )
+                print(
+                    f"device Write message received: {regNumB} changed from {regValOld:X} to {regValB}"
+                )
+            else:
+                print(
+                    f"Warning: device received command '{msg.command}', in write channel"
+                )
+
+    async def receiver_loop(
+        self,
+        fin,
+        queue_w: trio.abc.SendChannel,
+        queue_r: trio.abc.SendChannel,
+        queue_s: trio.abc.SendChannel,
+        asciiSerialComVersion: bytes,
+        appVersion: bytes,
+    ) -> None:
+        """
+        This is the task that handles reading from the serial link with file like object fin
+        and then puts ASC_Message's in the queues
+
+        All "queue" are the write ends of trio channels i.e. trio.abc.SendChannel
+        """
+        buf = Circular_Buffer_Bytes(128)
+        while True:
+            msg = await self.receive_message(
+                fin, buf, asciiSerialComVersion, appVersion
+            )
+            print("device receiver_loop with {}".format(msg))
+            if not (msg is None):
+                if msg.command == b"w" and queue_w:
+                    await queue_w.send(msg)
+                elif msg.command == b"r" and queue_r:
+                    await queue_r.send(msg)
+                elif msg.command == b"s" and queue_s:
+                    await queue_s.send(msg)
+                else:
+                    pass
+
+    async def receive_message(
+        self,
+        fin,
+        buf: Circular_Buffer_Bytes,
+        asciiSerialComVersion: bytes,
+        appVersion: bytes,
+    ) -> Optional[ASC_Message]:
+        """
+        You usually won't need this, instead use receiver_loop
+
+        fin: file-like object to read from
+
+        uses Circular_Buffer_Bytes to keep track of input within and between invocations of receive_message
+
+        if no frame is received, all members ASC_Message will be None
+
+        """
+        frame = await frame_from_stream(fin, buf)
+        if frame is None:
+            return None
+        print("device received message: {}".format(frame))
+        msg = ASC_Message.unpack(frame)
+        if msg.ascVersion != asciiSerialComVersion:
+            print(msg)
+            raise AsciiSerialComVersionMismatchError(
+                "Message version: {!r} Expected version: {!r}".format(
+                    msg.ascVersion, asciiSerialComVersion
+                )
+            )
+        if msg.appVersion != appVersion:
+            raise ApplicationVersionMismatchError(
+                "Message version: {!r} Expected version: {!r}".format(
+                    msg.appVersion, appVersion
+                )
+            )
+        return msg
+
+
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="ASCII Serial Com Device. Useful as a test device."
     )
@@ -123,17 +251,11 @@ def main():
     print(f"N registers: {args.nRegisters}")
     print(f"Time between prints: {args.timeBetweenPrint}")
 
-    with open(outFname, "wb", buffering=0) as fout:
-        with open(inFname, "rb", buffering=0) as fin:
-            dev = Ascii_Serial_Com_Device(
-                fin, fout, args.registerBitWidth, args.nRegisters
-            )
-            dev.printRegisters()
-            timer = SimpleTimer()
-            while True:
-                try:
-                    dev.poll()
-                except ASCErrorBase as e:
-                    printError(e)
-                if timer.hasBeen(args.timeBetweenPrint):
-                    dev.printRegisters()
+    trio.run(
+        deviceLoopOpenFiles,
+        inFname,
+        outFname,
+        args.registerBitWidth,
+        args.nRegisters,
+        args.timeBetweenPrint,
+    )
