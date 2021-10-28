@@ -4,6 +4,7 @@ ASCII Serial Com Python Interface
 """
 
 import math
+import logging
 import trio
 
 from .errors import *
@@ -32,11 +33,7 @@ async def send_message(
     """
     msg = ASC_Message(asciiSerialComVersion, appVersion, command, data)
     message = msg.get_packed()
-    print(
-        "send_message: command: {!r} data: {!r} message: {!r}".format(
-            command, data, message
-        )
-    )
+    logging.info("sent:          {}".format(msg))
     await fout.write(message)
     await fout.flush()
 
@@ -216,7 +213,7 @@ class Ascii_Serial_Com:
                 elif msg.command == b"s" and self.send_s:
                     await self.send_s.send(msg)
                 elif msg.command == b"e":
-                    print(f"Error message received: {msg}")
+                    logging.warning(f"Error message received: {msg}")
                 else:
                     pass
 
@@ -234,7 +231,7 @@ class Ascii_Serial_Com:
         frame = await frame_from_stream(self.fin, self.buf)
         if frame is None:
             return None
-        print("received message: {}".format(frame))
+        logging.debug("received: {!r}".format(frame))
         msg = ASC_Message.unpack(frame)
         if msg.ascVersion != self.asciiSerialComVersion:
             raise AsciiSerialComVersionMismatchError(
@@ -248,4 +245,5 @@ class Ascii_Serial_Com:
                     msg.appVersion, self.appVersion
                 )
             )
+        logging.info("received: {}".format(msg))
         return msg

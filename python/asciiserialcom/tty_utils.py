@@ -3,6 +3,7 @@ Functions to setup TTYs
 """
 
 import inspect
+import logging
 import termios
 import tty
 import sys
@@ -25,13 +26,15 @@ def setup_tty(f, speed):
         speedconstname = "B{:d}".format(speed)
         speedconst = getattr(termios, speedconstname)
     except AttributeError:
-        print(f"Error: setup_tty: speed not supported: {speed}", file=sys.stderr)
+        logging.error(
+            f"Error: setup_tty: speed not supported: {speed}", file=sys.stderr
+        )
         members = [x[0] for x in inspect.getmembers(termios)]
         avail_speeds = [
             x[1:] for x in members if len(x) > 2 and x[0] == "B" and x[1].isdecimal()
         ]
         avail_speeds.sort(key=int)
-        print("Available options:", ", ".join(avail_speeds))
+        logging.info("Available options:", ", ".join(avail_speeds))
         raise Exception
     else:
         tty.setraw(f)

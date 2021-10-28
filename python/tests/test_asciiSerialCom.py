@@ -1,3 +1,4 @@
+import logging
 import unittest
 import unittest.mock
 from unittest.mock import patch
@@ -10,6 +11,13 @@ import crcmod
 import datetime
 import trio
 import trio.testing
+
+logging.basicConfig(
+    # filename="test_asciiSerialCom.log",
+    # level=logging.INFO,
+    # level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s",
+)
 
 
 class TestMessaging(unittest.TestCase):

@@ -1,3 +1,4 @@
+import logging
 import unittest
 from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
 from asciiserialcom.device import deviceLoop
@@ -7,6 +8,13 @@ import trio
 import trio.testing
 import subprocess
 from asciiserialcom.utilities import breakStapledIntoWriteRead
+
+logging.basicConfig(
+    # filename="test_integration.log",
+    # level=logging.INFO,
+    # level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s",
+)
 
 
 async def run(self):

@@ -9,6 +9,7 @@ import sys
 import os.path
 import argparse
 import datetime
+import logging
 import trio
 from .asciiSerialCom import send_message
 from .circularBuffer import Circular_Buffer_Bytes
@@ -62,21 +63,32 @@ class DeviceRegisters:
         self.appVersion = b"0"
 
     def printRegisters(self) -> None:
+        logging.info("printRegisters")
         dtstr = datetime.datetime.now().replace(microsecond=0).isoformat(" ")
         if self.registerBitWidth <= 8:
-            print("{0:>8}    {1:>19}    {2}".format("Reg Num", "Register Value", dtstr))
+            logging.info(
+                "{0:>8}    {1:>19}    {2}".format("Reg Num", "Register Value", dtstr)
+            )
         elif self.registerBitWidth <= 16:
-            print("{0:>8}    {1:>31}    {2}".format("Reg Num", "Register Value", dtstr))
+            logging.info(
+                "{0:>8}    {1:>31}    {2}".format("Reg Num", "Register Value", dtstr)
+            )
         else:
-            print("{0:>8}    {1:>21}    {2}".format("Reg Num", "Register Value", dtstr))
+            logging.info(
+                "{0:>8}    {1:>21}    {2}".format("Reg Num", "Register Value", dtstr)
+            )
         for i in range(self.nRegisters):
             val = self.registers[i]
             if self.registerBitWidth <= 8:
-                print("{0:3d} 0x{0:02X}    {1:3d} 0x{1:02X} {1:#010b}".format(i, val))
+                logging.info(
+                    "{0:3d} 0x{0:02X}    {1:3d} 0x{1:02X} {1:#010b}".format(i, val)
+                )
             elif self.registerBitWidth <= 16:
-                print("{0:3d} 0x{0:02X}    {1:5d} 0x{1:04X} {1:#018b}".format(i, val))
+                logging.info(
+                    "{0:3d} 0x{0:02X}    {1:5d} 0x{1:04X} {1:#018b}".format(i, val)
+                )
             else:
-                print("{0:3d} 0x{0:02X}    {1:10d} 0x{1:08X}".format(i, val))
+                logging.info("{0:3d} 0x{0:02X}    {1:10d} 0x{1:08X}".format(i, val))
 
     async def printRegistersLoop(self, interval: float) -> None:
         """
@@ -111,12 +123,12 @@ class DeviceRegisters:
                     msg.command,
                     response,
                 )
-                print(
+                logging.info(
                     f"device Read message received: {regNum} = 0x{regNum:04X} is {regVal}"
                 )
             else:
-                print(
-                    f"Warning: device received command '{msg.command}', in read channel"
+                logging.warning(
+                    f"device received command '{msg.command}', in read channel"
                 )
 
     async def handle_w_messages(self, fout, recv_w: trio.abc.ReceiveChannel) -> None:
@@ -137,11 +149,11 @@ class DeviceRegisters:
                     msg.command,
                     regNumB,
                 )
-                print(
+                logging.info(
                     f"device Write message received: {regNumB} changed from {regValOld:X} to {regValB}"
                 )
             else:
-                print(
+                logging.warning(
                     f"Warning: device received command '{msg.command}', in write channel"
                 )
 
@@ -165,7 +177,7 @@ class DeviceRegisters:
             msg = await self.receive_message(
                 fin, buf, asciiSerialComVersion, appVersion
             )
-            print("device receiver_loop with {}".format(msg))
+            logging.info("device receiver_loop with {}".format(msg))
             if not (msg is None):
                 if msg.command == b"w" and queue_w:
                     await queue_w.send(msg)
@@ -196,10 +208,9 @@ class DeviceRegisters:
         frame = await frame_from_stream(fin, buf)
         if frame is None:
             return None
-        print("device received message: {}".format(frame))
+        logging.info("device received message: {}".format(frame))
         msg = ASC_Message.unpack(frame)
         if msg.ascVersion != asciiSerialComVersion:
-            print(msg)
             raise AsciiSerialComVersionMismatchError(
                 "Message version: {!r} Expected version: {!r}".format(
                     msg.ascVersion, asciiSerialComVersion

@@ -2,6 +2,7 @@
 ASCII Serial Com Message Class
 """
 
+import logging
 import crcmod  # type: ignore
 from .errors import *
 
@@ -123,7 +124,7 @@ class ASC_Message:
             )
         frame = frame.split(b".")[0] + b"."
         result = "{:04X}".format(ASC_Message.crcFunc(frame)).encode("ascii")
-        # print("checksum computed to be: ",result)
+        logging.debug("checksum computed to be: ", result)
         return result
 
     @staticmethod
