@@ -124,11 +124,14 @@ int main(int argc, char *argv[]) {
       if (poll_ret_code != 0) {
         return 1;
       }
+      // fprintf(stderr,"Input buffer before reading from input\n");
+      // circular_buffer_print_uint8(asc_in_buf, stderr,0);
       circular_buffer_io_fd_poll_do_input(&cb_io);
 
       if (!rawLoopback && !circular_buffer_is_empty_uint8(asc_in_buf)) {
         // fprintf(stderr, "About to try to receive message:\n");
-        // circular_buffer_print_uint8(asc_in_buf, stderr);
+        // fprintf(stderr,"Input buffer before extracting message\n");
+        // circular_buffer_print_uint8(asc_in_buf, stderr,0);
         ascii_serial_com_get_message_from_input_buffer(
             &asc, &ascVersion, &appVersion, &command, dataBuffer, &dataLen);
         if (command != '\0') {
@@ -142,13 +145,16 @@ int main(int argc, char *argv[]) {
           }
           fprintf(stderr, "\n");
           fflush(stderr);
-          // circular_buffer_print_uint8(asc_out_buf, stderr);
           ascii_serial_com_put_message_in_output_buffer(
               &asc, ascVersion, appVersion, command, dataBuffer, dataLen);
+          // fprintf(stderr,"Output buffer after receiving outbound message\n");
+          // circular_buffer_print_uint8(asc_out_buf, stderr,0);
         }
       }
 
       circular_buffer_io_fd_poll_do_output(&cb_io);
+      // fprintf(stderr,"Output buffer after possibly writing to output\n");
+      // circular_buffer_print_uint8(asc_out_buf, stderr,0);
 
       // Do we need to process data in the input buffer?
       // If so, poll with short timeout, otherwise just poll

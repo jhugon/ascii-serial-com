@@ -9,6 +9,8 @@ from asciiserialcom.ascErrors import *
 from asciiserialcom.utilities import (
     MemoryWriteStream,
     MemoryReadStream,
+    ChannelWriteStream,
+    ChannelReadStream,
     breakStapledIntoWriteRead,
 )
 import trio
@@ -49,11 +51,10 @@ class TestTrivialLoopback(unittest.TestCase):
                     stdout=subprocess.PIPE,
                     stderr=subprocess.DEVNULL,
                 ) as device:
-                    # async with await trio.open_process([self.exe,"-l"],stdin=subprocess.PIPE,stdout=subprocess.PIPE) as device:
                     for intext in intexts:
                         await device.stdio.send_all(intext)
                         data = await device.stdio.receive_some()
-                        self.assertEqual(intext, data)
+                        self.assertEqual(data, intext)
                     got_to_cancel = True
                     cancel_scope.cancel()
             self.assertTrue(got_to_cancel)
@@ -65,7 +66,6 @@ class TestTrivialLoopback(unittest.TestCase):
             nRegisterBits = 32
             got_to_cancel = False
             with trio.move_on_after(1) as cancel_scope:
-                # async with await trio.open_process([self.exe,"-l"],stdin=subprocess.PIPE,stdout=subprocess.PIPE) as device:
                 async with await trio.open_process(
                     [self.exe, "-l"],
                     stdin=subprocess.PIPE,
@@ -94,7 +94,6 @@ class TestTrivialLoopback(unittest.TestCase):
             nRegisterBits = 32
             got_to_cancel = False
             with trio.move_on_after(1) as cancel_scope:
-                # async with await trio.open_process([self.exe,"-l"],stdin=subprocess.PIPE,stdout=subprocess.PIPE) as device:
                 async with await trio.open_process(
                     [self.exe, "-l"],
                     stdin=subprocess.PIPE,
@@ -132,6 +131,33 @@ class TestASCLoopback(unittest.TestCase):
         self.exe = os.path.join(self.exedir, "ascii_serial_com_dummy_loopback_device")
         random.seed(123456789)
 
+    def test_just_host(self):
+        async def run_test(self):
+            nRegisterBits = 32
+            got_to_cancel = False
+            with trio.move_on_after(1) as cancel_scope:
+                dev_send_chan, dev_recv_chan = trio.open_memory_channel(0)
+                receiver_send_chan, receiver_recv_chan = trio.open_memory_channel(0)
+                async with trio.open_nursery() as nursery:
+                    asc = Ascii_Serial_Com(
+                        nursery,
+                        ChannelReadStream(dev_recv_chan),
+                        ChannelWriteStream(dev_send_chan),
+                        nRegisterBits,
+                    )
+                    asc.forward_all_received_messages_to(receiver_send_chan)
+                    for testCommand in [b"a", b"b", b"c"]:
+                        for testData in [b"", b"abcdefg", b"x" * 54]:
+                            await asc.send_message(testCommand, testData)
+                            msg = await receiver_recv_chan.receive()
+                            self.assertEqual(msg.command, testCommand)
+                            self.assertEqual(msg.data, testData)
+                    got_to_cancel = True
+                    cancel_scope.cancel()
+            self.assertTrue(got_to_cancel)
+
+        trio.run(run_test, self)
+
     def test_just_device(self):
         stderrAll = b""
         intexts = [
@@ -145,18 +171,27 @@ class TestASCLoopback(unittest.TestCase):
             (intexts[0] * 20)[:60],
         ]
 
-        with Com_Subproc([self.exe], env=self.env, hideStderr=True) as comSubproc:
-            for intext in intexts:
-                # print("For intext: ", intext)
-                comSubproc.send(intext)
-                tstart = datetime.datetime.now()
-                data = bytearray()
-                while datetime.datetime.now() < tstart + datetime.timedelta(
-                    milliseconds=20
-                ):
-                    data += comSubproc.receive()
-                # print("Got data: '{}'".format(data.decode("UTF-8")), flush=True)
-                self.assertEqual(intext, data)
+        async def run_test(self, intexts):
+            got_to_cancel = False
+            with trio.move_on_after(10) as cancel_scope:
+                async with await trio.open_process(
+                    [self.exe],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    # stderr=subprocess.DEVNULL,
+                ) as device:
+                    for intext in intexts:
+                        await device.stdio.send_all(intext)
+                        response = b""
+                        with trio.move_on_after(0.1) as cancel_scope:
+                            while True:
+                                response += await device.stdio.receive_some()
+                        self.assertEqual(response, intext)
+                    got_to_cancel = True
+                    cancel_scope.cancel()
+            self.assertTrue(got_to_cancel)
+
+        trio.run(run_test, self, intexts)
 
     def test_just_device_badframes(self):
         intexts = [

@@ -67,24 +67,28 @@ bool circular_buffer_is_empty_uint8(const circular_buffer_uint8 *circ_buf) {
 
 #ifdef linux
 void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
-                                 FILE *outfile) {
-
-  fprintf(outfile, "circular_buffer_uint8, capacity: %zu\n",
-          circ_buf->capacity);
-  fprintf(outfile, "  size: %zu iStart: %zu iStop %zu buffer: %p\n",
-          circ_buf->size, circ_buf->iStart, circ_buf->iStop,
-          (void *)circ_buf->buffer);
-  fprintf(outfile, "  Content: [ ");
-  for (size_t i = 0; i < circ_buf->size; i++) {
-    fprintf(outfile, "%" PRIu8 " ",
-            circular_buffer_get_element_uint8(circ_buf, i));
+                                 FILE *outfile, uint8_t verbosity) {
+  fprintf(outfile, "circular_buffer_uint8, capacity: %zu size: %zu",
+          circ_buf->capacity, circ_buf->size);
+  if (verbosity >= 2) {
+    fprintf(outfile, "  iStart: %zu iStop %zu buffer: %p\n", circ_buf->iStart,
+            circ_buf->iStop, (void *)circ_buf->buffer);
   }
-  fprintf(outfile, "]\n");
-  fprintf(outfile, "  Raw Memory: [ ");
-  for (size_t i = 0; i < circ_buf->capacity; i++) {
-    fprintf(outfile, "%" PRIu8 " ", *(circ_buf->buffer + i));
+  if (verbosity >= 3) {
+    fprintf(outfile, "  Content: [ ");
+    for (size_t i = 0; i < circ_buf->size; i++) {
+      fprintf(outfile, "%" PRIu8 " ",
+              circular_buffer_get_element_uint8(circ_buf, i));
+    }
+    fprintf(outfile, "]\n");
   }
-  fprintf(outfile, "]\n");
+  if (verbosity >= 4) {
+    fprintf(outfile, "  Raw Memory: [ ");
+    for (size_t i = 0; i < circ_buf->capacity; i++) {
+      fprintf(outfile, "%" PRIu8 " ", *(circ_buf->buffer + i));
+    }
+    fprintf(outfile, "]\n");
+  }
   fprintf(outfile, "  Content as string: ");
   for (size_t i = 0; i < circ_buf->size; i++) {
     uint8_t thisChar = circular_buffer_get_element_uint8(circ_buf, i);
@@ -97,18 +101,21 @@ void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
     }
   }
   fprintf(outfile, "\n");
-  fprintf(outfile, "  Raw memory as string: ");
-  for (size_t i = 0; i < circ_buf->capacity; i++) {
-    uint8_t thisChar = *(circ_buf->buffer + i);
-    if (thisChar == 0x0A) {
-      fprintf(outfile, "\\n");
-    } else if (thisChar < 0x20 || thisChar >= 0x7F) { // is control char
-      fprintf(outfile, "\\x%02" PRIX8, thisChar);
-    } else { // is printable
-      fprintf(outfile, "%c", thisChar);
+  if (verbosity >= 1) {
+    fprintf(outfile, "  Raw memory as string: ");
+    for (size_t i = 0; i < circ_buf->capacity; i++) {
+      uint8_t thisChar = *(circ_buf->buffer + i);
+      if (thisChar == 0x0A) {
+        fprintf(outfile, "\\n");
+      } else if (thisChar < 0x20 || thisChar >= 0x7F) { // is control char
+        fprintf(outfile, "\\x%02" PRIX8, thisChar);
+      } else { // is printable
+        fprintf(outfile, "%c", thisChar);
+      }
     }
+    fprintf(outfile, "\n");
+    fflush(outfile);
   }
-  fprintf(outfile, "\n");
 }
 #endif
 

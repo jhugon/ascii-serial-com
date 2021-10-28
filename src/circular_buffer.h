@@ -77,10 +77,12 @@ bool circular_buffer_is_empty_uint8(const circular_buffer_uint8 *circ_buf);
  *
  *  outfile is usually stderr or stdout
  *
+ *  verbosity is from 0 to 4 with greater increasing verbosity
+ *
  */
 #ifdef linux
 void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
-                                 FILE *outfile);
+                                 FILE *outfile, uint8_t verbosity);
 #endif
 
 /** \brief circular buffer get element

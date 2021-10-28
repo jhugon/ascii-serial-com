@@ -54,7 +54,7 @@ void test_circular_buffer_print_uint8(void) {
       TEST_FAIL_MESSAGE("Couldn't open output file /dev/null");
     }
 
-    circular_buffer_print_uint8(&cb, outfile);
+    circular_buffer_print_uint8(&cb, outfile, 2);
   }
   Catch(e1) {
     printf("Uncaught exception: %u\n", e1);
@@ -1215,7 +1215,7 @@ void test_circular_buffer_remove_front_unfinished_frames_uint8(void) {
     resultString = ">abc\n";
     circular_buffer_push_back_string_uint8(&cb, testString);
     circular_buffer_remove_front_unfinished_frames_uint8(&cb, '>', '\n');
-    circular_buffer_print_uint8(&cb, stderr);
+    circular_buffer_print_uint8(&cb, stderr, 2);
     TEST_ASSERT_EQUAL(resultSize, circular_buffer_get_size_uint8(&cb));
     for (size_t i = 0; i < resultSize; i++) {
       TEST_ASSERT_EQUAL_CHAR(resultString[i],
