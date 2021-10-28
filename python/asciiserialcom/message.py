@@ -3,7 +3,7 @@ ASCII Serial Com Message Class
 """
 
 import crcmod  # type: ignore
-from .ascErrors import *
+from .errors import *
 
 from typing import Any, Optional, Union, cast, ClassVar
 

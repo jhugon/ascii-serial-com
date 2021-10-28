@@ -1,9 +1,9 @@
 import unittest
 import unittest.mock
 from unittest.mock import patch
-from asciiserialcom.ascHelpers import *
-from asciiserialcom.ascMessage import ASC_Message
-from asciiserialcom.ascErrors import *
+from asciiserialcom.helpers import *
+from asciiserialcom.message import ASC_Message
+from asciiserialcom.errors import *
 import crcmod
 import datetime
 

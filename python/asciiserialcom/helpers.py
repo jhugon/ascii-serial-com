@@ -1,7 +1,7 @@
 from __future__ import annotations
 import math
 
-from .ascErrors import *
+from .errors import *
 from .circularBuffer import Circular_Buffer_Bytes
 
 from typing import Union, Optional, Any

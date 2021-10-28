@@ -5,7 +5,7 @@ import subprocess
 import random
 import unittest
 from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
-from asciiserialcom.ascErrors import *
+from asciiserialcom.errors import *
 from asciiserialcom.utilities import (
     MemoryWriteStream,
     MemoryReadStream,

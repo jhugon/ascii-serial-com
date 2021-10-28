@@ -6,8 +6,8 @@ ASCII Serial Com Python Interface
 import math
 import trio
 
-from .ascErrors import *
-from .ascHelpers import (
+from .errors import *
+from .helpers import (
     check_register_content,
     check_register_number,
     convert_to_hex,
@@ -15,7 +15,7 @@ from .ascHelpers import (
     frame_from_stream,
 )
 from .circularBuffer import Circular_Buffer_Bytes
-from .ascMessage import ASC_Message
+from .message import ASC_Message
 
 from typing import cast, Optional, Union
 

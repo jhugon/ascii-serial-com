@@ -2,9 +2,9 @@ import unittest
 import unittest.mock
 from unittest.mock import patch
 from asciiserialcom.asciiSerialCom import send_message, Ascii_Serial_Com
-from asciiserialcom.ascMessage import ASC_Message
+from asciiserialcom.message import ASC_Message
 from asciiserialcom.circularBuffer import Circular_Buffer_Bytes
-from asciiserialcom.ascErrors import *
+from asciiserialcom.errors import *
 from asciiserialcom.utilities import breakStapledIntoWriteRead, MemoryWriteStream
 import crcmod
 import datetime
