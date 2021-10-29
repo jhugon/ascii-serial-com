@@ -17,7 +17,7 @@ logging.basicConfig(
     # filename="test_asciiSerialCom.log",
     # level=logging.INFO,
     # level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s",
+    format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s"
 )
 
 
@@ -276,9 +276,7 @@ class TestStreaming(unittest.TestCase):
                         cancel_scope.cancel()
             self.assertTrue(got_to_cancel)
 
-        for messages in [
-            [b">00s" + (b"%04i" % x) + b"." for x in range(5)],
-        ]:
+        for messages in [[b">00s" + (b"%04i" % x) + b"." for x in range(5)]]:
             with self.subTest(i="messages={}".format(messages)):
                 messages = [
                     x + "{:04X}".format(self.crcFunc(x)).encode("ascii") + b"\n"

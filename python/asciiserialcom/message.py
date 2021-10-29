@@ -29,7 +29,7 @@ class ASC_Message:
     crcFunc: ClassVar[Any] = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
 
     def __init__(
-        self, ascVersion: bytes, appVersion: bytes, command: bytes, data: bytes,
+        self, ascVersion: bytes, appVersion: bytes, command: bytes, data: bytes
     ) -> None:
         self.ascVersion = bytes(ascVersion)
         self.appVersion = bytes(appVersion)

@@ -13,7 +13,7 @@ logging.basicConfig(
     # filename="test_integration.log",
     # level=logging.INFO,
     # level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s",
+    format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s"
 )
 
 
