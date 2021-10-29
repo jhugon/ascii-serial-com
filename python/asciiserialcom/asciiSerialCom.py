@@ -248,7 +248,7 @@ class Ascii_Serial_Com:
         """
         frame = await frame_from_stream(self.fin, self.buf)
         if frame is None:
-            logging.debug("received frame is None")
+            # logging.debug("received frame is None")
             return None
         logging.debug("received: {!r}".format(frame))
         msg = ASC_Message.unpack(frame)

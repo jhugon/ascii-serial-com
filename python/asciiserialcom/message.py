@@ -73,7 +73,9 @@ class ASC_Message:
         frame, checksum = frame.split(b".")
         checksum = checksum.rstrip(b"\n")
         if checksum != comp_checksum:
-            raise MessageIntegrityError("Message checksums don't match")
+            raise MessageIntegrityError(
+                f"Message checksums don't match; computed: {comp_checksum!r} vs received: {bytes(checksum)!r}"
+            )
         #            self.nCrcErrors += 1
         #            if crcFailBehavior != "pass":
         #                print(

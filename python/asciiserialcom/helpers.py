@@ -16,14 +16,15 @@ async def frame_from_stream(fin, buf: Circular_Buffer_Bytes) -> Optional[Sequenc
     returns: frame as bytes; None if no frame found in stream
     """
     try:
-        logging.debug("about to read from fin")
+        # logging.debug("about to read from fin")
         b = await fin.read()
     except ValueError:
         raise FileReadError
     except IOError:
         raise FileReadError
     else:
-        logging.debug("got something from fin")
+        if len(b) > 0:
+            logging.debug(f"got {len(b)} bytes from fin")
         buf.push_back(b)
         buf.removeFrontTo(b">", inclusive=False)
         if len(buf) == 0:
