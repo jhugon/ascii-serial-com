@@ -42,6 +42,30 @@ async def run_write(timeout, fin_name, fout_name, reg_num, reg_val):
     return result
 
 
+async def forward_received_messages_to_print(ch):
+    while True:
+        msg = await ch.receive()
+        typer.echo(f"{msg.get_packed().decode('ascii')}")
+
+
+async def run_stream(timeout, fin_name, fout_name):
+    send_ch, recv_ch = trio.open_memory_channel(0)
+    if timeout is None:
+        timeout = float("inf")
+    timeout_cancel = timeout + 0.5
+    with trio.move_on_after(timeout_cancel) as cancel_scope:
+        async with await trio.open_file(fout_name, "bw") as fout:
+            async with await trio.open_file(fin_name, "br") as fin:
+                async with trio.open_nursery() as nursery:
+                    asc = Ascii_Serial_Com(nursery, fin, fout, 8)
+                    nursery.start_soon(forward_received_messages_to_print, recv_ch)
+                    asc.forward_received_s_messages_to(send_ch)
+                    await asc.send_message(b"n", b"")
+                    await trio.sleep(timeout)
+                    await asc.send_message(b"f", b"")
+                    cancel_scope.cancel()
+
+
 app = typer.Typer()
 
 
@@ -143,22 +167,22 @@ def stream(
         writable=True,
         readable=True,
     ),
-    filename: Optional[Path] = typer.Option(
-        None, help="Write received data to a file instead of STDOUT"
-    ),
     stop_seconds: Optional[float] = typer.Option(
         None, help="Stop after this many seconds"
     ),
-    stop_messages: Optional[int] = typer.Option(
-        None, help="Stop after this many messages have been received"
-    ),
-    stop_bytes: Optional[int] = typer.Option(
-        None, help="Stop after this many bytes have been received"
-    ),
-    stop_datasep: Optional[int] = typer.Option(
-        None,
-        help="Stop after this many data-seperater characters have been received (spaces in the data field)",
-    ),
+    # stop_messages: Optional[int] = typer.Option(
+    #    None, help="Stop after this many messages have been received"
+    # ),
+    # stop_bytes: Optional[int] = typer.Option(
+    #    None, help="Stop after this many bytes have been received"
+    # ),
+    # stop_datasep: Optional[int] = typer.Option(
+    #    None,
+    #    help="Stop after this many data-seperater characters have been received (spaces in the data field)",
+    # ),
+    # filename: Optional[Path] = typer.Option(
+    #    None, help="Write received data to a file instead of STDOUT"
+    # ),
     serial_send: Optional[Path] = typer.Option(
         None,
         help="Filename of the serial device to write to. If present, SERIAL is only read from",
@@ -169,8 +193,18 @@ def stream(
     """
     With all the stop arguments and hitting Ctrl-C: whichever happens first will stop streaming.
     """
-    if filename:
-        typer.echo(f"Writing to path: {filename}")
+    if serial_send:
+        typer.echo(
+            f"Receive streaming data with send device {serial_send} and read device {serial}"
+        )
+    else:
+        typer.echo(f"Receive streaming data with device {serial}")
+        serial_send = serial
+    try:
+        trio.run(run_stream, stop_seconds, serial, serial_send)
+    except Exception as e:
+        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+        raise e
 
 
 def main():
