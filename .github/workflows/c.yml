@@ -8,30 +8,36 @@ on:
 
 jobs:
   build-gcc:
+    strategy:
+      matrix:
+        compilerversion: [9,10,11]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: Set up GCC
       uses: egor-tensin/setup-gcc@v1
       with:
-        version: 10
+        version: ${{ matrix.compilerversion }}
         platform: x64
     - name: build
       run: |
         make install
       env:
-        CC: gcc-10
+        CC: gcc-${{ matrix.compilerversion }}
   build-clang:
+    strategy:
+      matrix:
+        compilerversion: [10,11,12,13]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up GCC
+    - name: Set up Clang
       uses: egor-tensin/setup-clang@v1
       with:
-        version: 12
+        version: ${{ matrix.compilerversion }}
         platform: x64
     - name: build
       run: |
         make install
       env:
-        CC: clang-12
+        CC: clang-${{ matrix.compilerversion }}
