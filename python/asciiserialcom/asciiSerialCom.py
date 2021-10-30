@@ -131,16 +131,16 @@ class Ascii_Serial_Com:
 
     async def write_register(self, regnum: int, content: Union[bytes, int]) -> None:
         """
-            write register on device
+        write register on device
 
-            Probably want a timeout on this just in case the device never replies (or it gets garbled)
+        Probably want a timeout on this just in case the device never replies (or it gets garbled)
 
-            regnum: an integer register number
+        regnum: an integer register number
 
-            content: bytes to write to the regnum or an integer.
-                The integer is converted to little-endian bytes,
-                and negative integers aren't allowed.
-            """
+        content: bytes to write to the regnum or an integer.
+            The integer is converted to little-endian bytes,
+            and negative integers aren't allowed.
+        """
         regnum_hex = check_register_number(regnum)
         content_hex = check_register_content(content, self.registerBitWidth)
         data = regnum_hex + b"," + content_hex

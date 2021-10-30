@@ -103,7 +103,7 @@ class TestMessaging(unittest.TestCase):
             host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
             got_to_cancel = False
             with trio.move_on_after(0.5) as cancel_scope:
-                result_send_chan, result_recv_chan, = trio.open_memory_channel(0)
+                (result_send_chan, result_recv_chan,) = trio.open_memory_channel(0)
                 async with result_recv_chan:
                     async with trio.open_nursery() as nursery:
                         asc = Ascii_Serial_Com(
@@ -138,7 +138,7 @@ class TestMessaging(unittest.TestCase):
             host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
             got_to_cancel = False
             with trio.move_on_after(0.5) as cancel_scope:
-                result_send_chan, result_recv_chan, = trio.open_memory_channel(0)
+                (result_send_chan, result_recv_chan,) = trio.open_memory_channel(0)
                 async with result_recv_chan:
                     async with trio.open_nursery() as nursery:
                         asc = Ascii_Serial_Com(
@@ -204,7 +204,7 @@ class TestStreaming(unittest.TestCase):
             host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
             got_to_cancel = False
             with trio.move_on_after(10) as cancel_scope:
-                result_send_chan, result_recv_chan, = trio.open_memory_channel(0)
+                (result_send_chan, result_recv_chan,) = trio.open_memory_channel(0)
                 async with result_recv_chan:
                     async with trio.open_nursery() as nursery:
                         asc = Ascii_Serial_Com(
@@ -253,7 +253,7 @@ class TestStreaming(unittest.TestCase):
             host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
             got_to_cancel = False
             with trio.move_on_after(10) as cancel_scope:
-                result_send_chan, result_recv_chan, = trio.open_memory_channel(0)
+                (result_send_chan, result_recv_chan,) = trio.open_memory_channel(0)
                 async with result_recv_chan:
                     async with trio.open_nursery() as nursery:
                         asc = Ascii_Serial_Com(
