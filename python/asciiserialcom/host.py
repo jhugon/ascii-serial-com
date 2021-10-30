@@ -10,7 +10,7 @@ import trio
 
 from .errors import *
 from .message import ASC_Message
-from .base import Base
+from .base import Base, check_register_content, check_register_number, convert_from_hex
 
 from typing import cast, Union
 
@@ -40,7 +40,7 @@ class Host(Base):
         returns register content as int
         """
 
-        regnum_hex = self.check_register_number(regnum)
+        regnum_hex = check_register_number(regnum)
         await self.send_message(b"r", regnum_hex)
         send_r: trio.abc.SendChannel
         send_r, recv_r = trio.open_memory_channel(0)
@@ -66,7 +66,7 @@ class Host(Base):
                     await send_r.aclose()
                     await recv_r.aclose()
                     self.forward_received_r_messages_to(None)
-                    return self.convert_from_hex(rec_value)
+                    return convert_from_hex(rec_value)
 
     async def write_register(self, regnum: int, content: Union[bytes, int]) -> None:
         """
@@ -80,8 +80,8 @@ class Host(Base):
             The integer is converted to little-endian bytes,
             and negative integers aren't allowed.
         """
-        regnum_hex = self.check_register_number(regnum)
-        content_hex = self.check_register_content(content)
+        regnum_hex = check_register_number(regnum)
+        content_hex = check_register_content(content, self.registerBitWidth)
         data = regnum_hex + b"," + content_hex
         await self.send_message(b"w", data)
         send_w: trio.abc.SendChannel

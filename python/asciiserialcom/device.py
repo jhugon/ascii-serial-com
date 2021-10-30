@@ -11,7 +11,7 @@ import argparse
 import datetime
 import logging
 import trio
-from .base import Base
+from .base import Base, convert_to_hex, convert_from_hex
 from .errors import *
 
 from typing import Optional, Any, Union
@@ -79,7 +79,7 @@ class Device(Base):
             if not msg:
                 continue
             elif msg.command == b"r":
-                regNum = self.convert_from_hex(msg.data)
+                regNum = convert_from_hex(msg.data)
                 if regNum > 0xFFFF:
                     raise BadRegisterNumberError(
                         f"register number, {regNum} = 0x{regNum:04X}, larger than 0xFFFF"
@@ -89,7 +89,7 @@ class Device(Base):
                         f"Only {self.nRegisters} registers; regNum, {regNum} = 0x{regNum:04X}, too big"
                     )
                 regVal = self.registers[regNum]
-                response = msg.data + b"," + self.convert_to_hex(regVal)
+                response = msg.data + b"," + convert_to_hex(regVal)
                 await self.send_message(
                     msg.command, response,
                 )
@@ -108,8 +108,8 @@ class Device(Base):
                 continue
             elif msg.command == b"w":
                 regNumB, regValB = msg.data.split(b",")
-                regNum = self.convert_from_hex(regNumB)
-                regVal = self.convert_from_hex(regValB)
+                regNum = convert_from_hex(regNumB)
+                regVal = convert_from_hex(regValB)
                 regValOld = self.registers[regNum]
                 self.registers[regNum] = regVal
                 await self.send_message(
