@@ -4,7 +4,7 @@ import os.path
 import subprocess
 import random
 import unittest
-from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
+from asciiserialcom.host import Host
 from asciiserialcom.errors import *
 from asciiserialcom.utilities import (
     MemoryWriteStream,
@@ -75,11 +75,11 @@ class TestTrivialLoopback(unittest.TestCase):
                     host_w, host_r = breakStapledIntoWriteRead(device.stdio)
                     send_chan, recv_chan = trio.open_memory_channel(0)
                     async with trio.open_nursery() as nursery:
-                        asc = Ascii_Serial_Com(nursery, host_r, host_w, nRegisterBits)
-                        asc.forward_all_received_messages_to(send_chan)
+                        host = Host(nursery, host_r, host_w, nRegisterBits)
+                        host.forward_all_received_messages_to(send_chan)
                         for testCommand in [b"a", b"b", b"c"]:
                             for testData in [b"", b"abcdefg", b"x" * 54]:
-                                await asc.send_message(testCommand, testData)
+                                await host.send_message(testCommand, testData)
                                 msg = await recv_chan.receive()
                                 self.assertEqual(msg.command, testCommand)
                                 self.assertEqual(msg.data, testData)
@@ -103,13 +103,13 @@ class TestTrivialLoopback(unittest.TestCase):
                     host_w, host_r = breakStapledIntoWriteRead(device.stdio)
                     send_chan, recv_chan = trio.open_memory_channel(0)
                     async with trio.open_nursery() as nursery:
-                        asc = Ascii_Serial_Com(nursery, host_r, host_w, nRegisterBits)
-                        asc.forward_all_received_messages_to(send_chan)
+                        host = Host(nursery, host_r, host_w, nRegisterBits)
+                        host.forward_all_received_messages_to(send_chan)
                         for i in range(1000):
                             testCommand = bytes([random.choice(alphabytes)])
                             nData = random.randrange(55)
                             testData = bytes(random.choices(alphanumeric, k=nData))
-                            await asc.send_message(testCommand, testData)
+                            await host.send_message(testCommand, testData)
                             msg = await recv_chan.receive()
                             self.assertEqual(msg.command, testCommand)
                             self.assertEqual(msg.data, testData)
@@ -139,16 +139,16 @@ class TestASCLoopback(unittest.TestCase):
                 dev_send_chan, dev_recv_chan = trio.open_memory_channel(0)
                 receiver_send_chan, receiver_recv_chan = trio.open_memory_channel(0)
                 async with trio.open_nursery() as nursery:
-                    asc = Ascii_Serial_Com(
+                    host = Host(
                         nursery,
                         ChannelReadStream(dev_recv_chan),
                         ChannelWriteStream(dev_send_chan),
                         nRegisterBits,
                     )
-                    asc.forward_all_received_messages_to(receiver_send_chan)
+                    host.forward_all_received_messages_to(receiver_send_chan)
                     for testCommand in [b"a", b"b", b"c"]:
                         for testData in [b"", b"abcdefg", b"x" * 54]:
-                            await asc.send_message(testCommand, testData)
+                            await host.send_message(testCommand, testData)
                             msg = await receiver_recv_chan.receive()
                             self.assertEqual(msg.command, testCommand)
                             self.assertEqual(msg.data, testData)
@@ -236,11 +236,11 @@ class TestASCLoopback(unittest.TestCase):
                     host_w, host_r = breakStapledIntoWriteRead(device.stdio)
                     send_chan, recv_chan = trio.open_memory_channel(0)
                     async with trio.open_nursery() as nursery:
-                        asc = Ascii_Serial_Com(nursery, host_r, host_w, nRegisterBits)
-                        asc.forward_all_received_messages_to(send_chan)
+                        host = Host(nursery, host_r, host_w, nRegisterBits)
+                        host.forward_all_received_messages_to(send_chan)
                         for testCommand in [b"a", b"b", b"c"]:
                             for testData in [b"", b"abcdefg", b"x" * 54]:
-                                await asc.send_message(testCommand, testData)
+                                await host.send_message(testCommand, testData)
                                 msg = await recv_chan.receive()
                                 self.assertEqual(msg.command, testCommand)
                                 self.assertEqual(msg.data, testData)
@@ -264,13 +264,13 @@ class TestASCLoopback(unittest.TestCase):
                     host_w, host_r = breakStapledIntoWriteRead(device.stdio)
                     send_chan, recv_chan = trio.open_memory_channel(0)
                     async with trio.open_nursery() as nursery:
-                        asc = Ascii_Serial_Com(nursery, host_r, host_w, nRegisterBits)
-                        asc.forward_all_received_messages_to(send_chan)
+                        host = Host(nursery, host_r, host_w, nRegisterBits)
+                        host.forward_all_received_messages_to(send_chan)
                         for i in range(1000):
                             testCommand = bytes([random.choice(alphabytes)])
                             nData = random.randrange(55)
                             testData = bytes(random.choices(alphanumeric, k=nData))
-                            await asc.send_message(testCommand, testData)
+                            await host.send_message(testCommand, testData)
                             msg = await recv_chan.receive()
                             self.assertEqual(msg.command, testCommand)
                             self.assertEqual(msg.data, testData)

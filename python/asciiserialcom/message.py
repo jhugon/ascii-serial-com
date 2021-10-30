@@ -194,7 +194,5 @@ class ASC_Message:
         )
 
     def __str__(self) -> str:
-        result = "ASC_Message: ascVersion: {0.ascVersion:}, appVersion: {0.appVersion}, command: {0.command:}, data: {0.data}".format(
-            self
-        )
+        result = f"ASC_Message: ascVersion: {self.ascVersion.decode(errors='replace')}, appVersion: {self.appVersion.decode(errors='replace')}, command: {self.command.decode(errors='replace')}, data: {self.data.decode(errors='replace')}"
         return result
