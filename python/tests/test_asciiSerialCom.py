@@ -17,7 +17,7 @@ logging.basicConfig(
     # filename="test_asciiSerialCom.log",
     # level=logging.INFO,
     # level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s",
+    format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s"
 )
 
 
@@ -103,7 +103,7 @@ class TestMessaging(unittest.TestCase):
             host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
             got_to_cancel = False
             with trio.move_on_after(0.5) as cancel_scope:
-                result_send_chan, result_recv_chan, = trio.open_memory_channel(0)
+                (result_send_chan, result_recv_chan,) = trio.open_memory_channel(0)
                 async with result_recv_chan:
                     async with trio.open_nursery() as nursery:
                         asc = Ascii_Serial_Com(
@@ -138,7 +138,7 @@ class TestMessaging(unittest.TestCase):
             host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
             got_to_cancel = False
             with trio.move_on_after(0.5) as cancel_scope:
-                result_send_chan, result_recv_chan, = trio.open_memory_channel(0)
+                (result_send_chan, result_recv_chan,) = trio.open_memory_channel(0)
                 async with result_recv_chan:
                     async with trio.open_nursery() as nursery:
                         asc = Ascii_Serial_Com(
@@ -204,7 +204,7 @@ class TestStreaming(unittest.TestCase):
             host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
             got_to_cancel = False
             with trio.move_on_after(10) as cancel_scope:
-                result_send_chan, result_recv_chan, = trio.open_memory_channel(0)
+                (result_send_chan, result_recv_chan,) = trio.open_memory_channel(0)
                 async with result_recv_chan:
                     async with trio.open_nursery() as nursery:
                         asc = Ascii_Serial_Com(
@@ -253,7 +253,7 @@ class TestStreaming(unittest.TestCase):
             host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
             got_to_cancel = False
             with trio.move_on_after(10) as cancel_scope:
-                result_send_chan, result_recv_chan, = trio.open_memory_channel(0)
+                (result_send_chan, result_recv_chan,) = trio.open_memory_channel(0)
                 async with result_recv_chan:
                     async with trio.open_nursery() as nursery:
                         asc = Ascii_Serial_Com(
@@ -276,9 +276,7 @@ class TestStreaming(unittest.TestCase):
                         cancel_scope.cancel()
             self.assertTrue(got_to_cancel)
 
-        for messages in [
-            [b">00s" + (b"%04i" % x) + b"." for x in range(5)],
-        ]:
+        for messages in [[b">00s" + (b"%04i" % x) + b"." for x in range(5)]]:
             with self.subTest(i="messages={}".format(messages)):
                 messages = [
                     x + "{:04X}".format(self.crcFunc(x)).encode("ascii") + b"\n"

@@ -48,7 +48,9 @@ async def deviceLoop(
         )  # since not implemented yet, don't do anything with these messages
 
         # have to use type: ignore b/c mypy stub can't deal with so many arguments
-        nursery.start_soon(registers.receiver_loop, fin, send_w, send_r, send_s, b"0", b"0")  # type: ignore
+        nursery.start_soon(
+            registers.receiver_loop, fin, send_w, send_r, send_s, b"0", b"0"
+        )  # type: ignore
         nursery.start_soon(registers.printRegistersLoop, printInterval)
         nursery.start_soon(registers.handle_w_messages, fout, recv_w)
         nursery.start_soon(registers.handle_r_messages, fout, recv_r)

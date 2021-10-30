@@ -38,12 +38,12 @@ async def frame_from_stream(fin, buf: Circular_Buffer_Bytes) -> Optional[Sequenc
 
 def check_register_number(num: Union[int, str, bytes, bytearray]) -> bytes:
     """
-        Checks register number passed to read_register/write_register matches format specification
+    Checks register number passed to read_register/write_register matches format specification
 
-        returns properly formatted content
+    returns properly formatted content
 
-        raises BadRegisterNumberError if not fomatted correctly or incorrect bit width
-        """
+    raises BadRegisterNumberError if not fomatted correctly or incorrect bit width
+    """
     if isinstance(num, int):
         if num < 0:
             raise BadRegisterNumberError(f"register number, {num}, must be positive")
@@ -85,12 +85,12 @@ def check_register_content(
     content: Union[int, str, bytes, bytearray], registerBitWidth: int
 ) -> bytes:
     """
-        Checks register content passed to write_register matches format specification and register width
+    Checks register content passed to write_register matches format specification and register width
 
-        returns properly formatted content
+    returns properly formatted content
 
-        raises BadRegisterContentError if not fomatted correctly or incorrect bit width
-        """
+    raises BadRegisterContentError if not fomatted correctly or incorrect bit width
+    """
     registerByteWidth = int(math.ceil(registerBitWidth / 8))
     if isinstance(content, int):
         if content < 0:
