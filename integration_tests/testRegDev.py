@@ -5,7 +5,7 @@ import os.path
 import subprocess
 import random
 import unittest
-from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
+from asciiserialcom.host import Host
 from asciiserialcom.errors import *
 from asciiserialcom.utilities import (
     MemoryWriteStream,
@@ -107,11 +107,11 @@ class TestRegisterReadback(unittest.TestCase):
                 ) as device:
                     host_w, host_r = breakStapledIntoWriteRead(device.stdio)
                     async with trio.open_nursery() as nursery:
-                        asc = Ascii_Serial_Com(nursery, host_r, host_w, nRegisterBits)
+                        host = Host(nursery, host_r, host_w, nRegisterBits)
                         for testRegNum in range(10):
                             for testData in range(testDataMax):
-                                await asc.write_register(testRegNum, testData)
-                                result = await asc.read_register(testRegNum)
+                                await host.write_register(testRegNum, testData)
+                                result = await host.read_register(testRegNum)
                                 self.assertEqual(result, testData)
                         got_to_cancel = True
                         cancel_scope.cancel()
