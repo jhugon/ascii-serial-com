@@ -3,12 +3,23 @@ import logging
 import unittest
 import unittest.mock
 from unittest.mock import patch
-from asciiserialcom.asciiSerialCom import send_message, Ascii_Serial_Com
+from asciiserialcom.base import (
+    check_register_number,
+    check_register_content,
+    convert_from_hex,
+    convert_to_hex,
+)
+from asciiserialcom.host import Host
 from asciiserialcom.message import ASC_Message
 from asciiserialcom.circularBuffer import Circular_Buffer_Bytes
 from asciiserialcom.errors import *
-from asciiserialcom.utilities import breakStapledIntoWriteRead, MemoryWriteStream
-import crcmod
+from asciiserialcom.utilities import (
+    breakStapledIntoWriteRead,
+    MemoryWriteStream,
+    Tracer,
+    TestMemoryStreamHost,
+)
+import crcmod  # type: ignore
 import datetime
 import trio
 import trio.testing
@@ -21,55 +32,25 @@ logging.basicConfig(
 )
 
 
-class Tracer(trio.abc.Instrument):
-    def before_run(self):
-        logging.debug("!!! run started")
-
-    def _print_with_task(self, msg, task):
-        # repr(task) is perhaps more useful than task.name in general,
-        # but in context of a tutorial the extra noise is unhelpful.
-        logging.debug(f"{msg}: {task.name}")
-
-    def task_spawned(self, task):
-        self._print_with_task("### new task spawned", task)
-
-    def task_scheduled(self, task):
-        self._print_with_task("### task scheduled", task)
-
-    def before_task_step(self, task):
-        self._print_with_task(">>> about to run one step of task", task)
-
-    def after_task_step(self, task):
-        self._print_with_task("<<< task step finished", task)
-
-    def task_exited(self, task):
-        self._print_with_task("### task exited", task)
-
-    def before_io_wait(self, timeout):
-        if timeout:
-            print(f"### waiting for I/O for up to {timeout} seconds")
-        else:
-            print("### doing a quick check for I/O")
-        self._sleep_time = trio.current_time()
-
-    def after_io_wait(self, timeout):
-        duration = trio.current_time() - self._sleep_time
-        logging.debug(f"### finished I/O check (took {duration} seconds)")
-
-    def after_run(self):
-        logging.debug("!!! run finished")
-
-
 class TestMessaging(unittest.TestCase):
     def setUp(self):
         self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
 
     def test_send_message(self):
-        async def run_test(args):
-            send_stream, receive_stream = trio.testing.memory_stream_one_way_pair()
-            write_stream = MemoryWriteStream(send_stream)
-            await send_message(write_stream, b"0", b"0", *args)
-            return await receive_stream.receive_some()
+        async def run_test(self, frame, args):
+            nRegBits = 32
+            got_to_cancel = False
+            with trio.move_on_after(1) as cancel_scope:
+                async with trio.open_nursery() as nursery:
+                    testHolder = TestMemoryStreamHost(nursery, nRegBits)
+                    host = testHolder.get_host()
+                    device_streams = testHolder.get_device_streams()
+                    await host.send_message(*args)
+                    result = await device_streams.receive_some()
+                    self.assertEqual(result, frame)
+                    got_to_cancel = True
+                    cancel_scope.cancel()
+            self.assertTrue(got_to_cancel)
 
         for frame, args in [
             (b">00w.", (b"w", b"")),
@@ -78,112 +59,8 @@ class TestMessaging(unittest.TestCase):
             (b">00zERrPhU10mfn.", (b"z", b"ERrPhU10mfn")),
         ]:
             with self.subTest(i="frame={}, args={}".format(frame, args)):
-                written_data = trio.run(run_test, args)
                 frame += "{:04X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
-                self.assertEqual(written_data, frame)
-
-    def test_read_reg(self):
-        async def run_func(send_chan, func, *args):
-            async with send_chan:
-                result = await func(*args)
-                await send_chan.send(result)
-
-        async def run_test(self, reg_num, reg_val):
-            dev_reply_message = b">00r%04X,%08X." % (reg_num, reg_val)
-            dev_reply_message += (
-                "{:04X}".format(self.crcFunc(dev_reply_message)).encode("ascii") + b"\n"
-            )
-            dev_expect_message = b">00r%04X." % (reg_num)
-            dev_expect_message += (
-                "{:04X}".format(self.crcFunc(dev_expect_message)).encode("ascii")
-                + b"\n"
-            )
-
-            host, device = trio.testing.memory_stream_pair()
-            host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
-            got_to_cancel = False
-            with trio.move_on_after(0.5) as cancel_scope:
-                (result_send_chan, result_recv_chan,) = trio.open_memory_channel(0)
-                async with result_recv_chan:
-                    async with trio.open_nursery() as nursery:
-                        asc = Ascii_Serial_Com(
-                            nursery, host_read_stream, host_write_stream, 32
-                        )
-                        nursery.start_soon(
-                            run_func, result_send_chan, asc.read_register, reg_num
-                        )
-                        dev_receive_message = await device.receive_some()
-                        self.assertEqual(dev_receive_message, dev_expect_message)
-                        await device.send_all(dev_reply_message)
-                        result = await result_recv_chan.receive()
-                        self.assertEqual(result, reg_val)
-                        got_to_cancel = True
-                        cancel_scope.cancel()
-            self.assertTrue(got_to_cancel)
-
-        for reg_num, reg_val in [(2, 0x1234567A), (0xFF, 0)]:
-            with self.subTest(i="reg_num={}, reg_val={}".format(reg_num, reg_val)):
-                trio.run(run_test, self, reg_num, reg_val)
-
-    def test_write_reg(self):
-        async def run_func(send_chan, func, *args):
-            async with send_chan:
-                result = await func(*args)
-                await send_chan.send(result)
-
-        async def run_test(self, args, written, read, nRegBits):
-            written += "{:04X}".format(self.crcFunc(written)).encode("ascii") + b"\n"
-            read += "{:04X}".format(self.crcFunc(read)).encode("ascii") + b"\n"
-            host, device = trio.testing.memory_stream_pair()
-            host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
-            got_to_cancel = False
-            with trio.move_on_after(0.5) as cancel_scope:
-                (result_send_chan, result_recv_chan,) = trio.open_memory_channel(0)
-                async with result_recv_chan:
-                    async with trio.open_nursery() as nursery:
-                        asc = Ascii_Serial_Com(
-                            nursery, host_read_stream, host_write_stream, nRegBits
-                        )
-                        nursery.start_soon(
-                            run_func, result_send_chan, asc.write_register, *args
-                        )
-                        dev_receive_message = await device.receive_some()
-                        self.assertEqual(dev_receive_message, written)
-                        await device.send_all(read)
-                        result = await result_recv_chan.receive()
-                        self.assertEqual(
-                            result, None
-                        )  # b/c write returns non on success but want to check it does
-                        got_to_cancel = True
-                        cancel_scope.cancel()
-            self.assertTrue(got_to_cancel)
-
-        for args, written, read in [
-            ((b"0", b"00"), b">00w0000,00.", b">00w0000."),
-            ((b"FF", b"E3"), b">00w00FF,E3.", b">00w00FF."),
-            ((b"FFFF", b"E3"), b">00wFFFF,E3.", b">00wFFFF."),
-            ((0, 0), b">00w0000,00.", b">00w0000."),
-            ((0xFF, 0xE3), b">00w00FF,E3.", b">00w00FF."),
-            ((0xFFFF, 0xE3), b">00wFFFF,E3.", b">00wFFFF."),
-        ]:
-            with self.subTest(
-                i="args={}, written={}, read={}".format(args, written, read)
-            ):
-                trio.run(run_test, self, args, written, read, 8)
-
-        for args, written in [
-            ((b"0", b"0000"), b">00w0000,00000000."),
-            ((b"FF", b"E3E3"), b">00w00FF,0000E3E3."),
-            ((b"FFFF", b"1F1F1F1F"), b">00wFFFF,1F1F1F1F."),
-            ((0, 0), b">00w0000,00000000."),
-            ((0xFF, 0xE3), b">00w00FF,000000E3."),
-            ((0xFFFF, 0x1F1F1F1F), b">00wFFFF,1F1F1F1F."),
-        ]:
-            read = written[:-10] + b"."
-            with self.subTest(
-                i="args={}, written={} read={}".format(args, written, read)
-            ):
-                trio.run(run_test, self, args, written, read, 32)
+                trio.run(run_test, self, frame, args)
 
 
 class TestStreaming(unittest.TestCase):
@@ -207,10 +84,10 @@ class TestStreaming(unittest.TestCase):
                 (result_send_chan, result_recv_chan,) = trio.open_memory_channel(0)
                 async with result_recv_chan:
                     async with trio.open_nursery() as nursery:
-                        asc = Ascii_Serial_Com(
+                        host = Host(
                             nursery, host_read_stream, host_write_stream, nRegBits
                         )
-                        asc.forward_received_s_messages_to(result_send_chan)
+                        host.forward_received_s_messages_to(result_send_chan)
                         nursery.start_soon(run_on_all, device.send_all, messages)
                         result = []
                         with trio.move_on_after(0.5):
@@ -256,10 +133,10 @@ class TestStreaming(unittest.TestCase):
                 (result_send_chan, result_recv_chan,) = trio.open_memory_channel(0)
                 async with result_recv_chan:
                     async with trio.open_nursery() as nursery:
-                        asc = Ascii_Serial_Com(
+                        host = Host(
                             nursery, host_read_stream, host_write_stream, nRegBits
                         )
-                        asc.forward_received_s_messages_to(result_send_chan)
+                        host.forward_received_s_messages_to(result_send_chan)
                         nursery.start_soon(run_on_all, device.send_all, messages)
                         result = []
                         with trio.move_on_after(3):
@@ -301,10 +178,10 @@ class TestStreaming(unittest.TestCase):
                 outfile = trio.wrap_file(outfile_sync)
                 with trio.move_on_after(10) as cancel_scope:
                     async with trio.open_nursery() as nursery:
-                        asc = Ascii_Serial_Com(
+                        host = Host(
                             nursery, host_read_stream, host_write_stream, nRegBits
                         )
-                        asc.forward_received_s_messages_to(outfile)
+                        host.forward_received_s_messages_to(outfile)
                         await run_on_all(device.send_all, messages)
                         got_to_cancel = True
                         cancel_scope.cancel()
@@ -341,10 +218,10 @@ class TestStreaming(unittest.TestCase):
             with io.BytesIO() as outfile_sync:
                 with trio.move_on_after(10) as cancel_scope:
                     async with trio.open_nursery() as nursery:
-                        asc = Ascii_Serial_Com(
+                        host = Host(
                             nursery, host_read_stream, host_write_stream, nRegBits
                         )
-                        asc.forward_received_s_messages_to(outfile_sync)
+                        host.forward_received_s_messages_to(outfile_sync)
                         await run_on_all(device.send_all, messages)
                         got_to_cancel = True
                         cancel_scope.cancel()
@@ -364,3 +241,98 @@ class TestStreaming(unittest.TestCase):
                     for x in messages
                 ]
                 trio.run(run_test, self, messages)
+
+
+class TestChecks(unittest.TestCase):
+    def test_check_register_content(self):
+
+        for nBits in [8, 16, 32, 64]:
+            for arg, comp in [
+                (b"0", b"0"),
+                (b"FF", b"FF"),
+                (bytearray(b"ff"), b"FF"),
+                ("ff", b"FF"),
+                (0xFF, b"FF"),
+                (0x3A, b"3A"),
+                (3, b"3"),
+            ]:
+                lencomp = nBits // 4 - len(comp)
+                if lencomp > 0:
+                    comp = b"0" * lencomp + comp
+                with self.subTest(i="nBits={}, arg={}".format(nBits, arg)):
+                    self.assertEqual(check_register_content(arg, nBits), comp)
+
+            for arg in [-3, 2.4, b"0" * (nBits // 4 + 1), b"0" * 200]:
+                with self.subTest(i="nBits={}, arg={}".format(nBits, arg)):
+                    with self.assertRaises(BadRegisterContentError):
+                        check_register_content(arg, nBits)
+
+    def test_check_register_number(self):
+
+        for arg, comp in [
+            (b"0", b"0000"),
+            (b"FF", b"00FF"),
+            (bytearray(b"ff"), b"00FF"),
+            ("ff", b"00FF"),
+            (0xFF, b"00FF"),
+            (0x3A, b"003A"),
+            (3, b"0003"),
+        ]:
+            with self.subTest(i="arg={}".format(arg)):
+                self.assertEqual(check_register_number(arg), comp)
+
+        for arg in [-3, 2.4, 0x1FFFF, b"0" * 5, b"0" * 200]:
+            with self.subTest(i="arg={}".format(arg)):
+                with self.assertRaises(BadRegisterNumberError):
+                    check_register_number(arg)
+
+
+class TestConvert(unittest.TestCase):
+    def test_to_hex(self):
+        self.assertEqual(convert_to_hex(b"e"), b"0E")
+        self.assertEqual(convert_to_hex(b"e", 5), b"0000E")
+        self.assertEqual(convert_to_hex(b"e", 0), b"E")
+        self.assertEqual(convert_to_hex(b"e", 1), b"E")
+
+        self.assertEqual(convert_to_hex("e"), b"0E")
+        self.assertEqual(convert_to_hex("e", 5), b"0000E")
+        self.assertEqual(convert_to_hex("e", 0), b"E")
+        self.assertEqual(convert_to_hex("e", 1), b"E")
+
+        self.assertEqual(convert_to_hex(bytearray(b"e")), b"0E")
+        self.assertEqual(convert_to_hex(bytearray(b"e"), 5), b"0000E")
+        self.assertEqual(convert_to_hex(bytearray(b"e"), 0), b"E")
+        self.assertEqual(convert_to_hex(bytearray(b"e"), 1), b"E")
+
+        self.assertEqual(convert_to_hex(255), b"FF")
+        self.assertEqual(convert_to_hex(255, 5), b"000FF")
+        self.assertEqual(convert_to_hex(255, 0), b"FF")
+        self.assertEqual(convert_to_hex(255, 1), b"FF")
+
+        self.assertEqual(convert_to_hex(0), b"00")
+        self.assertEqual(convert_to_hex(0, 5), b"00000")
+        self.assertEqual(convert_to_hex(0, 0), b"0")
+        self.assertEqual(convert_to_hex(0, 1), b"0")
+
+        for x in (b"", "", bytearray(b"")):
+            with self.assertRaises(ValueError):
+                convert_to_hex(x)
+
+    def test_from_hex(self):
+        self.assertEqual(convert_from_hex(b"e"), 14)
+        self.assertEqual(convert_from_hex(bytearray(b"e")), 14)
+        self.assertEqual(convert_from_hex("e"), 14)
+
+        self.assertEqual(convert_from_hex(b"123"), 291)
+        self.assertEqual(convert_from_hex(bytearray(b"123")), 291)
+        self.assertEqual(convert_from_hex("123"), 291)
+
+        self.assertEqual(convert_from_hex(b"0" * 20), 0)
+
+        for x in (b"", "", bytearray(b"")):
+            with self.assertRaises(ValueError):
+                convert_from_hex(x)
+
+        for x in (b"g", b"135x235", "x125"):
+            with self.assertRaises(ValueError):
+                convert_from_hex(x)

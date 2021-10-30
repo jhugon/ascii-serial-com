@@ -201,7 +201,7 @@ class Base:
             # logging.debug("received frame is None")
             return None
         logging.debug("received: {!r}".format(frame))
-        msg = ASC_Message.unpack(frame)
+        msg = ASC_Message.unpack(frame)  # type: ignore
         if msg.ascVersion != self.asciiSerialComVersion:
             raise AsciiSerialComVersionMismatchError(
                 "Message version: {!r} Expected version: {!r}".format(

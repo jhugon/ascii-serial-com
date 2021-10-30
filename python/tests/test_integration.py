@@ -1,12 +1,9 @@
 import logging
 import unittest
-from asciiserialcom.asciiSerialCom import Ascii_Serial_Com
-from asciiserialcom.device import deviceLoop
-import crcmod
-import datetime
+from asciiserialcom.host import Host
+from asciiserialcom.device import Device
 import trio
 import trio.testing
-import subprocess
 from asciiserialcom.utilities import breakStapledIntoWriteRead
 
 logging.basicConfig(
@@ -27,30 +24,28 @@ async def run(self):
     got_to_cancel = False
     with trio.move_on_after(1) as cancel_scope:
         async with trio.open_nursery() as nursery:
-            nursery.start_soon(
-                deviceLoop,
+            device = Device(
+                nursery,
                 dev_read_stream,
                 dev_write_stream,
                 nRegisterBits,
                 nRegisters,
                 devicePrintRegistersInterval,
             )
-            asc = Ascii_Serial_Com(
-                nursery, host_read_stream, host_write_stream, nRegisterBits
-            )
+            host = Host(nursery, host_read_stream, host_write_stream, nRegisterBits)
             for iReg in range(nRegisters):
-                await asc.write_register(iReg, 0)
-                read_result = await asc.read_register(iReg)
+                await host.write_register(iReg, 0)
+                read_result = await host.read_register(iReg)
                 self.assertEqual(read_result, 0)
             for iReg in range(nRegisters):
-                await asc.write_register(iReg, iReg)
+                await host.write_register(iReg, iReg)
             for iReg in range(nRegisters):
-                read_result = await asc.read_register(iReg)
+                read_result = await host.read_register(iReg)
                 self.assertEqual(read_result, iReg)
             for iReg in range(nRegisters):
-                await asc.write_register(iReg, 0xFFFFFFFF - iReg)
+                await host.write_register(iReg, 0xFFFFFFFF - iReg)
             for iReg in range(nRegisters):
-                read_result = await asc.read_register(iReg)
+                read_result = await host.read_register(iReg)
                 self.assertEqual(read_result, 0xFFFFFFFF - iReg)
             got_to_cancel = True
             cancel_scope.cancel()
@@ -58,8 +53,5 @@ async def run(self):
 
 
 class TestMessageLoopback(unittest.TestCase):
-    def setUp(self):
-        self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
-
     def test_run(self):
         trio.run(run, self)
