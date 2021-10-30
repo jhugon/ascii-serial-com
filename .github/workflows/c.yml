@@ -7,37 +7,49 @@ on:
     branches: [ master ]
 
 jobs:
-  build-gcc:
+  build-test-gcc:
     strategy:
       matrix:
-        compilerversion: [9,10,11]
+        compiler-version: [9,10,11]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: Set up GCC
       uses: egor-tensin/setup-gcc@v1
       with:
-        version: ${{ matrix.compilerversion }}
+        version: ${{ matrix.compiler-version }}
         platform: x64
     - name: build
       run: |
         make install
       env:
-        CC: gcc-${{ matrix.compilerversion }}
-  build-clang:
+        CC: gcc-${{ matrix.compiler-version }}
+    - name: unit-test
+      run: |
+        testexes=$(ls build/*/test*)
+        echo $testexes
+        for i in $testexes; do echo $i; ./$i; done
+      shell: bash
+  build-test-clang:
     strategy:
       matrix:
-        compilerversion: [10,11,12,13]
+        compiler-version: [10,11,12,13]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: Set up Clang
       uses: egor-tensin/setup-clang@v1
       with:
-        version: ${{ matrix.compilerversion }}
+        version: ${{ matrix.compiler-version }}
         platform: x64
     - name: build
       run: |
         make install
       env:
-        CC: clang-${{ matrix.compilerversion }}
+        CC: clang-${{ matrix.compiler-version }}
+    - name: unit-test
+      run: |
+        testexes=$(ls build/*/test*)
+        echo $testexes
+        for i in $testexes; do echo $i; ./$i; done
+      shell: bash
