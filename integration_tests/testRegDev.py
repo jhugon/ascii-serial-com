@@ -32,7 +32,7 @@ class TestRegisterReadback(unittest.TestCase):
     def test_just_device(self):
         async def run_test(self):
             got_to_cancel = False
-            with trio.move_on_after(1) as cancel_scope:
+            with trio.move_on_after(5) as cancel_scope:
                 async with await trio.open_process(
                     [self.exe],
                     stdin=subprocess.PIPE,
@@ -98,7 +98,7 @@ class TestRegisterReadback(unittest.TestCase):
             nRegisterBits = 8
             testDataMax = 2 ** nRegisterBits
             got_to_cancel = False
-            with trio.move_on_after(1) as cancel_scope:
+            with trio.move_on_after(5) as cancel_scope:
                 async with await trio.open_process(
                     [self.exe],
                     stdin=subprocess.PIPE,

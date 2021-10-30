@@ -44,7 +44,7 @@ class TestTrivialLoopback(unittest.TestCase):
 
         async def run_test(self, intexts):
             got_to_cancel = False
-            with trio.move_on_after(1) as cancel_scope:
+            with trio.move_on_after(5) as cancel_scope:
                 async with await trio.open_process(
                     [self.exe, "-l"],
                     stdin=subprocess.PIPE,
@@ -65,7 +65,7 @@ class TestTrivialLoopback(unittest.TestCase):
         async def run_test(self):
             nRegisterBits = 32
             got_to_cancel = False
-            with trio.move_on_after(1) as cancel_scope:
+            with trio.move_on_after(5) as cancel_scope:
                 async with await trio.open_process(
                     [self.exe, "-l"],
                     stdin=subprocess.PIPE,
@@ -93,7 +93,7 @@ class TestTrivialLoopback(unittest.TestCase):
         async def run_test(self):
             nRegisterBits = 32
             got_to_cancel = False
-            with trio.move_on_after(1) as cancel_scope:
+            with trio.move_on_after(5) as cancel_scope:
                 async with await trio.open_process(
                     [self.exe, "-l"],
                     stdin=subprocess.PIPE,
@@ -135,7 +135,7 @@ class TestASCLoopback(unittest.TestCase):
         async def run_test(self):
             nRegisterBits = 32
             got_to_cancel = False
-            with trio.move_on_after(1) as cancel_scope:
+            with trio.move_on_after(5) as cancel_scope:
                 dev_send_chan, dev_recv_chan = trio.open_memory_channel(0)
                 receiver_send_chan, receiver_recv_chan = trio.open_memory_channel(0)
                 async with trio.open_nursery() as nursery:
@@ -183,7 +183,7 @@ class TestASCLoopback(unittest.TestCase):
                     for intext in intexts:
                         await device.stdio.send_all(intext)
                         response = b""
-                        with trio.move_on_after(0.1) as cancel_scope:
+                        with trio.move_on_after(0.5) as cancel_scope:
                             while True:
                                 response += await device.stdio.receive_some()
                         self.assertEqual(response, intext)
@@ -212,7 +212,7 @@ class TestASCLoopback(unittest.TestCase):
                     for intext in intexts:
                         await device.stdio.send_all(intext)
                         response = b""
-                        with trio.move_on_after(0.1) as cancel_scope:
+                        with trio.move_on_after(0.5) as cancel_scope:
                             while True:
                                 response += await device.stdio.receive_some()
                         self.assertEqual(response, b"")
@@ -226,7 +226,7 @@ class TestASCLoopback(unittest.TestCase):
         async def run_test(self):
             nRegisterBits = 32
             got_to_cancel = False
-            with trio.move_on_after(1) as cancel_scope:
+            with trio.move_on_after(5) as cancel_scope:
                 async with await trio.open_process(
                     [self.exe],
                     stdin=subprocess.PIPE,
@@ -254,7 +254,7 @@ class TestASCLoopback(unittest.TestCase):
         async def run_test(self):
             nRegisterBits = 32
             got_to_cancel = False
-            with trio.move_on_after(1) as cancel_scope:
+            with trio.move_on_after(5) as cancel_scope:
                 async with await trio.open_process(
                     [self.exe],
                     stdin=subprocess.PIPE,
