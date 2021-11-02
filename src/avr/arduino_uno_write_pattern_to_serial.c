@@ -13,10 +13,14 @@ int main(void) {
 
   USART0_Init(MYUBRR, 0);
 
+  byteBuffer = 48;
   while (1) {
-    USART0_Rx(byteBuffer);
-    _delay_ms(100);
     USART0_Tx(byteBuffer);
+    byteBuffer++;
+    if (byteBuffer > 57) {
+      byteBuffer = 48;
+      //_delay_ms(100);
+    }
   }
   return 0;
 }

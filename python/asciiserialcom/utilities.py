@@ -157,9 +157,9 @@ class Tracer(trio.abc.Instrument):
 
     def before_io_wait(self, timeout):
         if timeout:
-            print(f"### waiting for I/O for up to {timeout} seconds")
+            logging.debug(f"### waiting for I/O for up to {timeout} seconds")
         else:
-            print("### doing a quick check for I/O")
+            logging.debug("### doing a quick check for I/O")
         self._sleep_time = trio.current_time()
 
     def after_io_wait(self, timeout):
