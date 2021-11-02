@@ -224,15 +224,16 @@ class Base:
         returns: frame as bytes; None if no frame found in stream
         """
         try:
-            # logging.debug("about to read from fin")
+            logging.debug("about to read from fin")
             b = await self.fin.read()
         except ValueError:
             raise FileReadError
         except IOError:
             raise FileReadError
         else:
-            if len(b) > 0:
-                logging.debug(f"got {len(b)} bytes from fin")
+            # if len(b) > 0:
+            #    logging.debug(f"got {len(b)} bytes from fin")
+            logging.debug(f"got {len(b)} bytes from fin: {b.decode('ascii','replace')}")
             self.buf.push_back(b)
             self.buf.removeFrontTo(b">", inclusive=False)
             if len(self.buf) == 0:

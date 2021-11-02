@@ -115,7 +115,7 @@ class TestStreaming(unittest.TestCase):
                 ]
                 trio.run(run_test, self, messages)
 
-    @unittest.skip("Have trouble with the memory stream")
+    # @unittest.skip("Have trouble with the memory stream")
     def test_receive_to_channel_with_memory_stream(self):
         async def run_on_all(func, collection):
             for i, x in enumerate(collection):

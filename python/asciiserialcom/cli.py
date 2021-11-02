@@ -18,11 +18,32 @@ logging.basicConfig(
 
 
 async def run_read(timeout, fin_name, fout_name, reg_num):
+    async def reader(read_fifo):
+        while True:
+            logging.log(await read_fifo.read())
+
+    logging.info("Started run_read")
+    with trio.move_on_after(timeout) as move_on_scope:
+        async with trio.open_nursery() as nursery:
+            logging.debug(f"About to open files, fin: {fin_name}, fout: {fout_name}")
+            async with await trio.open_file(fout_name, "wb") as write_fifo:
+                logging.debug("Opened fout")
+                async with await trio.open_file(fin_name, "rb") as read_fifo:
+                    logging.debug("Opened files")
+                    nursery.start_soon(reader, read_fifo)
+                    logging.debug("About to write_fifo Test")
+                    await write_fifo.write(b"Test")
+                    logging.debug("About to write_fifo Again")
+                    await write_fifo.write(b"Again")
+
+    return
+
     result = None
     with trio.move_on_after(timeout) as cancel_scope:
         async with await trio.open_file(fout_name, "bw") as fout:
             async with await trio.open_file(fin_name, "br") as fin:
                 async with trio.open_nursery() as nursery:
+                    logging.debug("Opened files and nursery")
                     host = Host(nursery, fin, fout, 8)
                     result = await host.read_register(reg_num)
                     cancel_scope.cancel()
