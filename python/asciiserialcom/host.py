@@ -52,28 +52,27 @@ class Host(Base):
         send_r: trio.abc.SendChannel
         send_r, recv_r = trio.open_memory_channel(0)
         self.forward_received_r_messages_to(send_r)
-        # read all messages in queue until one is correct or get cancelled
-        while True:
-            msg_raw = await recv_r.receive()
-            msg = cast(ASC_Message, msg_raw)
-            if msg is None:
-                continue
-            splitdata = msg.data.split(b",")
-            try:
-                rec_regnum, rec_value = splitdata
-            except ValueError:
-                await send_r.aclose()
-                await recv_r.aclose()
-                self.forward_received_r_messages_to(None)
-                raise BadDataError(
-                    f"read response data, {msg!r}, can't be split into a reg num and reg val (no comma!)"
-                )
-            else:
-                if int(rec_regnum, 16) == int(regnum_hex, 16):
-                    await send_r.aclose()
-                    await recv_r.aclose()
-                    self.forward_received_r_messages_to(None)
-                    return convert_from_hex(rec_value)
+        result: Optional[int] = None
+        with send_r:
+            # read all messages in queue until one is correct or get cancelled or send_r closes
+            while True:
+                msg_raw = await recv_r.receive()
+                msg = cast(ASC_Message, msg_raw)
+                if msg is None:
+                    continue
+                splitdata = msg.data.split(b",")
+                try:
+                    rec_regnum, rec_value = splitdata
+                except ValueError:
+                    logging.warning(
+                        f"Read response data, {msg.decode('ascii','replace')}, can't be split into a reg num and reg val (no comma!)"
+                    )
+                else:
+                    if int(rec_regnum, 16) == int(regnum_hex, 16):
+                        result = convert_from_hex(rec_value)
+                        break
+        self.forward_received_r_messages_to(None)
+        return result
 
     async def write_register(self, regnum: int, content: Union[bytes, int]) -> None:
         """
@@ -94,23 +93,20 @@ class Host(Base):
         send_w: trio.abc.SendChannel
         send_w, recv_w = trio.open_memory_channel(0)
         self.forward_received_w_messages_to(send_w)
-        # read all messages in queue until one is correct or get cancelled
-        while True:
-            msg_raw = await recv_w.receive()
-            msg = cast(ASC_Message, msg_raw)
-            if msg.command == b"w":
-                try:
-                    msg_regnum = int(msg.data, 16)
-                except ValueError:
-                    await send_w.aclose()
-                    await recv_w.aclose()
-                    self.forward_received_w_messages_to(None)
-                    raise BadDataError(
-                        f"write response data, {msg.data!r}, isn't a valid register number"
-                    )
-                else:
-                    if msg_regnum == int(regnum_hex, 16):
-                        await send_w.aclose()
-                        await recv_w.aclose()
-                        self.forward_received_w_messages_to(None)
-                        return
+        with send_w:
+            # read all messages in queue until one is correct or get cancelled
+            while True:
+                msg_raw = await recv_w.receive()
+                msg = cast(ASC_Message, msg_raw)
+                if msg.command == b"w":
+                    try:
+                        msg_regnum = int(msg.data, 16)
+                    except ValueError:
+                        Logging.warning(
+                            f"Write response data, {msg.data.decode('ascii','replace')}, isn't a valid register number"
+                        )
+                    else:
+                        if msg_regnum == int(regnum_hex, 16):
+                            break
+        self.forward_received_w_messages_to(None)
+        return

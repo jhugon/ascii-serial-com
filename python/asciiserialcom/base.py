@@ -157,33 +157,48 @@ class Base:
         This is the task that handles reading from the serial link (self.fin)
         and then puts ASC_Message's in queues
         """
-        while True:
-            msg = await self._receive_message()
-            if msg:
-                if self.send_all_received_channel:
-                    await self.send_all_received_channel.send(msg)
-                    if not self.send_all_received_channel_copy:
-                        continue  # skip all of the other sends
-                if msg.command == b"w" and self.send_w:
-                    if self.send_w:
-                        await self.send_w.send(msg)
-                    elif self.write_w:
-                        await self.write_w.write(msg.get_packed())
-                elif msg.command == b"r" and self.send_r:
-                    if self.send_r:
-                        await self.send_r.send(msg)
-                    elif self.write_r:
-                        await self.write_r.write(msg.get_packed())
-                elif msg.command == b"s":
-                    if self.send_s:
-                        logging.debug(f"About to send to send_s {msg}")
-                        await self.send_s.send(msg)
-                    elif self.write_s:
-                        await self.write_s.write(msg.get_packed())
-                elif msg.command == b"e":
-                    logging.warning(f"Error message received: {msg}")
-                else:
-                    pass
+        with self.fin:
+            while True:
+                msg = await self._receive_message()
+                if msg:
+                    if self.send_all_received_channel:
+                        await self.send_all_received_channel.send(msg)
+                        if not self.send_all_received_channel_copy:
+                            continue  # skip all of the other sends
+                    if msg.command == b"w":
+                        if self.send_w:
+                            await self.send_w.send(msg)
+                        elif self.write_w:
+                            await self.write_w.write(msg.get_packed())
+                    elif msg.command == b"r":
+                        if self.send_r:
+                            await self.send_r.send(msg)
+                        elif self.write_r:
+                            await self.write_r.write(msg.get_packed())
+                    elif msg.command == b"s":
+                        if self.send_s:
+                            logging.debug(f"About to send to send_s {msg}")
+                            await self.send_s.send(msg)
+                        elif self.write_s:
+                            await self.write_s.write(msg.get_packed())
+                    elif msg.command == b"e":
+                        logging.warning(f"Error message received: {msg}")
+                    else:
+                        pass
+        if self.send_all_received_channel:
+            self.send_all_received_channel.close()
+        if self.send_w:
+            self.send_w.close()
+        if self.send_r:
+            self.send_r.close()
+        if self.send_s:
+            self.send_s.close()
+        if self.write_w:
+            await self.write_w.close()
+        if self.write_r:
+            await self.write_r.close()
+        if self.write_s:
+            await self.write_s.close()
 
     async def _receive_message(self) -> Optional[ASC_Message]:
         """

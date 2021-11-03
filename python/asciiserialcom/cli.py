@@ -26,9 +26,9 @@ async def run_read(timeout, fin_name, fout_name, reg_num):
     with trio.move_on_after(timeout) as move_on_scope:
         async with trio.open_nursery() as nursery:
             logging.debug(f"About to open files, fin: {fin_name}, fout: {fout_name}")
-            async with await trio.open_file(fout_name, "wb") as write_fifo:
-                logging.debug("Opened fout")
-                async with await trio.open_file(fin_name, "rb") as read_fifo:
+            async with await trio.open_file(fin_name, "rb") as read_fifo:
+                logging.debug("Opened fin")
+                async with await trio.open_file(fout_name, "wb") as write_fifo:
                     logging.debug("Opened files")
                     nursery.start_soon(reader, read_fifo)
                     logging.debug("About to write_fifo Test")
@@ -40,26 +40,24 @@ async def run_read(timeout, fin_name, fout_name, reg_num):
 
     result = None
     with trio.move_on_after(timeout) as cancel_scope:
-        async with await trio.open_file(fout_name, "bw") as fout:
+        async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
-                async with trio.open_nursery() as nursery:
+                async with await trio.open_file(fout_name, "bw") as fout:
                     logging.debug("Opened files and nursery")
                     host = Host(nursery, fin, fout, 8)
                     result = await host.read_register(reg_num)
-                    cancel_scope.cancel()
     return result
 
 
 async def run_write(timeout, fin_name, fout_name, reg_num, reg_val):
     result = False
     with trio.move_on_after(timeout) as cancel_scope:
-        async with await trio.open_file(fout_name, "bw") as fout:
+        async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
-                async with trio.open_nursery() as nursery:
+                async with await trio.open_file(fout_name, "bw") as fout:
                     host = Host(nursery, fin, fout, 8)
                     await host.write_register(reg_num, reg_val)
-                    result = True
-                    cancel_scope.cancel()
+                result = True
     return result
 
 
@@ -75,16 +73,15 @@ async def run_stream(timeout, fin_name, fout_name):
         timeout = float("inf")
     timeout_cancel = timeout + 0.5
     with trio.move_on_after(timeout_cancel) as cancel_scope:
-        async with await trio.open_file(fout_name, "bw") as fout:
+        async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
-                async with trio.open_nursery() as nursery:
+                async with await trio.open_file(fout_name, "bw") as fout:
                     host = Host(nursery, fin, fout, 8)
                     nursery.start_soon(forward_received_messages_to_print, recv_ch)
                     host.forward_received_s_messages_to(send_ch)
                     await host.send_message(b"n", b"")
                     await trio.sleep(timeout)
                     await host.send_message(b"f", b"")
-                    cancel_scope.cancel()
 
 
 app = typer.Typer()
