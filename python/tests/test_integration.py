@@ -8,13 +8,6 @@ import os
 from pathlib import Path
 from asciiserialcom.utilities import breakStapledIntoWriteRead
 
-logging.basicConfig(
-    # filename="test_integration.log",
-    # level=logging.INFO,
-    # level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s"
-)
-
 
 class TestMessageLoopback(unittest.TestCase):
     def test_run(self):
@@ -60,58 +53,6 @@ class TestMessageLoopback(unittest.TestCase):
         trio.run(run_test, self)
 
 
-class TestCLI(unittest.TestCase):
-    def test_read(self):
-        async def run_test(self):
-            host_to_device_fifo = trio.Path("host_to_device.fifo")
-            device_to_host_fifo = trio.Path("device_to_host.fifo")
-            if not await host_to_device_fifo.exists():
-                os.mkfifo(host_to_device_fifo)
-            if not await device_to_host_fifo.exists():
-                os.mkfifo(device_to_host_fifo)
-            test_timeout = 5  # seconds
-            host_timeout = 1  # seconds
-            with trio.move_on_after(test_timeout) as move_on_scope:
-                async with trio.open_nursery() as nursery:
-                    nursery.start_soon(
-                        trio.run_process,
-                        [
-                            "asciiSerialComCli",
-                            "read",
-                            str(device_to_host_fifo),
-                            "0",
-                            "--timeout",
-                            "7",
-                            "--serial-send",
-                            str(host_to_device_fifo),
-                        ],
-                    )
-                    # nursery.start_soon(trio.run_process,["asciiSerialComCli","read","input.txt","0","--timeout",str(host_timeout),"--serial-send",str(host_to_device_fifo)])
-                    await trio.sleep(0.1)
-                    async with await trio.open_file(
-                        host_to_device_fifo, "rb"
-                    ) as read_fifo:
-                        async with await trio.open_file(
-                            device_to_host_fifo, "wb"
-                        ) as write_fifo:
-                            logging.info("Opened files!")
-                            data = await read_fifo.read()
-                            logging.info(data)
-                            data = await read_fifo.read()
-                            logging.info(data)
-                            await trio.sleep(0.1)
-                            await write_fifo.write(data)
-                    #        await write_fifo.write(data)
-                    #        await write_fifo.write(data)
-                    #        await write_fifo.write(data)
-                    #        await write_fifo.write(data)
-                    #        await write_fifo.write(data)
-            await host_to_device_fifo.unlink()
-            await device_to_host_fifo.unlink()
-
-        trio.run(run_test, self)
-
-
 class TestEcho(unittest.TestCase):
     def setUp(self):
         host_to_device_fifo = Path("host_to_device.fifo")
@@ -123,9 +64,18 @@ class TestEcho(unittest.TestCase):
         self.host_to_device_fifo = host_to_device_fifo
         self.device_to_host_fifo = device_to_host_fifo
 
+        logging.basicConfig(
+            # filename="test_integration.log",
+            # level=logging.INFO,
+            # level=logging.DEBUG,
+            format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s"
+        )
+
     def tearDown(self):
         self.host_to_device_fifo.unlink()
         self.device_to_host_fifo.unlink()
+
+        logging.basicConfig()
 
     def test_both_scripts(self):
         async def run_test(self):

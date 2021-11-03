@@ -74,7 +74,7 @@ class Device(Base):
             await trio.sleep(interval)
 
     async def handle_r_messages(self) -> None:
-        with self.recv_r:
+        async with self.recv_r:
             while True:
                 msg = await self.recv_r.receive()
                 if not msg:
@@ -103,7 +103,7 @@ class Device(Base):
                     )
 
     async def handle_w_messages(self) -> None:
-        with self.recv_w:
+        async with self.recv_w:
             while True:
                 msg = await self.recv_w.receive()
                 if not msg:

@@ -12,7 +12,7 @@ from .errors import *
 from .message import ASC_Message
 from .base import Base, check_register_content, check_register_number, convert_from_hex
 
-from typing import cast, Union
+from typing import cast, Union, Optional
 
 logging.basicConfig(
     # filename="test_hostiiSerialCom.log",
@@ -53,19 +53,21 @@ class Host(Base):
         send_r, recv_r = trio.open_memory_channel(0)
         self.forward_received_r_messages_to(send_r)
         result: Optional[int] = None
-        with send_r:
+        async with send_r:
             # read all messages in queue until one is correct or get cancelled or send_r closes
             while True:
+                logging.debug(f"Trying to receive message from recv_r")
                 msg_raw = await recv_r.receive()
                 msg = cast(ASC_Message, msg_raw)
                 if msg is None:
                     continue
+                logging.debug(f"Received message: {msg}")
                 splitdata = msg.data.split(b",")
                 try:
                     rec_regnum, rec_value = splitdata
                 except ValueError:
                     logging.warning(
-                        f"Read response data, {msg.decode('ascii','replace')}, can't be split into a reg num and reg val (no comma!)"
+                        f"Read response data, {msg.data.decode('ascii','replace')}, can't be split into a reg num and reg val (no comma!)"
                     )
                 else:
                     if int(rec_regnum, 16) == int(regnum_hex, 16):
@@ -93,7 +95,7 @@ class Host(Base):
         send_w: trio.abc.SendChannel
         send_w, recv_w = trio.open_memory_channel(0)
         self.forward_received_w_messages_to(send_w)
-        with send_w:
+        async with send_w:
             # read all messages in queue until one is correct or get cancelled
             while True:
                 msg_raw = await recv_w.receive()
@@ -102,7 +104,7 @@ class Host(Base):
                     try:
                         msg_regnum = int(msg.data, 16)
                     except ValueError:
-                        Logging.warning(
+                        logging.warning(
                             f"Write response data, {msg.data.decode('ascii','replace')}, isn't a valid register number"
                         )
                     else:

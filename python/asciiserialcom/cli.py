@@ -18,26 +18,8 @@ logging.basicConfig(
 
 
 async def run_read(timeout, fin_name, fout_name, reg_num):
-    async def reader(read_fifo):
-        while True:
-            logging.log(await read_fifo.read())
-
-    logging.info("Started run_read")
-    with trio.move_on_after(timeout) as move_on_scope:
-        async with trio.open_nursery() as nursery:
-            logging.debug(f"About to open files, fin: {fin_name}, fout: {fout_name}")
-            async with await trio.open_file(fin_name, "rb") as read_fifo:
-                logging.debug("Opened fin")
-                async with await trio.open_file(fout_name, "wb") as write_fifo:
-                    logging.debug("Opened files")
-                    nursery.start_soon(reader, read_fifo)
-                    logging.debug("About to write_fifo Test")
-                    await write_fifo.write(b"Test")
-                    logging.debug("About to write_fifo Again")
-                    await write_fifo.write(b"Again")
-
-    return
-
+    logging.debug(f"fin_name: {fin_name}")
+    logging.debug(f"fout_name: {fout_name}")
     result = None
     with trio.move_on_after(timeout) as cancel_scope:
         async with trio.open_nursery() as nursery:
@@ -46,15 +28,20 @@ async def run_read(timeout, fin_name, fout_name, reg_num):
                     logging.debug("Opened files and nursery")
                     host = Host(nursery, fin, fout, 8)
                     result = await host.read_register(reg_num)
+    async with await trio.open_file(fout_name, "bw") as fout:
+        pass
     return result
 
 
 async def run_write(timeout, fin_name, fout_name, reg_num, reg_val):
+    logging.debug(f"fin_name: {fin_name}")
+    logging.debug(f"fout_name: {fout_name}")
     result = False
     with trio.move_on_after(timeout) as cancel_scope:
         async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
                 async with await trio.open_file(fout_name, "bw") as fout:
+                    logging.debug("Opened files and nursery")
                     host = Host(nursery, fin, fout, 8)
                     await host.write_register(reg_num, reg_val)
                 result = True
@@ -127,6 +114,7 @@ def read(
             )
     except Exception as e:
         typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+        raise e
 
 
 @app.command()
@@ -142,7 +130,7 @@ def write(
     register_value: int = typer.Argument(
         ..., help="Register value to write to device", min=0
     ),
-    timeout: float = typer.Argument(
+    timeout: float = typer.Option(
         DEFAULT_TIMEOUT, help="Timeout for register read", min=0.0
     ),
     serial_send: Optional[Path] = typer.Option(
