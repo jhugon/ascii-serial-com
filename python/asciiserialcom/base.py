@@ -7,6 +7,8 @@ from __future__ import annotations
 import io
 import math
 import logging
+from pathlib import Path
+from functools import partial
 
 import trio
 from trio._file_io import AsyncIOWrapper  # type: ignore
@@ -55,6 +57,13 @@ class Base:
         self.asciiSerialComVersion = asciiSerialComVersion
         self.appVersion = appVersion
         self.registerBitWidth = registerBitWidth
+
+        try:
+            path = Path(fin.name)
+            self.fin_is_fifo = path.is_fifo()
+        except Exception:
+            self.fin_is_fifo = False
+
         nursery.start_soon(self._receiver_task)
 
     async def send_message(self, command: bytes, data: bytes) -> None:
@@ -67,9 +76,10 @@ class Base:
         """
         msg = ASC_Message(self.asciiSerialComVersion, self.appVersion, command, data)
         message = msg.get_packed()
-        logging.info("sent:          {}".format(msg))
+        logging.debug("sending:          {}".format(msg))
         await self.fout.write(message)
         await self.fout.flush()
+        logging.info("sent:          {}".format(msg))
 
     def forward_received_w_messages_to(
         self, channel: Union[None, trio.abc.SendChannel, io.IOBase, AsyncIOWrapper]
@@ -161,6 +171,7 @@ class Base:
             while True:
                 msg = await self._receive_message()
                 if msg:
+                    logging.debug(msg)
                     if self.send_all_received_channel:
                         await self.send_all_received_channel.send(msg)
                         if not self.send_all_received_channel_copy:
@@ -181,6 +192,7 @@ class Base:
                             logging.debug(f"About to send to send_s {msg}")
                             await self.send_s.send(msg)
                         elif self.write_s:
+                            logging.debug(f"About to write to write_s {msg}")
                             await self.write_s.write(msg.get_packed())
                     elif msg.command == b"e":
                         logging.warning(f"Error message received: {msg}")
@@ -253,15 +265,20 @@ class Base:
         """
         try:
             # logging.debug("about to read from fin")
-            b = await self.fin.read()
+            b = b""
+            readfn = self.fin.read
+            if self.fin_is_fifo:
+                b = await self.fin.read(1)
+            else:
+                b = await self.fin.read()
         except ValueError:
             raise FileReadError
         except IOError:
             raise FileReadError
         else:
             # logging.debug(f"got {len(b)} bytes from fin: {b.decode('ascii','replace')}")
-            if len(b) > 0:
-                logging.debug(f"got {len(b)} bytes from fin")
+            # if len(b) > 0:
+            #     logging.debug(f"got {len(b)} bytes from fin")
             self.buf.push_back(b)
             self.buf.removeFrontTo(b">", inclusive=False)
             if len(self.buf) == 0:

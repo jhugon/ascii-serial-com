@@ -196,9 +196,12 @@ class TestEcho(unittest.TestCase):
                     async with await trio.open_file(
                         outfilename, "wb", buffering=0
                     ) as outfile:
-                        async for line in infile:
-                            print(f"echo_server received data: '{line!r}'", flush=True)
-                            await outfile.write(line)
+                        while True:
+                            data = await infile.read(1)
+                            await outfile.write(data)
+                        # async for line in infile:
+                        #    print(f"echo_server received data: '{line!r}'", flush=True)
+                        #    await outfile.write(line)
                 print(f"echo_server: files closed")
             # FIXME: add discussion of MultiErrors to the tutorial, and use
             # MultiError.catch here. (Not important in this case, but important if the
