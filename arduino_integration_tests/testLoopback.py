@@ -18,6 +18,11 @@ from asciiserialcom.utilities import (
 from asciiserialcom.tty_utils import setup_tty
 import trio
 import serial
+import serial.threaded
+import queue
+import time
+import threading
+from functools import partial
 
 logging.basicConfig(
     # filename="test_asciiSerialCom.log",
@@ -42,28 +47,25 @@ class TestRxFromDevice(unittest.TestCase):
     def test_just_device(self):
         async def receiver(chan, f):
             while True:
-                data = await f.read(10)
+                data = await f.read(1)
+                if len(data) == 0:
+                    continue
                 await chan.send(data)
 
         async def data_checker(self, chan, chan_all_done):
             last = None
             print("Starting data_checker", flush=True)
-            try:
-                for i in range(200):
-                    if i > 2:
-                        data = await chan.receive()
-                        print(f"Receive: {i}")
-                        for ch in data:
-                            await trio.sleep(0)
-                            num = ch - 48
-                            print(num, flush=True)
-                            if last == 9 and num != 0:
-                                raise ValueError()
-                            elif last and num != last + 1:
-                                raise ValueError()
-                            last = num
-            except ValueError:
-                self.assertTrue(False)
+            for i in range(100):
+                await chan.receive()
+            for i in range(200):
+                data = await chan.receive()
+                num = int(data)
+                print(f"{i:5} {num:2}", flush=True)
+                if last == 9:
+                    self.assertEqual(num, 0)
+                elif last:
+                    self.assertEqual(num, last + 1)
+                last = num
             await chan_all_done.send("All done!")
 
         async def run_test(self):
@@ -89,7 +91,7 @@ class TestRxFromDevice(unittest.TestCase):
 
     def test_just_device_pyserial(self):
         # print("Starting")
-        with serial.Serial("/dev/ttyACM0", 9600, 8, "N", 1) as ser:
+        with serial.Serial("/dev/ttyACM0", 9600, 8, "N", 1, timeout=0.1) as ser:
             # print(ser)
             last = None
             ser.reset_input_buffer()
@@ -97,6 +99,8 @@ class TestRxFromDevice(unittest.TestCase):
                 ser.read(100)
             for i in range(2000):
                 data = ser.read(1)
+                if len(data) == 0:
+                    continue
                 num = int(data)
                 # print(f"{i:5} {num:2}")
                 if last == 9:
@@ -111,6 +115,8 @@ class TestRxFromDevice(unittest.TestCase):
             while True:
                 # data = await trio.to_thread.run_sync(ser.read,1)
                 data = await f.read(1)
+                if len(data) == 0:
+                    continue
                 await chan.send(data)
 
         async def data_checker(self, chan, chan_all_done):
@@ -119,6 +125,7 @@ class TestRxFromDevice(unittest.TestCase):
                 if i > 2:
                     data = await chan.receive()
                     num = int(data)
+                    # print(f"{i:5} {num:2}")
                     if last == 9:
                         self.assertEqual(num, 0)
                     elif last:
@@ -128,7 +135,7 @@ class TestRxFromDevice(unittest.TestCase):
 
         async def run_test(self):
             # logging.info("Starting run_test")
-            with serial.Serial("/dev/ttyACM0", 9600, 8, "N", 1) as ser:
+            with serial.Serial("/dev/ttyACM0", 9600, 8, "N", 1, timeout=0.1) as ser:
                 ser.reset_input_buffer()
                 for i in range(5):
                     ser.read(100)
@@ -157,63 +164,107 @@ class TestCharLoopback(unittest.TestCase):
 
     """
 
-    def test_just_device(self):
+    def test_just_device_async(self):
+        test_string = b"abcdefghijklmnop987654321"
+
         async def reader(self, ser, task_status=trio.TASK_STATUS_IGNORED):
-            with trio.move_on_after(5) as moveon_scope:
+            logging.debug(f"reader started!")
+            with trio.move_on_after(8) as moveon_scope:
+                logging.debug(f"About to wrap file")
                 async with trio.wrap_file(ser) as port:
+                    logging.debug(f"File wrapped, about to send task started!")
                     task_status.started()
                     try:
-                        # while True:
-                        for i in range(6):
-                            logging.debug(f"About to read data {i}")
-                            data = await port.read(1)
-                            logging.debug("Done reading data")
-                            # print(data.decode(),flush=True,end="")
-                            print(data.decode(), flush=True)
-                            logging.debug("Done printing read data")
+                        while True:
+                            data = b""
+                            while True:
+                                data = await port.read(10)
+                                if len(data) > 0:
+                                    break
+                            logging.info(f"read: {data}")
                     except Exception as e:
                         logging.error(e)
-                        print("Reader Exception!!!", flush=True)
-            print("Reader exiting", flush=True)
+            logging.debug("Reader exiting")
 
         async def run_test(self):
-            with trio.move_on_after(1) as moveon_scope:
-                with serial.Serial("/dev/ttyACM0", 9600, 8, "N", 1) as ser:
-                    async_ser = trio.wrap_file(ser)
-                    async with trio.open_nursery() as nursery:
-                        # nursery.start_soon(reader,self,async_ser)
-                        await nursery.start(reader, self, ser)
-                        await trio.sleep(1)
-                        await async_ser.write(b"c")
-                        print("Write c")
-                        await trio.sleep(1)
-                        await async_ser.write(b"d")
-                        print("Write d")
-                        await async_ser.write(b"e")
-                        print("Write e")
-                        await async_ser.write(b"f")
-                        print("Write f")
-                        await trio.sleep(1)
-                        print("About to cancel")
-                        nursery.cancel_scope.cancel()
-                        print("About to cancel with moveon")
-                        moveon_scope.cancel()
+            with trio.move_on_after(10) as moveon_scope:
+                with serial.Serial("/dev/ttyACM0", 9600, 8, "N", 1, timeout=0.1) as ser:
+                    try:
+                        async with trio.wrap_file(ser) as async_ser:
+                            async with trio.open_nursery() as nursery:
+                                await nursery.start(reader, self, ser)
+                                # nursery.start_soon(reader, self, ser)
+                                await trio.sleep(0.1)
+                                for x in test_string:
+                                    await trio.sleep(0)
+                                    x = chr(x).encode("ascii")
+                                    await trio.sleep(0.1)
+                                    await async_ser.write(x)
+                                    logging.info(f"Write {x!r}")
+                                    await trio.sleep(0)
+                                await trio.sleep(0.1)
+                                logging.debug("About to cancel")
+                                nursery.cancel_scope.cancel()
+                                logging.debug("About to cancel with moveon")
+                                moveon_scope.cancel()
+                    except Exception as e:
+                        logging.error(e)
 
-        trio.run(run_test, self, instruments=[Tracer()])
-        return
+        trio.run(run_test, self)  # , instruments=[Tracer()])
 
-        import threading
+    def test_just_device_threads(self):
+        """
+        Seems like a 0.1 s sleep is required
+        """
 
-        ser = None
+        class MyProtocol(serial.threaded.Protocol):
+            def __init__(self, tester):
+                super().__init__()
+                self.tester = tester
+                self.receive_buffer = queue.Queue()
+                self.handle_received_data_thread = threading.Thread(
+                    target=self.handle_received_data
+                )
+                self.handle_received_data_thread.start()
 
-        def receiver():
-            try:
+            def data_received(self, data):
+                self.receive_buffer.put(data, block=False)
+
+            def handle_received_data(self):
+                logging.debug(f"Thread started!")
+                last = None
                 while True:
-                    data = ser.read(1)
-                    print(f"Received: {data}")
-            except BaseException as e:
-                print("Error:")
-                print(e)
+                    try:
+                        data = self.receive_buffer.get(timeout=0.1)
+                    except queue.Empty:
+                        pass
+                    else:
+                        logging.info(f"Received data: {data!r}")
+                        num = int(data)
+                        if last == 9:
+                            self.tester.assertEqual(num, 0)
+                        elif last:
+                            self.tester.assertEqual(num, last + 1)
+                        last = num
+                        self.receive_buffer.task_done()
 
-        with serial.Serial("/dev/ttyACM0", 9600, 8, "N", 1) as ser:
-            print(ser.read(1))
+            def join(self):
+                self.receive_buffer.join()
+
+        with serial.Serial("/dev/ttyACM0", 9600, 8, "N", 1, timeout=0.1) as ser:
+            with serial.threaded.ReaderThread(
+                ser, partial(MyProtocol, self)
+            ) as protocol:
+                time.sleep(1)
+                num = 0
+                for i in list(range(10)) * 10:
+                    data = b"%u" % num
+                    ser.write(data)
+                    logging.info(f"Write {num}")
+                    time.sleep(0.1)
+                    if num == 9:
+                        num = 0
+                    else:
+                        num += 1
+                time.sleep(0.2)
+                protocol.join()

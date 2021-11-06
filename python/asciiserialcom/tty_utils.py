@@ -43,8 +43,8 @@ def setup_tty(f, speed):
         tty_attrs[5] = speedconst
 
         # Sets blocking/non-blocking/timeout behavior
-        # This blocks indefinetly until at least 1 character is ready to read
+        # This blocks for 0.1 second or until 1 character is ready to read
         tty_attrs[6][termios.VMIN] = 1
-        tty_attrs[6][termios.VTIME] = 0
+        tty_attrs[6][termios.VTIME] = 1
 
         termios.tcsetattr(f, termios.TCSAFLUSH, tty_attrs)
