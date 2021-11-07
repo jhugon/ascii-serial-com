@@ -41,6 +41,11 @@ class TestRxFromDevice(unittest.TestCase):
 
     """
 
+    def setUp(self):
+        self.baud = 9600
+        self.dev_path = "/dev/ttyACM0"
+        self.dev_path = "/dev/ttyACM1"
+
     @unittest.skip(
         "Doesn't work reliably. Need pySerial help. I don't think Trio keeps up with input well."
     )
@@ -75,8 +80,8 @@ class TestRxFromDevice(unittest.TestCase):
             got_to_cancel = False
             with trio.move_on_after(10) as cancel_scope:
                 logging.info("About to open file...")
-                async with await trio.open_file("/dev/ttyACM0", "br") as portr:
-                    setup_tty(portr.wrapped, 9600)
+                async with await trio.open_file(self.dev_path, "br") as portr:
+                    setup_tty(portr.wrapped, self.baud)
                     async with trio.open_nursery() as nursery:
                         nursery.start_soon(receiver, send_chan, portr)
                         nursery.start_soon(
@@ -91,7 +96,7 @@ class TestRxFromDevice(unittest.TestCase):
 
     def test_just_device_pyserial(self):
         # print("Starting")
-        with serial.Serial("/dev/ttyACM0", 9600, 8, "N", 1, timeout=0.1) as ser:
+        with serial.Serial(self.dev_path, self.baud, 8, "N", 1, timeout=0.1) as ser:
             # print(ser)
             last = None
             ser.reset_input_buffer()
@@ -102,7 +107,7 @@ class TestRxFromDevice(unittest.TestCase):
                 if len(data) == 0:
                     continue
                 num = int(data)
-                # print(f"{i:5} {num:2}")
+                logging.debug(f"{i:5} {num:2}")
                 if last == 9:
                     self.assertEqual(num, 0)
                 elif last:
@@ -135,7 +140,7 @@ class TestRxFromDevice(unittest.TestCase):
 
         async def run_test(self):
             # logging.info("Starting run_test")
-            with serial.Serial("/dev/ttyACM0", 9600, 8, "N", 1, timeout=0.1) as ser:
+            with serial.Serial(self.dev_path, self.baud, 8, "N", 1, timeout=0.1) as ser:
                 ser.reset_input_buffer()
                 for i in range(5):
                     ser.read(100)
@@ -164,6 +169,12 @@ class TestCharLoopback(unittest.TestCase):
 
     """
 
+    def setUp(self):
+        self.baud = 9600
+        self.baud = 19200
+        self.dev_path = "/dev/ttyACM0"
+        self.dev_path = "/dev/ttyACM1"
+
     def test_just_device_async(self):
         test_string = b"abcdefghijklmnop987654321"
 
@@ -178,7 +189,7 @@ class TestCharLoopback(unittest.TestCase):
                         while True:
                             data = b""
                             while True:
-                                data = await port.read(10)
+                                data = await port.read()
                                 if len(data) > 0:
                                     break
                             logging.info(f"read: {data}")
@@ -188,7 +199,9 @@ class TestCharLoopback(unittest.TestCase):
 
         async def run_test(self):
             with trio.move_on_after(10) as moveon_scope:
-                with serial.Serial("/dev/ttyACM0", 9600, 8, "N", 1, timeout=0.1) as ser:
+                with serial.Serial(
+                    self.dev_path, self.baud, 8, "N", 1, timeout=0.1
+                ) as ser:
                     try:
                         async with trio.wrap_file(ser) as async_ser:
                             async with trio.open_nursery() as nursery:
@@ -202,7 +215,7 @@ class TestCharLoopback(unittest.TestCase):
                                     await async_ser.write(x)
                                     logging.info(f"Write {x!r}")
                                     await trio.sleep(0)
-                                await trio.sleep(0.1)
+                                await trio.sleep(2)
                                 logging.debug("About to cancel")
                                 nursery.cancel_scope.cancel()
                                 logging.debug("About to cancel with moveon")
@@ -213,10 +226,6 @@ class TestCharLoopback(unittest.TestCase):
         trio.run(run_test, self)  # , instruments=[Tracer()])
 
     def test_just_device_threads(self):
-        """
-        Seems like a 0.1 s sleep is required
-        """
-
         class MyProtocol(serial.threaded.Protocol):
             def __init__(self, tester):
                 super().__init__()
@@ -251,20 +260,75 @@ class TestCharLoopback(unittest.TestCase):
             def join(self):
                 self.receive_buffer.join()
 
-        with serial.Serial("/dev/ttyACM0", 9600, 8, "N", 1, timeout=0.1) as ser:
+        with serial.Serial(self.dev_path, self.baud, 8, "N", 1, timeout=0.1) as ser:
             with serial.threaded.ReaderThread(
                 ser, partial(MyProtocol, self)
             ) as protocol:
-                time.sleep(1)
                 num = 0
-                for i in list(range(10)) * 10:
+                for i in list(range(10)) * 1000:
                     data = b"%u" % num
                     ser.write(data)
                     logging.info(f"Write {num}")
-                    time.sleep(0.1)
                     if num == 9:
                         num = 0
                     else:
                         num += 1
-                time.sleep(0.2)
                 protocol.join()
+
+    def test_just_device_multiprocessing(self):
+        class MyProtocol:
+            def __init__(self, ser, tester):
+                super().__init__()
+                self.ser = ser
+                self.tester = tester
+                self.receive_buffer = queue.Queue()
+                self.handle_received_data_thread = threading.Thread(
+                    target=self.handle_received_data
+                )
+                self.handle_received_data_thread.start()
+
+                self.receive_data_thread = threading.Thread(target=self.receive_data)
+                self.receive_data_thread.start()
+
+            def receive_data(self):
+                while True:
+                    data = self.ser.read(1)
+                    if len(data) > 0:
+                        self.receive_buffer.put(data, block=False)
+
+            def handle_received_data(self):
+                logging.debug(f"Thread started!")
+                last = None
+                while True:
+                    try:
+                        data = self.receive_buffer.get(timeout=0.1)
+                    except queue.Empty:
+                        pass
+                    else:
+                        logging.info(f"Received data: {data!r}")
+                        num = int(data)
+                        if last == 9:
+                            self.tester.assertEqual(num, 0)
+                        elif last:
+                            self.tester.assertEqual(num, last + 1)
+                        last = num
+                        self.receive_buffer.task_done()
+
+            def join(self):
+                self.receive_buffer.join()
+
+        with serial.Serial(self.dev_path, self.baud, 8, "N", 1, timeout=0.1) as ser:
+            protocol = MyProtocol(ser, self)
+            time.sleep(1)
+            num = 0
+            for i in list(range(10)) * 10:
+                data = b"%u" % num
+                ser.write(data)
+                logging.info(f"Write {num}")
+                time.sleep(0.1)
+                if num == 9:
+                    num = 0
+                else:
+                    num += 1
+            time.sleep(0.2)
+            protocol.join()
