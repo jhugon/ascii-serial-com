@@ -7,8 +7,8 @@
 
 #define bufCap 64
 
-static const char message[] = ">00s0\n";
-static const uint8_t message_len = 6;
+static const char message[] = ">00s0 0 0 0.DE10\n";
+static const uint8_t message_len = 17;
 uint8_t iChar = 0;
 
 int main(void) {
