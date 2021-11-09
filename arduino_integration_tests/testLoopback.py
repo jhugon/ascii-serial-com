@@ -24,16 +24,8 @@ import time
 import threading
 from functools import partial
 
-logging.basicConfig(
-    # filename="test_asciiSerialCom.log",
-    # level=logging.INFO,
-    level=logging.DEBUG,
-    # format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s"
-    format="%(message)s",
-)
 
-
-class TestRxFromDevice(unittest.TestCase):
+class TestRxCounterFromDevice(unittest.TestCase):
     """
     Requires firmware:
 
@@ -161,6 +153,65 @@ class TestRxFromDevice(unittest.TestCase):
         trio.run(run_test, self)
 
 
+class TestRxMessageFromDevice(unittest.TestCase):
+    """
+    Requires firmware:
+
+        avrdude -p atmega328p -c arduino -P /dev/ttyACM0 -Uflash:w:build/avr5_gcc_opt/arduino_uno_write_stream_message_to_serial
+
+    """
+
+    def setUp(self):
+        self.baud = 9600
+        # self.baud = 19200
+        self.dev_path = "/dev/ttyACM0"
+        self.dev_path = "/dev/ttyACM1"
+
+    def test_just_device_threads(self):
+        class MyProtocol(serial.threaded.LineReader):
+            def __init__(self, tester):
+                super().__init__()
+                self.TERMINATOR = b"\n"
+                self.tester = tester
+                self.receive_buffer = queue.Queue()
+                self.handle_received_data_thread = threading.Thread(
+                    target=self.handle_received_data
+                )
+                self.handle_received_data_thread.start()
+
+            def data_received(self, data):
+                self.receive_buffer.put(data, block=False)
+
+            def handle_received_data(self):
+                logging.debug(f"Thread started!")
+                last = None
+                n = 0
+                nGood = 0
+                while True:
+                    try:
+                        data = self.receive_buffer.get(timeout=0.1)
+                    except queue.Empty:
+                        pass
+                    else:
+                        n += 1
+                        if data == ">00s0":
+                            nGood += 1
+                        logging.info(
+                            f"Received data: {data!r} correct so far: {float(nGood)}"
+                        )
+
+            def join(self):
+                self.receive_buffer.join()
+
+        with serial.Serial(self.dev_path, self.baud, 8, "N", 1, timeout=0.1) as ser:
+            with serial.threaded.ReaderThread(
+                ser, partial(MyProtocol, self)
+            ) as protocol:
+                num = 0
+                time.sleep(1)
+                protocol.join()
+
+
 class TestCharLoopback(unittest.TestCase):
     """
         Requires firmware:
@@ -173,7 +224,16 @@ class TestCharLoopback(unittest.TestCase):
         self.baud = 9600
         self.baud = 19200
         self.dev_path = "/dev/ttyACM0"
-        self.dev_path = "/dev/ttyACM1"
+        # self.dev_path = "/dev/ttyACM1"
+
+        logging.basicConfig(
+            # filename="test_asciiSerialCom.log",
+            # level=logging.INFO,
+            # level=logging.DEBUG,
+            level=logging.WARNING,
+            # format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s"
+            format="%(message)s",
+        )
 
     def test_just_device_async(self):
         test_string = b"abcdefghijklmnop987654321"
@@ -189,7 +249,7 @@ class TestCharLoopback(unittest.TestCase):
                         while True:
                             data = b""
                             while True:
-                                data = await port.read()
+                                data = await port.read(1)
                                 if len(data) > 0:
                                     break
                             logging.info(f"read: {data}")
@@ -222,6 +282,113 @@ class TestCharLoopback(unittest.TestCase):
                                 moveon_scope.cancel()
                     except Exception as e:
                         logging.error(e)
+
+        trio.run(run_test, self)  # , instruments=[Tracer()])
+
+    def test_just_device_async_no_pyserial(self):
+        test_string = b"abcdefghijklmnop987654321"
+        test_string_len = len(test_string)
+
+        async def reader(self, reader_finished, task_status=trio.TASK_STATUS_IGNORED):
+            logging.debug(f"reader started!")
+            with trio.move_on_after(8) as moveon_scope:
+                logging.debug(f"About to open file")
+                async with await trio.open_file(self.dev_path, "br") as port:
+                    logging.debug(f"File open, about to send task started!")
+                    task_status.started()
+                    try:
+                        received_data = b""
+                        while True:
+                            data = await port.read(1)
+                            if len(data) > 0:
+                                received_data += data
+                                received_data_len = len(received_data)
+                                self.assertEqual(
+                                    received_data, test_string[:received_data_len]
+                                )
+                                if received_data_len == test_string_len:
+                                    break
+                                logging.info(f"read: {data}")
+                    except Exception as e:
+                        logging.error(e)
+            logging.debug("Reader exiting")
+            reader_finished.set()
+
+        async def run_test(self):
+            reader_finished = trio.Event()
+            writer_finished = trio.Event()
+            with trio.move_on_after(10) as moveon_scope:
+                try:
+                    async with await trio.open_file(self.dev_path, "bw") as async_ser:
+                        setup_tty(async_ser.wrapped, self.baud)
+                        async with trio.open_nursery() as nursery:
+                            await nursery.start(reader, self, reader_finished)
+                            for x in test_string:
+                                await trio.sleep(0)
+                                x = chr(x).encode("ascii")
+                                await trio.sleep(0)
+                                await async_ser.write(x)
+                                await async_ser.flush()
+                                logging.info(f"Write {x!r}")
+                                await trio.sleep(0)
+                            writer_finished.set()
+                            await reader_finished.wait()
+                except Exception as e:
+                    logging.error(e)
+            self.assertTrue(reader_finished.is_set())
+            self.assertTrue(writer_finished.is_set())
+
+        trio.run(run_test, self)  # , instruments=[Tracer()])
+
+    def test_just_device_async_no_pyserial_big_write(self):
+        test_string = b"abcdefghijklmnop987654321" * 4 * 100
+        test_string_len = len(test_string)
+        print(f"test_string_len: {test_string_len}")
+
+        async def reader(self, reader_finished, task_status=trio.TASK_STATUS_IGNORED):
+            logging.debug(f"reader started!")
+            with trio.move_on_after(8) as moveon_scope:
+                logging.debug(f"About to open file")
+                async with await trio.open_file(self.dev_path, "br") as port:
+                    logging.debug(f"File open, about to send task started!")
+                    task_status.started()
+                    try:
+                        received_data = b""
+                        while True:
+                            data = await port.read(1)
+                            if len(data) > 0:
+                                received_data += data
+                                received_data_len = len(received_data)
+                                self.assertEqual(
+                                    received_data, test_string[:received_data_len]
+                                )
+                                if received_data_len == test_string_len:
+                                    break
+                                logging.info(f"read: {data}")
+                    except Exception as e:
+                        logging.error(e)
+            logging.debug("Reader exiting")
+            reader_finished.set()
+
+        async def run_test(self):
+            reader_finished = trio.Event()
+            writer_finished = trio.Event()
+            with trio.move_on_after(10) as moveon_scope:
+                try:
+                    async with await trio.open_file(self.dev_path, "bw") as async_ser:
+                        setup_tty(async_ser.wrapped, self.baud)
+                        async with trio.open_nursery() as nursery:
+                            await nursery.start(reader, self, reader_finished)
+                            await async_ser.write(test_string)
+                            await async_ser.flush()
+                            logging.debug(f"Write {test_string!r}")
+                            await trio.sleep(0)
+                            writer_finished.set()
+                            await reader_finished.wait()
+                except Exception as e:
+                    logging.error(e)
+            self.assertTrue(reader_finished.is_set())
+            self.assertTrue(writer_finished.is_set())
 
         trio.run(run_test, self)  # , instruments=[Tracer()])
 
@@ -260,19 +427,25 @@ class TestCharLoopback(unittest.TestCase):
             def join(self):
                 self.receive_buffer.join()
 
-        with serial.Serial(self.dev_path, self.baud, 8, "N", 1, timeout=0.1) as ser:
+        with serial.Serial(
+            self.dev_path, self.baud, 8, "N", 1, timeout=0.1, dsrdtr=False
+        ) as ser:
             with serial.threaded.ReaderThread(
                 ser, partial(MyProtocol, self)
             ) as protocol:
                 num = 0
-                for i in list(range(10)) * 1000:
+                time.sleep(1)
+                # for i in list(range(10)) * 10:
+                for i in list(range(10)):
                     data = b"%u" % num
                     ser.write(data)
                     logging.info(f"Write {num}")
+                    time.sleep(0.00)
                     if num == 9:
                         num = 0
                     else:
                         num += 1
+                time.sleep(1)
                 protocol.join()
 
     def test_just_device_multiprocessing(self):

@@ -9,7 +9,7 @@ import tty
 import sys
 
 
-def setup_tty(f, speed):
+def setup_tty(f, speed, arduino_dont_hup=True):
     """
     Setup the TTY for use with ASCII Serial Com.
 
@@ -43,8 +43,14 @@ def setup_tty(f, speed):
         tty_attrs[5] = speedconst
 
         # Sets blocking/non-blocking/timeout behavior
-        # This blocks for 0.1 second or until 1 character is ready to read
-        tty_attrs[6][termios.VMIN] = 1
+        # This blocks for 0.1 second at most
+        tty_attrs[6][termios.VMIN] = 0
         tty_attrs[6][termios.VTIME] = 1
+
+        # Arduino resets on hardware hangup, that is when DTR goes low
+        # This disables that
+        # On command line, `stty -F <dev> -hupcl` does similar
+        if arduino_dont_hup:
+            tty_attrs[2] &= ~termios.HUPCL
 
         termios.tcsetattr(f, termios.TCSAFLUSH, tty_attrs)
