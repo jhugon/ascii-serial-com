@@ -61,8 +61,13 @@ class Base:
         try:
             path = Path(fin.name)
             self.fin_is_fifo = path.is_fifo()
+            self.fin_is_char_device = path.is_char_device()
         except Exception:
             self.fin_is_fifo = False
+            self.fin_is_char_device = False
+        logging.debug(
+            f"fin is char device: {self.fin_is_char_device} is FIFO: {self.fin_is_fifo}"
+        )
 
         nursery.start_soon(self._receiver_task)
 
@@ -267,7 +272,7 @@ class Base:
             # logging.debug("about to read from fin")
             b = b""
             readfn = self.fin.read
-            if self.fin_is_fifo:
+            if self.fin_is_fifo or self.fin_is_char_device:
                 b = await self.fin.read(1)
             else:
                 b = await self.fin.read()

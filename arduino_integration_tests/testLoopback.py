@@ -218,6 +218,51 @@ class TestRxMessageFromDevice(unittest.TestCase):
 
         trio.run(run_test, self)
 
+    def test_host_device(self):
+        nRegisterBits = 32
+
+        async def data_checker(self, chan, data_checker_finished):
+            last = None
+            logging.debug("Starting data_checker",)
+            for iMessage in range(10):
+                messageStarted = False
+                msg = await chan.receive()
+                logging.debug(f"message received: {msg}")
+                data = msg.data
+                self.assertEqual(data, b"0 0 0 0")
+            data_checker_finished.set()
+
+        async def run_test(self):
+            logging.info("Starting run_test")
+            send_chan, recv_chan = trio.open_memory_channel(100)
+            data_checker_finished = trio.Event()
+            with trio.move_on_after(10) as cancel_scope:
+                logging.info("About to open file...")
+                async with await trio.open_file(self.dev_path, "br") as portr:
+                    setup_tty(portr.wrapped, self.baud)
+                    termios.tcflush(portr.wrapped, termios.TCIFLUSH)
+                    logging.debug("TTY setup and flushed")
+                    await portr.read(400)
+                    logging.debug("Read dummy data from input")
+                    async with trio.open_nursery() as nursery:
+                        logging.debug("About to startup host")
+                        host = Host(nursery, portr, None, nRegisterBits)
+                        logging.debug("Host started")
+                        host.forward_received_s_messages_to(send_chan)
+                        logging.debug("messages now forwarded to send_chan")
+                        nursery.start_soon(
+                            data_checker, self, recv_chan, data_checker_finished
+                        )
+                        logging.debug(
+                            "data_checker starting soon, waiting for it to finish"
+                        )
+                        await data_checker_finished.wait()
+                        logging.debug("data_checker_finished")
+                        nursery.cancel_scope.cancel()
+            self.assertTrue(data_checker_finished.is_set())
+
+        trio.run(run_test, self)
+
 
 class TestCharLoopback(unittest.TestCase):
     """
