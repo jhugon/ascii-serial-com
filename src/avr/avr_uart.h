@@ -10,6 +10,11 @@
 #define USART0_can_write_Tx_data (UCSR0A & (1 << UDRE0))
 #define USART0_can_read_Rx_data (UCSR0A & (1 << RXC0))
 
+// Enable/disable USART_UDRE_vect interrupt that triggers when USART (transmit)
+// data register is empty i.e. ready for more data
+#define USART0_enable_udre_interrupt UCSR0B |= (1 << UDRIE0)
+#define USART0_disable_udre_interrupt UCSR0B &= ~(1 << UDRIE0)
+
 /** \brief Initialize USART0
  *
  *  8 bit, 1 stop bit, no parity bit

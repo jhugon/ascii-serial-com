@@ -74,54 +74,56 @@ class Device(Base):
             await trio.sleep(interval)
 
     async def handle_r_messages(self) -> None:
-        while True:
-            msg = await self.recv_r.receive()
-            if not msg:
-                continue
-            elif msg.command == b"r":
-                regNum = convert_from_hex(msg.data)
-                if regNum > 0xFFFF:
-                    raise BadRegisterNumberError(
-                        f"register number, {regNum} = 0x{regNum:04X}, larger than 0xFFFF"
+        async with self.recv_r:
+            while True:
+                msg = await self.recv_r.receive()
+                if not msg:
+                    continue
+                elif msg.command == b"r":
+                    regNum = convert_from_hex(msg.data)
+                    if regNum > 0xFFFF:
+                        raise BadRegisterNumberError(
+                            f"register number, {regNum} = 0x{regNum:04X}, larger than 0xFFFF"
+                        )
+                    if regNum >= self.nRegisters:
+                        raise BadRegisterNumberError(
+                            f"Only {self.nRegisters} registers; regNum, {regNum} = 0x{regNum:04X}, too big"
+                        )
+                    regVal = self.registers[regNum]
+                    response = msg.data + b"," + convert_to_hex(regVal)
+                    await self.send_message(
+                        msg.command, response,
                     )
-                if regNum >= self.nRegisters:
-                    raise BadRegisterNumberError(
-                        f"Only {self.nRegisters} registers; regNum, {regNum} = 0x{regNum:04X}, too big"
+                    logging.info(
+                        f"device Read message received: {regNum} = 0x{regNum:04X} is {regVal}"
                     )
-                regVal = self.registers[regNum]
-                response = msg.data + b"," + convert_to_hex(regVal)
-                await self.send_message(
-                    msg.command, response,
-                )
-                logging.info(
-                    f"device Read message received: {regNum} = 0x{regNum:04X} is {regVal}"
-                )
-            else:
-                logging.warning(
-                    f"device received command '{msg.command}', in read channel"
-                )
+                else:
+                    logging.warning(
+                        f"device received command '{msg.command}', in read channel"
+                    )
 
     async def handle_w_messages(self) -> None:
-        while True:
-            msg = await self.recv_w.receive()
-            if not msg:
-                continue
-            elif msg.command == b"w":
-                regNumB, regValB = msg.data.split(b",")
-                regNum = convert_from_hex(regNumB)
-                regVal = convert_from_hex(regValB)
-                regValOld = self.registers[regNum]
-                self.registers[regNum] = regVal
-                await self.send_message(
-                    msg.command, regNumB,
-                )
-                logging.info(
-                    f"device Write message received: {regNumB} changed from {regValOld:X} to {regValB}"
-                )
-            else:
-                logging.warning(
-                    f"Warning: device received command '{msg.command}', in write channel"
-                )
+        async with self.recv_w:
+            while True:
+                msg = await self.recv_w.receive()
+                if not msg:
+                    continue
+                elif msg.command == b"w":
+                    regNumB, regValB = msg.data.split(b",")
+                    regNum = convert_from_hex(regNumB)
+                    regVal = convert_from_hex(regValB)
+                    regValOld = self.registers[regNum]
+                    self.registers[regNum] = regVal
+                    await self.send_message(
+                        msg.command, regNumB,
+                    )
+                    logging.info(
+                        f"device Write message received: {regNumB} changed from {regValOld:X} to {regValB}"
+                    )
+                else:
+                    logging.warning(
+                        f"Warning: device received command '{msg.command}', in write channel"
+                    )
 
     def printRegisters(self) -> None:
         logging.info("printRegisters")

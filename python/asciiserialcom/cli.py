@@ -1,69 +1,107 @@
 from typing import Optional
 from pathlib import Path
 import logging
+from functools import partial
 
 import typer
 import trio
+import trio_util  # type: ignore
 
-from asciiserialcom.host import Host
+from .host import Host
+from .utilities import Tracer
 
 DEFAULT_TIMEOUT = 5
 
-logging.basicConfig(
-    # filename="test_hostiiSerialCom.log",
-    # level=logging.INFO,
-    level=logging.DEBUG,
-    format="%(levelname)s L%(lineno)d %(funcName)s: %(message)s",
-)
-
 
 async def run_read(timeout, fin_name, fout_name, reg_num):
+    logging.debug(f"fin_name: {fin_name}")
+    logging.debug(f"fout_name: {fout_name}")
     result = None
     with trio.move_on_after(timeout) as cancel_scope:
-        async with await trio.open_file(fout_name, "bw") as fout:
+        async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
-                async with trio.open_nursery() as nursery:
+                async with await trio.open_file(fout_name, "bw") as fout:
+                    logging.debug("Opened files and nursery")
                     host = Host(nursery, fin, fout, 8)
                     result = await host.read_register(reg_num)
-                    cancel_scope.cancel()
     return result
 
 
 async def run_write(timeout, fin_name, fout_name, reg_num, reg_val):
+    logging.debug(f"fin_name: {fin_name}")
+    logging.debug(f"fout_name: {fout_name}")
     result = False
     with trio.move_on_after(timeout) as cancel_scope:
-        async with await trio.open_file(fout_name, "bw") as fout:
+        async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
-                async with trio.open_nursery() as nursery:
+                async with await trio.open_file(fout_name, "bw") as fout:
+                    logging.debug("Opened files and nursery")
                     host = Host(nursery, fin, fout, 8)
                     await host.write_register(reg_num, reg_val)
-                    result = True
-                    cancel_scope.cancel()
+                result = True
     return result
 
 
-async def forward_received_messages_to_print(ch):
+async def forward_received_messages_to_print(
+    ch, stop_messages, stop_bytes, stop_seperators, stop_event
+):
+    logging.debug("Started")
+    totalMessages = 0
+    totalBytes = 0
+    totalSeperators = 0
     while True:
-        msg = await ch.receive()
-        typer.echo(f"{msg.get_packed().decode('hostii')}")
+        try:
+            msg = await ch.receive()
+        except trio.EndOfChannel:
+            break
+        else:
+            typer.echo(f"{msg.data.decode('ascii','replace')}")
+            totalMessages += 1
+            totalBytes += len(msg.data)
+            totalSeperators += msg.data.count(b" ")
+            if stop_messages and totalMessages >= stop_messages:
+                stop_event.set()
+                break
+            elif stop_bytes and totalBytes >= stop_bytes:
+                stop_event.set()
+                break
+            elif stop_seperators and totalSeperators >= stop_seperators:
+                stop_event.set()
+                break
 
 
-async def run_stream(timeout, fin_name, fout_name):
+async def run_stream(
+    timeout, stop_messages, stop_bytes, stop_seperators, fin_name, fout_name
+):
+    logging.debug(f"fin_name: {fin_name}")
+    logging.debug(f"fout_name: {fout_name}")
+    logging.debug(f"timeout: {timeout}")
     send_ch, recv_ch = trio.open_memory_channel(0)
     if timeout is None:
         timeout = float("inf")
     timeout_cancel = timeout + 0.5
     with trio.move_on_after(timeout_cancel) as cancel_scope:
-        async with await trio.open_file(fout_name, "bw") as fout:
+        async with trio.open_nursery() as nursery:
+            logging.debug(f"About to open files")
             async with await trio.open_file(fin_name, "br") as fin:
-                async with trio.open_nursery() as nursery:
+                async with await trio.open_file(fout_name, "bw") as fout:
+                    logging.debug(f"Files open!")
                     host = Host(nursery, fin, fout, 8)
-                    nursery.start_soon(forward_received_messages_to_print, recv_ch)
+                    stop_event = trio.Event()
+                    nursery.start_soon(
+                        forward_received_messages_to_print,
+                        recv_ch,
+                        stop_messages,
+                        stop_bytes,
+                        stop_seperators,
+                        stop_event,
+                    )
                     host.forward_received_s_messages_to(send_ch)
                     await host.send_message(b"n", b"")
-                    await trio.sleep(timeout)
+                    await trio_util.wait_any(
+                        partial(trio.sleep, timeout), stop_event.wait
+                    )
                     await host.send_message(b"f", b"")
-                    cancel_scope.cancel()
 
 
 app = typer.Typer()
@@ -109,6 +147,7 @@ def read(
             )
     except Exception as e:
         typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+        raise e
 
 
 @app.command()
@@ -124,7 +163,7 @@ def write(
     register_value: int = typer.Argument(
         ..., help="Register value to write to device", min=0
     ),
-    timeout: float = typer.Argument(
+    timeout: float = typer.Option(
         DEFAULT_TIMEOUT, help="Timeout for register read", min=0.0
     ),
     serial_send: Optional[Path] = typer.Option(
@@ -170,16 +209,16 @@ def stream(
     stop_seconds: Optional[float] = typer.Option(
         None, help="Stop after this many seconds"
     ),
-    # stop_messages: Optional[int] = typer.Option(
-    #    None, help="Stop after this many messages have been received"
-    # ),
-    # stop_bytes: Optional[int] = typer.Option(
-    #    None, help="Stop after this many bytes have been received"
-    # ),
-    # stop_datasep: Optional[int] = typer.Option(
-    #    None,
-    #    help="Stop after this many data-seperater characters have been received (spaces in the data field)",
-    # ),
+    stop_messages: Optional[int] = typer.Option(
+        None, help="Stop after this many messages have been received"
+    ),
+    stop_bytes: Optional[int] = typer.Option(
+        None, help="Stop after this many bytes have been received"
+    ),
+    stop_datasep: Optional[int] = typer.Option(
+        None,
+        help="Stop after this many data-seperater characters have been received (spaces in the data field)",
+    ),
     # filename: Optional[Path] = typer.Option(
     #    None, help="Write received data to a file instead of STDOUT"
     # ),
@@ -201,11 +240,26 @@ def stream(
         typer.echo(f"Receive streaming data with device {serial}")
         serial_send = serial
     try:
-        trio.run(run_stream, stop_seconds, serial, serial_send)
+        trio.run(
+            run_stream,
+            stop_seconds,
+            stop_messages,
+            stop_bytes,
+            stop_datasep,
+            serial,
+            serial_send,
+        )  # ,instruments=[Tracer()])
     except Exception as e:
         typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
         raise e
 
 
 def main():
+    logging.basicConfig(
+        # filename="test_hostiiSerialCom.log",
+        # level=logging.INFO,
+        # level=logging.DEBUG,
+        format="%(levelname)s L%(lineno)d %(funcName)s: %(message)s",
+    )
+
     app()

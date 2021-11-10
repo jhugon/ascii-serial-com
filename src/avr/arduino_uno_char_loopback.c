@@ -4,7 +4,8 @@
 #define F_CPU 16000000L
 #include <util/delay.h>
 #define FOSC 16000000L
-#define BAUD 9600
+//#define BAUD 9600
+#define BAUD 19200
 #define MYUBRR (FOSC / 16 / BAUD - 1)
 
 uint8_t byteBuffer;
@@ -15,7 +16,7 @@ int main(void) {
 
   while (1) {
     USART0_Rx(byteBuffer);
-    _delay_ms(100);
+    //_delay_ms(100);
     USART0_Tx(byteBuffer);
   }
   return 0;

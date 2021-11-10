@@ -7,6 +7,8 @@ from __future__ import annotations
 import io
 import math
 import logging
+from pathlib import Path
+from functools import partial
 
 import trio
 from trio._file_io import AsyncIOWrapper  # type: ignore
@@ -55,6 +57,18 @@ class Base:
         self.asciiSerialComVersion = asciiSerialComVersion
         self.appVersion = appVersion
         self.registerBitWidth = registerBitWidth
+
+        try:
+            path = Path(fin.name)
+            self.fin_is_fifo = path.is_fifo()
+            self.fin_is_char_device = path.is_char_device()
+        except Exception:
+            self.fin_is_fifo = False
+            self.fin_is_char_device = False
+        logging.debug(
+            f"fin is char device: {self.fin_is_char_device} is FIFO: {self.fin_is_fifo}"
+        )
+
         nursery.start_soon(self._receiver_task)
 
     async def send_message(self, command: bytes, data: bytes) -> None:
@@ -67,9 +81,10 @@ class Base:
         """
         msg = ASC_Message(self.asciiSerialComVersion, self.appVersion, command, data)
         message = msg.get_packed()
-        logging.info("sent:          {}".format(msg))
+        logging.debug("sending:          {}".format(msg))
         await self.fout.write(message)
         await self.fout.flush()
+        logging.info("sent:          {}".format(msg))
 
     def forward_received_w_messages_to(
         self, channel: Union[None, trio.abc.SendChannel, io.IOBase, AsyncIOWrapper]
@@ -157,33 +172,63 @@ class Base:
         This is the task that handles reading from the serial link (self.fin)
         and then puts ASC_Message's in queues
         """
-        while True:
-            msg = await self._receive_message()
-            if msg:
-                if self.send_all_received_channel:
-                    await self.send_all_received_channel.send(msg)
-                    if not self.send_all_received_channel_copy:
-                        continue  # skip all of the other sends
-                if msg.command == b"w" and self.send_w:
-                    if self.send_w:
-                        await self.send_w.send(msg)
-                    elif self.write_w:
-                        await self.write_w.write(msg.get_packed())
-                elif msg.command == b"r" and self.send_r:
-                    if self.send_r:
-                        await self.send_r.send(msg)
-                    elif self.write_r:
-                        await self.write_r.write(msg.get_packed())
-                elif msg.command == b"s":
-                    if self.send_s:
-                        logging.debug(f"About to send to send_s {msg}")
-                        await self.send_s.send(msg)
-                    elif self.write_s:
-                        await self.write_s.write(msg.get_packed())
-                elif msg.command == b"e":
-                    logging.warning(f"Error message received: {msg}")
-                else:
-                    pass
+        try:
+            while True:
+                msg = await self._receive_message()
+                if msg:
+                    logging.debug(msg)
+                    if self.send_all_received_channel:
+                        await self.send_all_received_channel.send(msg)
+                        if not self.send_all_received_channel_copy:
+                            continue  # skip all of the other sends
+                    if msg.command == b"w":
+                        if self.send_w:
+                            await self.send_w.send(msg)
+                        elif self.write_w:
+                            await self.write_w.write(msg.get_packed())
+                    elif msg.command == b"r":
+                        if self.send_r:
+                            logging.debug(f"Trying to send message to send_r")
+                            await self.send_r.send(msg)
+                        elif self.write_r:
+                            await self.write_r.write(msg.get_packed())
+                    elif msg.command == b"s":
+                        if self.send_s:
+                            logging.debug(f"About to send to send_s {msg}")
+                            await self.send_s.send(msg)
+                        elif self.write_s:
+                            logging.debug(f"About to write to write_s {msg}")
+                            await self.write_s.write(msg.get_packed())
+                    elif msg.command == b"e":
+                        logging.warning(f"Error message received: {msg}")
+                    else:
+                        pass
+        except FileReadError as e:
+            logging.warning("FileReadError while reading from serial port")
+        except trio.Cancelled as e:
+            logging.debug(f"Cancellation happened")
+            raise e
+        except Exception as e:
+            logging.error(f"There as an unhandled exception {type(e)} {e}")
+            raise e
+        finally:
+            ## Closing files causes problems in some tests
+            # logging.info("Closing all channels and files")
+            # for f in [self.write_w, self.write_r, self.write_s]:
+            #    try:
+            #        if f:
+            #            await f.aclose()
+            #    except Exception as e:
+            #        logging.exception(e)
+            logging.debug("Closing all channels")
+            if self.send_all_received_channel:
+                await self.send_all_received_channel.aclose()
+            if self.send_w:
+                await self.send_w.aclose()
+            if self.send_r:
+                await self.send_r.aclose()
+            if self.send_s:
+                await self.send_s.aclose()
 
     async def _receive_message(self) -> Optional[ASC_Message]:
         """
@@ -225,14 +270,20 @@ class Base:
         """
         try:
             # logging.debug("about to read from fin")
-            b = await self.fin.read()
+            b = b""
+            readfn = self.fin.read
+            if self.fin_is_fifo or self.fin_is_char_device:
+                b = await self.fin.read(1)
+            else:
+                b = await self.fin.read()
         except ValueError:
             raise FileReadError
         except IOError:
             raise FileReadError
         else:
-            if len(b) > 0:
-                logging.debug(f"got {len(b)} bytes from fin")
+            # logging.debug(f"got {len(b)} bytes from fin: {b.decode('ascii','replace')}")
+            # if len(b) > 0:
+            #     logging.debug(f"got {len(b)} bytes from fin")
             self.buf.push_back(b)
             self.buf.removeFrontTo(b">", inclusive=False)
             if len(self.buf) == 0:
