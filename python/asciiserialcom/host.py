@@ -14,13 +14,6 @@ from .base import Base, check_register_content, check_register_number, convert_f
 
 from typing import cast, Union, Optional
 
-logging.basicConfig(
-    # filename="test_hostiiSerialCom.log",
-    # level=logging.INFO,
-    level=logging.DEBUG,
-    format="%(levelname)s L%(lineno)d %(funcName)s: %(message)s",
-)
-
 
 class Host(Base):
     def __init__(
