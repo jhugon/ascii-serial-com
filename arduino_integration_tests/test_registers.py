@@ -78,3 +78,58 @@ class TestDummyRegisterBlock(unittest.TestCase):
             self.assertTrue(all_finished.is_set())
 
         trio.run(run_test, self)
+
+
+class TestRegisterPointers(unittest.TestCase):
+    """
+    Requires firmware:
+
+        avrdude -p atmega328p -c arduino -P /dev/ttyACM0 -Uflash:w:build/avr5_gcc_debug/arduino_uno_register_pointers
+
+    """
+
+    def setUp(self):
+        self.baud = 9600
+        self.dev_path = "/dev/ttyACM0"
+        # self.dev_path = "/dev/ttyACM1"
+
+        logging.basicConfig(
+            # filename="test_asciiSerialCom.log",
+            # level=logging.INFO,
+            # level=logging.DEBUG,
+            # level=logging.WARNING,
+            format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s"
+        )
+
+    def test_write_read(self):
+        nRegisterBits = 8
+        nRegisters = 3
+        masks = [1 << 5, 0, 0]
+
+        async def run_test(self):
+            logging.info("Starting run_test")
+            all_finished = trio.Event()
+            with trio.move_on_after(10) as cancel_scope:
+                logging.info("About to open file...")
+                async with await trio.open_file(self.dev_path, "br") as portr:
+                    async with await trio.open_file(self.dev_path, "bw") as portw:
+                        setup_tty(portr.wrapped, self.baud)
+                        termios.tcflush(portr.wrapped, termios.TCIFLUSH)
+                        logging.debug("TTY setup and flushed")
+                        async with trio.open_nursery() as nursery:
+                            logging.debug("About to startup host")
+                            host = Host(nursery, portr, portw, nRegisterBits)
+                            logging.debug("Host started")
+                            for iReg in range(nRegisters):
+                                await host.write_register(iReg, 0)
+                                content = await host.read_register(iReg)
+                                self.assertEqual(content, 0)
+                            for iReg in range(nRegisters):
+                                await host.write_register(iReg, 0xFF)
+                                content = await host.read_register(iReg)
+                                self.assertEqual(content, masks[iReg])
+                            all_finished.set()
+                            nursery.cancel_scope.cancel()
+            self.assertTrue(all_finished.is_set())
+
+        trio.run(run_test, self)
