@@ -36,7 +36,7 @@ class Base:
     send_all_received_channel_copy: bool = True
     buf: Circular_Buffer_Bytes = Circular_Buffer_Bytes(128)
     send_stream_frame_counter: int = 0
-    receive_stream_frame_counter: int = 0
+    receive_stream_frame_counter: Optional[int] = None
 
     def __init__(
         self,
@@ -222,7 +222,7 @@ class Base:
                                 await self.write_r.write(msg.get_packed())
                         elif msg.command == b"s":
                             try:
-                                payload, nmissed = self._unpack_received_s_message(msg)
+                                nMissed, payload = self._unpack_received_s_message(msg)
                             except ASCErrorBase as e:
                                 if self.ignoreErrors:
                                     logging.error(f"{type(e).__name__}: {e}")
@@ -232,9 +232,9 @@ class Base:
                             else:
                                 if self.send_s:
                                     logging.debug(
-                                        f"About to send to send_s {(nmissed,payload.decode('ascii','replace'))}"
+                                        f"About to send to send_s {(nMissed,payload.decode('ascii','replace'))}"
                                     )
-                                    await self.send_s.send(payload)
+                                    await self.send_s.send((nMissed, payload))
                                 elif self.write_s:
                                     line = "{:03n},".format(nmissed).encode() + payload
                                     logging.debug(
@@ -336,7 +336,7 @@ class Base:
             logging.debug("have a whole message")
             return self.buf.pop_front(iNewline + 1)
 
-    def _unpack_received_s_message(self, msg: ASC_Message) -> Tuple[bytes, int]:
+    def _unpack_received_s_message(self, msg: ASC_Message) -> Tuple[int, bytes]:
         """
         Unpacks an s message, dealing with the counter.
 
@@ -347,22 +347,27 @@ class Base:
             raise BadStreamMsgNumberError(
                 f"Message not long enough to contain number and ',' in data '{msg.data.decode('ascii','replace')}'"
             )
-        if msg.data[2] != b",":
+        if msg.data[2] != b","[0]:
             raise BadStreamMsgNumberError(
                 f"3rd byte must be ',' in data '{msg.data.decode('ascii','replace')}'"
             )
         count_bytes = msg.data[:2]
         count = convert_from_hex(count_bytes)
         last_count = self.receive_stream_frame_counter
-        difference = 0
-        if count >= last_count:
-            difference = count - last_count
-        elif count < last_count:
-            difference = count + 256 - last_count
-        missed_messages = difference - 1
+        missed_messages = 0
+        if not (last_count is None):
+            difference = 0
+            if count >= last_count:
+                difference = count - last_count
+            elif count < last_count:
+                difference = count + 256 - last_count
+            missed_messages = difference - 1
+            logging.debug(
+                f"count: {count}, last_count: {last_count}, difference: {difference}, missed_messages: {missed_messages}"
+            )
         self.receive_stream_frame_counter = count
-        payload = msg.data[4:]
-        return payload, missed_messages
+        payload = msg.data[3:]
+        return missed_messages, payload
 
 
 def check_register_number(num: Union[int, str, bytes, bytearray]) -> bytes:

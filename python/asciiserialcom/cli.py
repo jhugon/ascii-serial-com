@@ -70,7 +70,7 @@ async def forward_received_messages_to_print(
             f = await trio.open_file(outfile, "w")
         while True:
             try:
-                payload, nMissed = await ch.receive()
+                nMissed, payload = await ch.receive()
             except trio.EndOfChannel:
                 break
             else:
