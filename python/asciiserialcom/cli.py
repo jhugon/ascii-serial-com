@@ -43,35 +43,72 @@ async def run_write(timeout, fin_name, fout_name, reg_num, reg_val):
 
 
 async def forward_received_messages_to_print(
-    ch, stop_messages, stop_bytes, stop_seperators, stop_event
+    ch,
+    outfile,
+    stop_messages,
+    stop_bytes,
+    stop_seperators,
+    stop_event,
+    split_seperators_newlines,
+    decode_hex_to_dec,
 ):
     logging.debug("Started")
     totalMessages = 0
     totalBytes = 0
     totalSeperators = 0
-    while True:
-        try:
-            msg = await ch.receive()
-        except trio.EndOfChannel:
-            break
-        else:
-            typer.echo(f"{msg.data.decode('ascii','replace')}")
-            totalMessages += 1
-            totalBytes += len(msg.data)
-            totalSeperators += msg.data.count(b" ")
-            if stop_messages and totalMessages >= stop_messages:
-                stop_event.set()
+    f = None
+    try:
+        if outfile:
+            f = await trio.open_file(outfile, "w")
+        while True:
+            try:
+                msg = await ch.receive()
+            except trio.EndOfChannel:
                 break
-            elif stop_bytes and totalBytes >= stop_bytes:
-                stop_event.set()
-                break
-            elif stop_seperators and totalSeperators >= stop_seperators:
-                stop_event.set()
-                break
+            else:
+                out_text = ""
+                totalMessages += 1
+                totalBytes += len(msg.data)
+                totalSeperators += msg.data.count(b" ")
+                msg_text = msg.data.decode("ascii", "replace")
+                if split_seperators_newlines or decode_hex_to_dec:
+                    for x in msg_text.split(" "):
+                        if decode_hex_to_dec:
+                            out_text += str(int(msg_text, 16)) + "\n"
+                        else:
+                            out_text += msg_text + "\n"
+                else:
+                    out_text += msg_text + "\n"
+                if f:
+                    await f.write(out_text)
+                else:
+                    typer.echo(out_text, nl=False)
+                if stop_messages and totalMessages >= stop_messages:
+                    stop_event.set()
+                    break
+                elif stop_bytes and totalBytes >= stop_bytes:
+                    stop_event.set()
+                    break
+                elif stop_seperators and totalSeperators >= stop_seperators:
+                    stop_event.set()
+                    break
+    except Exception as e:
+        raise e
+    finally:
+        if f:
+            await f.aclose()
 
 
 async def run_stream(
-    timeout, stop_messages, stop_bytes, stop_seperators, fin_name, fout_name
+    timeout,
+    outfile,
+    stop_messages,
+    stop_bytes,
+    stop_seperators,
+    split_seperators_newlines,
+    decode_hex_to_dec,
+    fin_name,
+    fout_name,
 ):
     logging.debug(f"fin_name: {fin_name}")
     logging.debug(f"fout_name: {fout_name}")
@@ -91,10 +128,13 @@ async def run_stream(
                     nursery.start_soon(
                         forward_received_messages_to_print,
                         recv_ch,
+                        outfile,
                         stop_messages,
                         stop_bytes,
                         stop_seperators,
                         stop_event,
+                        split_seperators_newlines,
+                        decode_hex_to_dec,
                     )
                     host.forward_received_s_messages_to(send_ch)
                     await host.send_message(b"n", b"")
@@ -206,6 +246,11 @@ def stream(
         writable=True,
         readable=True,
     ),
+    outfile: Optional[Path] = typer.Option(
+        None,
+        help="Filename to write received data to instead of printing to stdout",
+        writable=True,
+    ),
     stop_seconds: Optional[float] = typer.Option(
         None, help="Stop after this many seconds"
     ),
@@ -228,8 +273,18 @@ def stream(
         exists=True,
         writable=True,
     ),
+    split_seperators_newlines: Optional[bool] = typer.Option(
+        False,
+        help="In addition to a newline for every message, there is a newline for every seperator",
+    ),
+    decode_hex_to_dec: Optional[bool] = typer.Option(
+        False,
+        help="Convert each message (or seperated chunk of data) from hexadecimal to decimal integer. Implies --split-seperators-newlines",
+    ),
 ) -> None:
     """
+    Either prints message data to the screen, one message per line, or writes the same to OUTFILE
+
     With all the stop arguments and hitting Ctrl-C: whichever happens first will stop streaming.
     """
     if serial_send:
@@ -243,9 +298,12 @@ def stream(
         trio.run(
             run_stream,
             stop_seconds,
+            outfile,
             stop_messages,
             stop_bytes,
             stop_datasep,
+            split_seperators_newlines,
+            decode_hex_to_dec,
             serial,
             serial_send,
         )  # ,instruments=[Tracer()])

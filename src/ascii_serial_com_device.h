@@ -29,10 +29,13 @@ typedef struct ascii_serial_com_device_struct {
               void *); /**< called for r or w messages */
   void (*fs)(ascii_serial_com *, char, char, char, char *data, size_t,
              void *); /**< called for s messages */
+  void (*fnf)(ascii_serial_com *, char, char, char, char *data, size_t,
+              void *); /**< called for n and f messages */
   void (*fother)(ascii_serial_com *, char, char, char, char *data, size_t,
                  void *); /**< called for other messages */
   void *state_frw;
   void *state_fs;
+  void *state_fnf;
   void *state_fother;
 } ascii_serial_com_device;
 
@@ -52,9 +55,11 @@ void ascii_serial_com_device_init(
                 void *), /**< called for r or w messages */
     void (*fs)(ascii_serial_com *, char, char, char, char *data, size_t,
                void *), /**< called for s messages */
+    void (*fnf)(ascii_serial_com *, char, char, char, char *data, size_t,
+                void *), /**< called for n and f messages */
     void (*fother)(ascii_serial_com *, char, char, char, char *data, size_t,
                    void *), /**< called for other messages */
-    void *state_frw, void *state_fs, void *state_fother);
+    void *state_frw, void *state_fs, void *state_fnf, void *state_fother);
 
 /** \brief ASCII Serial Com Device receive messages
  *
@@ -83,5 +88,14 @@ ascii_serial_com_device_get_input_buffer(ascii_serial_com_device *ascd);
  */
 circular_buffer_uint8 *
 ascii_serial_com_device_get_output_buffer(ascii_serial_com_device *ascd);
+
+/** \brief ASCII Serial Com Device put a message in output buffer
+ *
+ * MAKE SURE ascd IS ALREADY INITIALIZED!
+ *
+ */
+void ascii_serial_com_device_put_message_in_output_buffer(
+    ascii_serial_com_device *ascd, char ascVersion, char appVersion,
+    char command, char *data, size_t dataLen);
 
 #endif

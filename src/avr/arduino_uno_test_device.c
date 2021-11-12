@@ -30,21 +30,34 @@ ascii_serial_com_register_pointers reg_pointers_state;
 uint8_t extraInputBuffer_raw[extraInputBuffer_size];
 circular_buffer_uint8 extraInputBuffer;
 
+typedef struct stream_state_struct {
+  uint8_t on;
+} on_off_stream_state;
+void handle_nf_messages(ascii_serial_com *asc, char ascVersion, char appVersion,
+                        char command, char *data, size_t dataLen,
+                        void *state_vp);
+
+on_off_stream_state stream_state;
+
 CEXCEPTION_T e;
 
 uint16_t nExceptions;
+uint8_t counter;
+char counter_buffer[2];
 
 int main(void) {
 
   DDRB |= 1 << 5;
 
   nExceptions = 0;
+  stream_state.on = 0;
+  counter = 0;
 
   ascii_serial_com_register_pointers_init(&reg_pointers_state, regPtrs, masks,
                                           nRegs);
   ascii_serial_com_device_init(
-      &ascd, ascii_serial_com_register_pointers_handle_message, NULL, NULL,
-      NULL, &reg_pointers_state, NULL, NULL, NULL);
+      &ascd, ascii_serial_com_register_pointers_handle_message, NULL,
+      handle_nf_messages, NULL, &reg_pointers_state, NULL, &stream_state, NULL);
   circular_buffer_uint8 *asc_in_buf =
       ascii_serial_com_device_get_input_buffer(&ascd);
   circular_buffer_uint8 *asc_out_buf =
@@ -73,6 +86,12 @@ int main(void) {
 
       ascii_serial_com_device_receive(&ascd);
 
+      if (stream_state.on && circular_buffer_get_size_uint8(asc_out_buf) == 0) {
+        convert_uint8_to_hex(counter, counter_buffer, true);
+        ascii_serial_com_device_put_message_in_output_buffer(
+            &ascd, '0', '0', 's', counter_buffer, 2);
+        counter++;
+      }
       if (circular_buffer_get_size_uint8(asc_out_buf) > 0 &&
           USART0_can_write_Tx_data) {
         UDR0 = circular_buffer_pop_front_uint8(asc_out_buf);
@@ -87,4 +106,18 @@ int main(void) {
 ISR(USART_RX_vect) {
   char c = UDR0;
   circular_buffer_push_back_uint8(&extraInputBuffer, c);
+}
+
+void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
+                        __attribute__((unused)) char ascVersion,
+                        __attribute__((unused)) char appVersion, char command,
+                        __attribute__((unused)) char *data,
+                        __attribute__((unused)) size_t dataLen,
+                        void *state_vp) {
+  on_off_stream_state *state = (on_off_stream_state *)state_vp;
+  if (command == 'n') {
+    state->on = 1;
+  } else if (command == 'f') {
+    state->on = 0;
+  }
 }
