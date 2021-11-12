@@ -39,6 +39,7 @@ void testfunc(ascii_serial_com *asc, char ascVersion, char appVersion,
 
 int state_rw;
 int state_s;
+int state_nf;
 int state_other;
 
 void setUp(void) {
@@ -55,8 +56,8 @@ void tearDown(void) {
 void test_ascii_serial_com_device_receive_good(void) {
   Try {
     ascii_serial_com_device ascd;
-    ascii_serial_com_device_init(&ascd, testfunc, testfunc, testfunc, &state_rw,
-                                 &state_s, &state_other);
+    ascii_serial_com_device_init(&ascd, testfunc, testfunc, testfunc, testfunc,
+                                 &state_rw, &state_s, &state_nf, &state_other);
     circular_buffer_uint8 *in_buf =
         ascii_serial_com_device_get_input_buffer(&ascd);
     // circular_buffer_uint8* out_buf =
@@ -128,8 +129,8 @@ void test_ascii_serial_com_device_receive_good(void) {
 void test_ascii_serial_com_device_receive_null_state(void) {
   Try {
     ascii_serial_com_device ascd;
-    ascii_serial_com_device_init(&ascd, testfunc, testfunc, testfunc, NULL,
-                                 NULL, NULL);
+    ascii_serial_com_device_init(&ascd, testfunc, testfunc, testfunc, testfunc,
+                                 NULL, NULL, NULL, NULL);
     circular_buffer_uint8 *in_buf =
         ascii_serial_com_device_get_input_buffer(&ascd);
     // circular_buffer_uint8* out_buf =
@@ -185,8 +186,8 @@ void test_ascii_serial_com_device_receive_null_state(void) {
 
 void test_ascii_serial_com_device_receive_bad(void) {
   ascii_serial_com_device ascd;
-  ascii_serial_com_device_init(&ascd, testfunc, testfunc, testfunc, &state_rw,
-                               &state_s, &state_other);
+  ascii_serial_com_device_init(&ascd, testfunc, testfunc, testfunc, testfunc,
+                               &state_rw, &state_s, &state_nf, &state_other);
   circular_buffer_uint8 *in_buf =
       ascii_serial_com_device_get_input_buffer(&ascd);
 
@@ -223,7 +224,8 @@ void test_ascii_serial_com_device_receive_bad(void) {
 void test_ascii_serial_com_device_receive_null_func(void) {
   Try {
     ascii_serial_com_device ascd;
-    ascii_serial_com_device_init(&ascd, NULL, NULL, NULL, NULL, NULL, NULL);
+    ascii_serial_com_device_init(&ascd, NULL, NULL, NULL, NULL, NULL, NULL,
+                                 NULL, NULL);
     circular_buffer_uint8 *in_buf =
         ascii_serial_com_device_get_input_buffer(&ascd);
     circular_buffer_uint8 *out_buf =

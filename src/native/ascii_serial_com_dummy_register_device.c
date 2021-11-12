@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
   ascii_serial_com_register_block_init(&reg_block, regs, nRegs);
   ascii_serial_com_device_init(&ascd,
                                ascii_serial_com_register_block_handle_message,
-                               NULL, NULL, &reg_block, NULL, NULL);
+                               NULL, NULL, NULL, &reg_block, NULL, NULL, NULL);
   circular_buffer_uint8 *asc_in_buf =
       ascii_serial_com_device_get_input_buffer(&ascd);
   circular_buffer_uint8 *asc_out_buf =
