@@ -17,7 +17,7 @@ from .errors import *
 from .circularBuffer import Circular_Buffer_Bytes
 from .message import ASC_Message
 
-from typing import Union, Optional, Any
+from typing import Union, Optional, Any, Tuple
 from collections.abc import Sequence
 
 
@@ -104,7 +104,7 @@ class Base:
             self.send_stream_frame_counter = 0
         else:
             self.send_stream_frame_counter += 1
-        await self.send_message("s", convert_to_hex(counter) + b"," + data)
+        await self.send_message(b"s", convert_to_hex(counter) + b"," + data)
 
     def forward_received_w_messages_to(
         self, channel: Union[None, trio.abc.SendChannel, io.IOBase, AsyncIOWrapper]
@@ -221,12 +221,26 @@ class Base:
                             elif self.write_r:
                                 await self.write_r.write(msg.get_packed())
                         elif msg.command == b"s":
-                            if self.send_s:
-                                logging.debug(f"About to send to send_s {msg}")
-                                await self.send_s.send(msg)
-                            elif self.write_s:
-                                logging.debug(f"About to write to write_s {msg}")
-                                await self.write_s.write(msg.get_packed())
+                            try:
+                                payload, nmissed = self._unpack_received_s_message(msg)
+                            except ASCErrorBase as e:
+                                if self.ignoreErrors:
+                                    logging.error(f"{type(e).__name__}: {e}")
+                                    # logging.exception(f"{type(e)}: {e}")
+                                else:
+                                    raise e
+                            else:
+                                if self.send_s:
+                                    logging.debug(
+                                        f"About to send to send_s {(nmissed,payload.decode('ascii','replace'))}"
+                                    )
+                                    await self.send_s.send(payload)
+                                elif self.write_s:
+                                    line = "{:03n},".format(nmissed).encode() + payload
+                                    logging.debug(
+                                        f"About to write to write_s {line.decode('ascii','replace')}"
+                                    )
+                                    await self.write_s.write(line)
                         elif msg.command == b"e":
                             logging.warning(f"Error message received: {msg}")
                         else:
@@ -321,6 +335,34 @@ class Base:
                 return None
             logging.debug("have a whole message")
             return self.buf.pop_front(iNewline + 1)
+
+    def _unpack_received_s_message(self, msg: ASC_Message) -> Tuple[bytes, int]:
+        """
+        Unpacks an s message, dealing with the counter.
+
+        Returns tuple of (payload bytes, number of missed messages)
+            where the number of missed messages is determined from the counter
+        """
+        if len(msg.data) < 3:
+            raise BadStreamMsgNumberError(
+                f"Message not long enough to contain number and ',' in data '{msg.data.decode('ascii','replace')}'"
+            )
+        if msg.data[2] != b",":
+            raise BadStreamMsgNumberError(
+                f"3rd byte must be ',' in data '{msg.data.decode('ascii','replace')}'"
+            )
+        count_bytes = msg.data[:2]
+        count = convert_from_hex(count_bytes)
+        last_count = self.receive_stream_frame_counter
+        difference = 0
+        if count >= last_count:
+            difference = count - last_count
+        elif count < last_count:
+            difference = count + 256 - last_count
+        missed_messages = difference - 1
+        self.receive_stream_frame_counter = count
+        payload = msg.data[4:]
+        return payload, missed_messages
 
 
 def check_register_number(num: Union[int, str, bytes, bytearray]) -> bytes:

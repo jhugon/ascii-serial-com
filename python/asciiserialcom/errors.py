@@ -71,6 +71,12 @@ class BadRegisterContentError(ASCErrorBase):
     """
 
 
+class BadStreamMsgNumberError(ASCErrorBase):
+    """
+    Stream message number is not valid
+    """
+
+
 class TextFileNotAllowedError(ASCErrorBase):
     """
     Stream files must be opened in binary mode
