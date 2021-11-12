@@ -62,6 +62,39 @@ class TestMessaging(unittest.TestCase):
                 frame += "{:04X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
                 trio.run(run_test, self, frame, args)
 
+    def test_send_stream_message(self):
+        async def run_test(self, arg):
+            nRegBits = 32
+            got_to_cancel = False
+            with trio.move_on_after(1) as cancel_scope:
+                async with trio.open_nursery() as nursery:
+                    testHolder = TestMemoryStreamHost(nursery, nRegBits)
+                    host = testHolder.get_host()
+                    device_streams = testHolder.get_device_streams()
+                    last = None
+                    for i in range(256 * 4):
+                        await host.send_stream_message(arg)
+                        result = await device_streams.receive_some()
+                        counter = int(result[4:6].decode(), 16)
+                        data = result[7:-6]
+                        self.assertEqual(data, arg)
+                        if last == 255:
+                            self.assertEqual(counter, 0)
+                        elif last:
+                            self.assertEqual(counter, last + 1)
+                        last = counter
+                    got_to_cancel = True
+                    cancel_scope.cancel()
+            self.assertTrue(got_to_cancel)
+
+        for arg in [
+            b"",
+            b"abcdef",
+            b"x" * 53,
+        ]:
+            with self.subTest(i="{}".format(arg)):
+                trio.run(run_test, self, arg)
+
 
 class TestStreaming(unittest.TestCase):
     def setUp(self):

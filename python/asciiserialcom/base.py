@@ -35,6 +35,8 @@ class Base:
     send_all_received_channel: Optional[trio.abc.SendChannel] = None
     send_all_received_channel_copy: bool = True
     buf: Circular_Buffer_Bytes = Circular_Buffer_Bytes(128)
+    send_stream_frame_counter: int = 0
+    receive_stream_frame_counter: int = 0
 
     def __init__(
         self,
@@ -88,6 +90,21 @@ class Base:
         await self.fout.write(message)
         await self.fout.flush()
         logging.info("sent:          {}".format(msg))
+
+    async def send_stream_message(self, data: bytes) -> None:
+        """
+        Send a streaming frame containing given data
+        Does not check if message was received successfully
+
+        data: bytes
+        """
+
+        counter = self.send_stream_frame_counter
+        if self.send_stream_frame_counter == 255:
+            self.send_stream_frame_counter = 0
+        else:
+            self.send_stream_frame_counter += 1
+        await self.send_message("s", convert_to_hex(counter) + b"," + data)
 
     def forward_received_w_messages_to(
         self, channel: Union[None, trio.abc.SendChannel, io.IOBase, AsyncIOWrapper]
