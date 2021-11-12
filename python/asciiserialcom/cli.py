@@ -9,6 +9,7 @@ import trio_util  # type: ignore
 
 from .host import Host
 from .utilities import Tracer
+from .tty_utils import setup_tty
 
 DEFAULT_TIMEOUT = 5
 
@@ -20,9 +21,12 @@ async def run_read(timeout, fin_name, fout_name, reg_num):
     with trio.move_on_after(timeout) as cancel_scope:
         async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
+                if fin_name.is_char_device():
+                    setup_tty(fin.wrapped, 9600)
                 async with await trio.open_file(fout_name, "bw") as fout:
                     logging.debug("Opened files and nursery")
-                    host = Host(nursery, fin, fout, 8)
+                    host = Host(nursery, fin, fout, 8, ignoreErrors=True)
+                    # await host.stop_streaming()
                     result = await host.read_register(reg_num)
     return result
 
@@ -34,9 +38,12 @@ async def run_write(timeout, fin_name, fout_name, reg_num, reg_val):
     with trio.move_on_after(timeout) as cancel_scope:
         async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
+                if fin_name.is_char_device():
+                    setup_tty(fin.wrapped, 9600)
                 async with await trio.open_file(fout_name, "bw") as fout:
                     logging.debug("Opened files and nursery")
-                    host = Host(nursery, fin, fout, 8)
+                    host = Host(nursery, fin, fout, 8, ignoreErrors=True)
+                    # await host.stop_streaming()
                     await host.write_register(reg_num, reg_val)
                 result = True
     return result
@@ -122,8 +129,10 @@ async def run_stream(
             logging.debug(f"About to open files")
             async with await trio.open_file(fin_name, "br") as fin:
                 async with await trio.open_file(fout_name, "bw") as fout:
+                    if fin_name.is_char_device():
+                        setup_tty(fin.wrapped, 9600)
                     logging.debug(f"Files open!")
-                    host = Host(nursery, fin, fout, 8)
+                    host = Host(nursery, fin, fout, 8, ignoreErrors=True)
                     stop_event = trio.Event()
                     nursery.start_soon(
                         forward_received_messages_to_print,
@@ -137,11 +146,11 @@ async def run_stream(
                         decode_hex_to_dec,
                     )
                     host.forward_received_s_messages_to(send_ch)
-                    await host.send_message(b"n", b"")
+                    await host.start_streaming()
                     await trio_util.wait_any(
                         partial(trio.sleep, timeout), stop_event.wait
                     )
-                    await host.send_message(b"f", b"")
+                    await host.stop_streaming()
 
 
 app = typer.Typer()

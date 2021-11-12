@@ -11,7 +11,7 @@ class TestCLI(unittest.TestCase):
         logging.basicConfig(
             # filename="test_integration.log",
             # level=logging.INFO,
-            level=logging.DEBUG,
+            # level=logging.DEBUG,
             format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s",
         )
         host_to_device_fifo = Path("host_to_device.fifo")

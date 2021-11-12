@@ -24,9 +24,16 @@ class Host(Base):
         registerBitWidth: int,
         asciiSerialComVersion: bytes = b"0",
         appVersion: bytes = b"0",
+        ignoreErrors: bool = False,
     ) -> None:
         super().__init__(
-            nursery, fin, fout, registerBitWidth, asciiSerialComVersion, appVersion
+            nursery,
+            fin,
+            fout,
+            registerBitWidth,
+            asciiSerialComVersion,
+            appVersion,
+            ignoreErrors,
         )
 
     async def read_register(self, regnum: int) -> int:
@@ -105,3 +112,17 @@ class Host(Base):
                             break
         self.forward_received_w_messages_to(None)
         return
+
+    async def start_streaming(self) -> None:
+        """
+        Send command to start streaming from device to host (if supported on device)
+        """
+
+        await self.send_message(b"n", b"")
+
+    async def stop_streaming(self) -> None:
+        """
+        Send command to stop streaming from device to host (if supported on device)
+        """
+
+        await self.send_message(b"f", b"")

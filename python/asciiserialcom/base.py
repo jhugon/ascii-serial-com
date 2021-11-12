@@ -25,6 +25,7 @@ class Base:
     asciiSerialComVersion: bytes
     appVersion: bytes
     registerBitWidth: int
+    ignoreErrors: bool
     send_w: Optional[trio.abc.SendChannel] = None
     send_r: Optional[trio.abc.SendChannel] = None
     send_s: Optional[trio.abc.SendChannel] = None
@@ -43,6 +44,7 @@ class Base:
         registerBitWidth: int,
         asciiSerialComVersion: bytes = b"0",
         appVersion: bytes = b"0",
+        ignoreErrors: bool = False,
     ) -> None:
         if len(asciiSerialComVersion) != 1:
             raise Exception(
@@ -57,6 +59,7 @@ class Base:
         self.asciiSerialComVersion = asciiSerialComVersion
         self.appVersion = appVersion
         self.registerBitWidth = registerBitWidth
+        self.ignoreErrors = ignoreErrors
 
         try:
             path = Path(fin.name)
@@ -174,35 +177,43 @@ class Base:
         """
         try:
             while True:
-                msg = await self._receive_message()
-                if msg:
-                    logging.debug(msg)
-                    if self.send_all_received_channel:
-                        await self.send_all_received_channel.send(msg)
-                        if not self.send_all_received_channel_copy:
-                            continue  # skip all of the other sends
-                    if msg.command == b"w":
-                        if self.send_w:
-                            await self.send_w.send(msg)
-                        elif self.write_w:
-                            await self.write_w.write(msg.get_packed())
-                    elif msg.command == b"r":
-                        if self.send_r:
-                            logging.debug(f"Trying to send message to send_r")
-                            await self.send_r.send(msg)
-                        elif self.write_r:
-                            await self.write_r.write(msg.get_packed())
-                    elif msg.command == b"s":
-                        if self.send_s:
-                            logging.debug(f"About to send to send_s {msg}")
-                            await self.send_s.send(msg)
-                        elif self.write_s:
-                            logging.debug(f"About to write to write_s {msg}")
-                            await self.write_s.write(msg.get_packed())
-                    elif msg.command == b"e":
-                        logging.warning(f"Error message received: {msg}")
+                try:
+                    msg = await self._receive_message()
+                except ASCErrorBase as e:
+                    if isinstance(e, FileReadError) or not self.ignoreErrors:
+                        raise e
                     else:
-                        pass
+                        logging.error(f"{type(e).__name__}: {e}")
+                        # logging.exception(f"{type(e)}: {e}")
+                else:
+                    if msg:
+                        logging.debug(msg)
+                        if self.send_all_received_channel:
+                            await self.send_all_received_channel.send(msg)
+                            if not self.send_all_received_channel_copy:
+                                continue  # skip all of the other sends
+                        if msg.command == b"w":
+                            if self.send_w:
+                                await self.send_w.send(msg)
+                            elif self.write_w:
+                                await self.write_w.write(msg.get_packed())
+                        elif msg.command == b"r":
+                            if self.send_r:
+                                logging.debug(f"Trying to send message to send_r")
+                                await self.send_r.send(msg)
+                            elif self.write_r:
+                                await self.write_r.write(msg.get_packed())
+                        elif msg.command == b"s":
+                            if self.send_s:
+                                logging.debug(f"About to send to send_s {msg}")
+                                await self.send_s.send(msg)
+                            elif self.write_s:
+                                logging.debug(f"About to write to write_s {msg}")
+                                await self.write_s.write(msg.get_packed())
+                        elif msg.command == b"e":
+                            logging.warning(f"Error message received: {msg}")
+                        else:
+                            pass
         except FileReadError as e:
             logging.warning("FileReadError while reading from serial port")
         except trio.Cancelled as e:
