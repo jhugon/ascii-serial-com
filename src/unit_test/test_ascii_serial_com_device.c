@@ -40,13 +40,11 @@ void testfunc(ascii_serial_com *asc, char ascVersion, char appVersion,
 int state_rw;
 int state_s;
 int state_nf;
-int state_other;
 
 void setUp(void) {
   // set stuff up here
   state_rw = 1;
   state_s = 2;
-  state_other = 3;
 }
 
 void tearDown(void) {
@@ -56,8 +54,9 @@ void tearDown(void) {
 void test_ascii_serial_com_device_receive_good(void) {
   Try {
     ascii_serial_com_device ascd;
-    ascii_serial_com_device_init(&ascd, testfunc, testfunc, testfunc, testfunc,
-                                 &state_rw, &state_s, &state_nf, &state_other);
+    ascii_serial_com_device_config config = {testfunc,  testfunc, testfunc,
+                                             &state_rw, &state_s, &state_nf};
+    ascii_serial_com_device_init(&ascd, &config);
     circular_buffer_uint8 *in_buf =
         ascii_serial_com_device_get_input_buffer(&ascd);
     // circular_buffer_uint8* out_buf =
@@ -117,8 +116,6 @@ void test_ascii_serial_com_device_receive_good(void) {
     TEST_ASSERT_EQUAL_MEMORY(
         "666666666666666666666666666666666666666666666666666666", data_f,
         dataLen_f);
-    TEST_ASSERT_EQUAL(&state_other, state_f);
-    TEST_ASSERT_EQUAL_INT(state_other, *((int *)state_f));
   }
   Catch(e1) {
     printf("Uncaught exception: %u\n", e1);
@@ -129,8 +126,9 @@ void test_ascii_serial_com_device_receive_good(void) {
 void test_ascii_serial_com_device_receive_null_state(void) {
   Try {
     ascii_serial_com_device ascd;
-    ascii_serial_com_device_init(&ascd, testfunc, testfunc, testfunc, testfunc,
-                                 NULL, NULL, NULL, NULL);
+    ascii_serial_com_device_config config = {testfunc, testfunc, testfunc,
+                                             NULL,     NULL,     NULL};
+    ascii_serial_com_device_init(&ascd, &config);
     circular_buffer_uint8 *in_buf =
         ascii_serial_com_device_get_input_buffer(&ascd);
     // circular_buffer_uint8* out_buf =
@@ -186,8 +184,9 @@ void test_ascii_serial_com_device_receive_null_state(void) {
 
 void test_ascii_serial_com_device_receive_bad(void) {
   ascii_serial_com_device ascd;
-  ascii_serial_com_device_init(&ascd, testfunc, testfunc, testfunc, testfunc,
-                               &state_rw, &state_s, &state_nf, &state_other);
+  ascii_serial_com_device_config config = {testfunc,  testfunc, testfunc,
+                                           &state_rw, &state_s, &state_nf};
+  ascii_serial_com_device_init(&ascd, &config);
   circular_buffer_uint8 *in_buf =
       ascii_serial_com_device_get_input_buffer(&ascd);
 
@@ -224,8 +223,8 @@ void test_ascii_serial_com_device_receive_bad(void) {
 void test_ascii_serial_com_device_receive_null_func(void) {
   Try {
     ascii_serial_com_device ascd;
-    ascii_serial_com_device_init(&ascd, NULL, NULL, NULL, NULL, NULL, NULL,
-                                 NULL, NULL);
+    ascii_serial_com_device_config config = {};
+    ascii_serial_com_device_init(&ascd, &config);
     circular_buffer_uint8 *in_buf =
         ascii_serial_com_device_get_input_buffer(&ascd);
     circular_buffer_uint8 *out_buf =
