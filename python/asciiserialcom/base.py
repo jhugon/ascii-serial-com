@@ -236,7 +236,7 @@ class Base:
                                     )
                                     await self.send_s.send((nMissed, payload))
                                 elif self.write_s:
-                                    line = "{:03n},".format(nmissed).encode() + payload
+                                    line = "{:03n},".format(nMissed).encode() + payload
                                     logging.debug(
                                         f"About to write to write_s {line.decode('ascii','replace')}"
                                     )

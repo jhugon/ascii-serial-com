@@ -237,8 +237,11 @@ class TestStreaming(unittest.TestCase):
             self.assertTrue(got_to_cancel)
 
         for messages in [
-            [b">00s" + (b"%04i" % x) + b"." for x in range(5)],
-            [b">00s" + (b"%04i" % x) + b"." for x in range(50)],
+            [b">00s" + (b"%02X" % x) + b"," + (b"%04i" % x) + b"." for x in range(256)],
+            [
+                b">00s" + (b"%02X" % x) + b"," + (b"%04i" % (256 - x)) + b"."
+                for x in range(256)
+            ],
         ]:
             with self.subTest(i="messages={}".format(messages)):
                 messages = [
@@ -278,8 +281,11 @@ class TestStreaming(unittest.TestCase):
             self.assertTrue(got_to_cancel)
 
         for messages in [
-            [b">00s" + (b"%04i" % x) + b"." for x in range(5)],
-            # [b">00s" + (b"%04i" % x) + b"." for x in range(50)],
+            [b">00s" + (b"%02X" % x) + b"," + (b"%04i" % x) + b"." for x in range(256)],
+            [
+                b">00s" + (b"%02X" % x) + b"," + (b"%04i" % (256 - x)) + b"."
+                for x in range(256)
+            ],
         ]:
             with self.subTest(i="messages={}".format(messages)):
                 messages = [
