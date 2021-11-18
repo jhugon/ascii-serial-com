@@ -119,6 +119,33 @@ class TestTrivialLoopback(unittest.TestCase):
 
         trio.run(run_test, self)
 
+    def test_host_stream_device(self):
+        async def run_test(self):
+            nRegisterBits = 32
+            got_to_cancel = False
+            with trio.move_on_after(5) as cancel_scope:
+                async with await trio.open_process(
+                    [self.exe, "-l"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                ) as device:
+                    host_w, host_r = breakStapledIntoWriteRead(device.stdio)
+                    send_chan, recv_chan = trio.open_memory_channel(0)
+                    async with trio.open_nursery() as nursery:
+                        host = Host(nursery, host_r, host_w, nRegisterBits)
+                        host.forward_received_s_messages_to(send_chan)
+                        for testData in [b"", b"abcdefg", b"x" * 51]:
+                            await host.send_stream_message(testData)
+                            nMissed, payload = await recv_chan.receive()
+                            self.assertEqual(nMissed, 0)
+                            self.assertEqual(payload, testData)
+                        got_to_cancel = True
+                        cancel_scope.cancel()
+            self.assertTrue(got_to_cancel)
+
+        trio.run(run_test, self)
+
 
 class TestASCLoopback(unittest.TestCase):
     def setUp(self):
@@ -178,7 +205,7 @@ class TestASCLoopback(unittest.TestCase):
                     [self.exe],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
-                    # stderr=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 ) as device:
                     for intext in intexts:
                         await device.stdio.send_all(intext)
@@ -207,7 +234,7 @@ class TestASCLoopback(unittest.TestCase):
                     [self.exe],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
-                    # stderr=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 ) as device:
                     for intext in intexts:
                         await device.stdio.send_all(intext)
@@ -274,6 +301,33 @@ class TestASCLoopback(unittest.TestCase):
                             msg = await recv_chan.receive()
                             self.assertEqual(msg.command, testCommand)
                             self.assertEqual(msg.data, testData)
+                        got_to_cancel = True
+                        cancel_scope.cancel()
+            self.assertTrue(got_to_cancel)
+
+        trio.run(run_test, self)
+
+    def test_host_stream_device(self):
+        async def run_test(self):
+            nRegisterBits = 32
+            got_to_cancel = False
+            with trio.move_on_after(5) as cancel_scope:
+                async with await trio.open_process(
+                    [self.exe],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                ) as device:
+                    host_w, host_r = breakStapledIntoWriteRead(device.stdio)
+                    send_chan, recv_chan = trio.open_memory_channel(0)
+                    async with trio.open_nursery() as nursery:
+                        host = Host(nursery, host_r, host_w, nRegisterBits)
+                        host.forward_received_s_messages_to(send_chan)
+                        for testData in [b"", b"abcdefg", b"x" * 51] * 100:
+                            await host.send_stream_message(testData)
+                            nMissed, payload = await recv_chan.receive()
+                            self.assertEqual(nMissed, 0)
+                            self.assertEqual(payload, testData)
                         got_to_cancel = True
                         cancel_scope.cancel()
             self.assertTrue(got_to_cancel)

@@ -155,6 +155,9 @@ class Base:
     ) -> None:
         """
         Send all future streaming frame "s" command messages to the given channel.
+        Each message consists of a tuple (nMissed,payload)
+        nMissed is the number of missed s messages since the last one received.
+        payload is the s message payload data.
 
         If channel is None, then "s" command messages are dropped.
         """
