@@ -104,18 +104,15 @@ void test_ascii_serial_com_device_receive_good(void) {
     TEST_ASSERT_EQUAL(&state_s, state_f);
     TEST_ASSERT_EQUAL_INT(state_s, *((int *)state_f));
 
+    // Test nonsense, make sure it doesn't write to command (or if it does it
+    // writes null)
+    command_f = '\0';
     circular_buffer_clear_uint8(in_buf);
     circular_buffer_push_back_string_uint8(
         in_buf,
         ">345666666666666666666666666666666666666666666666666666666.C7FB\n");
     ascii_serial_com_device_receive(&ascd);
-    TEST_ASSERT_EQUAL_CHAR('3', ascVersion_f);
-    TEST_ASSERT_EQUAL_CHAR('4', appVersion_f);
-    TEST_ASSERT_EQUAL_CHAR('5', command_f);
-    TEST_ASSERT_EQUAL_size_t(54, dataLen_f);
-    TEST_ASSERT_EQUAL_MEMORY(
-        "666666666666666666666666666666666666666666666666666666", data_f,
-        dataLen_f);
+    TEST_ASSERT_EQUAL_CHAR('\0', command_f);
   }
   Catch(e1) {
     printf("Uncaught exception: %u\n", e1);
@@ -162,18 +159,15 @@ void test_ascii_serial_com_device_receive_null_state(void) {
     TEST_ASSERT_EQUAL_MEMORY("111 222 333 444", data_f, dataLen_f);
     TEST_ASSERT_EQUAL(NULL, state_f);
 
+    // Test nonsense, make sure it doesn't write to command (or if it does it
+    // writes null)
+    command_f = '\0';
     circular_buffer_clear_uint8(in_buf);
     circular_buffer_push_back_string_uint8(
         in_buf,
         ">345666666666666666666666666666666666666666666666666666666.C7FB\n");
     ascii_serial_com_device_receive(&ascd);
-    TEST_ASSERT_EQUAL_CHAR('3', ascVersion_f);
-    TEST_ASSERT_EQUAL_CHAR('4', appVersion_f);
-    TEST_ASSERT_EQUAL_CHAR('5', command_f);
-    TEST_ASSERT_EQUAL_size_t(54, dataLen_f);
-    TEST_ASSERT_EQUAL_MEMORY(
-        "666666666666666666666666666666666666666666666666666666", data_f,
-        dataLen_f);
+    TEST_ASSERT_EQUAL_CHAR('\0', command_f);
     TEST_ASSERT_EQUAL(NULL, state_f);
   }
   Catch(e1) {
