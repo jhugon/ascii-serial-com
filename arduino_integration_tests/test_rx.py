@@ -85,7 +85,7 @@ class TestRxMessageFromDevice(unittest.TestCase):
     """
     Requires firmware:
 
-        avrdude -p atmega328p -c arduino -P /dev/ttyACM0 -Uflash:w:build/avr5_gcc_opt/arduino_uno_write_stream_message_to_serial
+        avrdude -p atmega328p -c arduino -P /dev/ttyACM0 -Uflash:w:build/avr5_gcc_opt/arduino_uno_write_message_to_serial
 
     """
 
@@ -165,8 +165,8 @@ class TestRxMessageFromDevice(unittest.TestCase):
                 messageStarted = False
                 msg = await chan.receive()
                 logging.debug(f"message received: {msg}")
-                data = msg.data
-                self.assertEqual(data, b"0 0 0 0")
+                self.assertEqual(msg.command, b"s")
+                self.assertEqual(msg.data, b"0 0 0 0")
             data_checker_finished.set()
 
         async def run_test(self):
@@ -185,7 +185,7 @@ class TestRxMessageFromDevice(unittest.TestCase):
                         logging.debug("About to startup host")
                         host = Host(nursery, portr, None, nRegisterBits)
                         logging.debug("Host started")
-                        host.forward_received_s_messages_to(send_chan)
+                        host.forward_all_received_messages_to(send_chan)
                         logging.debug("messages now forwarded to send_chan")
                         nursery.start_soon(
                             data_checker, self, recv_chan, data_checker_finished
@@ -234,6 +234,7 @@ class TestRxASCCounterFromDevice(unittest.TestCase):
 
         async def data_checker(self, chan, data_checker_finished):
             last = None
+            lastCounter = None
             for i in range(400):
                 await chan.receive()
             for iMessage in range(100):
@@ -248,12 +249,18 @@ class TestRxASCCounterFromDevice(unittest.TestCase):
                     if messageStarted and data == b"\n":
                         break
                 logging.info(f"message received: {message}")
-                num = int(message.decode()[4])
+                counter = int(message.decode()[4:6], 16)
+                num = int(message.decode()[7])
                 if last == 9:
                     self.assertEqual(num, 0)
                 elif last:
                     self.assertEqual(num, last + 1)
+                if lastCounter == 255:
+                    self.assertEqual(counter, 0)
+                elif lastCounter:
+                    self.assertEqual(counter, lastCounter + 1)
                 last = num
+                lastCounter = counter
             data_checker_finished.set()
 
         async def run_test(self):
@@ -288,9 +295,8 @@ class TestRxASCCounterFromDevice(unittest.TestCase):
             nMessages = 500
             for iMessage in range(nMessages):
                 messageStarted = False
-                msg = await chan.receive()
-                logging.debug(f"message received: {msg}")
-                data = msg.data
+                nMissed, data = await chan.receive()
+                logging.info(f"message received: {nMissed} {data}")
                 num = int(data.decode()[0])
                 if last == 9:
                     self.assertEqual(num, 0)
@@ -298,14 +304,17 @@ class TestRxASCCounterFromDevice(unittest.TestCase):
                     self.assertEqual(num, last + 1)
                 last = num
                 if iMessage == 0:
-                    messageLen = len(msg.data) + 10
+                    messageLen = len(data) + 10
             endtime = time.time()
             deltat = endtime - starttime
             tpermessage = deltat / nMessages
             tperbyte = tpermessage / messageLen
             bitpers = 1 / tperbyte * 8
             logging.warning(
-                f"Time spent per message: {tpermessage} s, per byte: {tperbyte}, bit per second: {bitpers}"
+                f"Time spent per message: {tpermessage} s, per byte: {tperbyte}, per bit: {1./bitpers}"
+            )
+            logging.warning(
+                f"Message per second {1./tpermessage}, byte per second: {1./tperbyte}, bit per second: {bitpers}"
             )
             data_checker_finished.set()
 
