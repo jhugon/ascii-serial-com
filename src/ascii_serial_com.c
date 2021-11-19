@@ -40,6 +40,10 @@ void ascii_serial_com_init(ascii_serial_com *asc) {
   circular_buffer_init_uint8(&(asc->in_buf), MAXMESSAGELEN, asc->raw_buffer);
   circular_buffer_init_uint8(&(asc->out_buf), MAXMESSAGELEN,
                              asc->raw_buffer + MAXMESSAGELEN);
+
+  asc->send_stream_frame_counter = 0;
+  asc->receive_stream_frame_counter = 0;
+  asc->receive_stream_frame_counter_initialized = false;
   asc->ignoreCRCMismatch = false;
 }
 
@@ -210,6 +214,26 @@ void ascii_serial_com_compute_checksum(ascii_serial_com *asc, char *checksumOut,
   crc = crc_finalize(crc);
 #endif
   convert_uint16_to_hex(crc, checksumOut, true);
+}
+
+void ascii_serial_com_put_s_message_in_output_buffer(ascii_serial_com *asc,
+                                                     char ascVersion,
+                                                     char appVersion,
+                                                     const char *data,
+                                                     size_t dataLen) {
+
+  if (dataLen > MAXSPAYLOADEN) {
+    Throw(ASC_ERROR_DATA_TOO_LONG);
+  }
+  char outData[MAXDATALEN];
+  convert_uint8_to_hex(asc->send_stream_frame_counter, outData, true);
+  asc->send_stream_frame_counter++;
+  outData[2] = ',';
+  for (size_t i = 0; i < dataLen && i < (MAXDATALEN - 3); i++) {
+    outData[i + 3] = data[i];
+  }
+  ascii_serial_com_put_message_in_output_buffer(asc, ascVersion, appVersion,
+                                                's', outData, dataLen + 3);
 }
 
 void ascii_serial_com_put_error_in_output_buffer(ascii_serial_com *asc,

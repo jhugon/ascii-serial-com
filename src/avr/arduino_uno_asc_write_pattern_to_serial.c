@@ -15,7 +15,6 @@ uint16_t nExceptions;
 ascii_serial_com asc;
 const char ascVersion = '0';
 const char appVersion = '0';
-const char command = 's';
 char dataBuffer[2];
 const size_t dataLen = 2;
 
@@ -34,8 +33,8 @@ int main(void) {
   while (true) {
     Try {
       if (circular_buffer_is_empty_uint8(asc_out_buf)) {
-        ascii_serial_com_put_message_in_output_buffer(
-            &asc, ascVersion, appVersion, command, dataBuffer, dataLen);
+        ascii_serial_com_put_s_message_in_output_buffer(
+            &asc, ascVersion, appVersion, dataBuffer, dataLen);
         if (dataBuffer[0] == '9') {
           dataBuffer[0] = '0';
         } else {

@@ -63,21 +63,22 @@ async def forward_received_messages_to_print(
     totalMessages = 0
     totalBytes = 0
     totalSeperators = 0
+    totalMissedMessages = 0
     f = None
     try:
         if outfile:
             f = await trio.open_file(outfile, "w")
         while True:
             try:
-                msg = await ch.receive()
+                nMissed, payload = await ch.receive()
             except trio.EndOfChannel:
                 break
             else:
                 out_text = ""
                 totalMessages += 1
-                totalBytes += len(msg.data)
-                totalSeperators += msg.data.count(b" ")
-                msg_text = msg.data.decode("ascii", "replace")
+                totalBytes += len(payload)
+                totalSeperators += payload.count(b" ")
+                msg_text = payload.decode("ascii", "replace")
                 if split_seperators_newlines or decode_hex_to_dec:
                     for x in msg_text.split(" "):
                         if decode_hex_to_dec:
@@ -99,6 +100,11 @@ async def forward_received_messages_to_print(
                 elif stop_seperators and totalSeperators >= stop_seperators:
                     stop_event.set()
                     break
+            finally:
+                if totalMissedMessages > 0:
+                    logging.warning(
+                        f"Receiver missed a total of {totalMissedMessages} messages"
+                    )
     except Exception as e:
         raise e
     finally:

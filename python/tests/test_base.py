@@ -24,13 +24,6 @@ import datetime
 import trio
 import trio.testing
 
-logging.basicConfig(
-    # filename="test_asciiSerialCom.log",
-    # level=logging.INFO,
-    # level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s"
-)
-
 
 class TestMessaging(unittest.TestCase):
     def setUp(self):
@@ -62,10 +55,57 @@ class TestMessaging(unittest.TestCase):
                 frame += "{:04X}".format(self.crcFunc(frame)).encode("ascii") + b"\n"
                 trio.run(run_test, self, frame, args)
 
+    def test_send_stream_message(self):
+        async def run_test(self, arg):
+            nRegBits = 32
+            got_to_cancel = False
+            with trio.move_on_after(1) as cancel_scope:
+                async with trio.open_nursery() as nursery:
+                    testHolder = TestMemoryStreamHost(nursery, nRegBits)
+                    host = testHolder.get_host()
+                    device_streams = testHolder.get_device_streams()
+                    last = None
+                    for i in range(256 * 4):
+                        await host.send_stream_message(arg)
+                        result = await device_streams.receive_some()
+                        counter = int(result[4:6].decode(), 16)
+                        data = result[7:-6]
+                        self.assertEqual(data, arg)
+                        if last == 255:
+                            self.assertEqual(counter, 0)
+                        elif last:
+                            self.assertEqual(counter, last + 1)
+                        last = counter
+                    got_to_cancel = True
+                    cancel_scope.cancel()
+            self.assertTrue(got_to_cancel)
+
+        for arg in [
+            b"",
+            b"abcdef",
+            b"x" * 53,
+        ]:
+            with self.subTest(i="{}".format(arg)):
+                trio.run(run_test, self, arg)
+
 
 class TestStreaming(unittest.TestCase):
     def setUp(self):
+        logging.basicConfig(
+            # filename="test_integration.log",
+            # level=logging.INFO,
+            level=logging.DEBUG,
+            format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s",
+        )
         self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
+
+    def tearDown(self):
+        logging.basicConfig(
+            # filename="test_integration.log",
+            # level=logging.INFO,
+            # level=logging.DEBUG,
+            format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s"
+        )
 
     def test_receive_to_channel_with_lockstep_stream(self):
         async def run_on_all(func, collection):
@@ -75,7 +115,7 @@ class TestStreaming(unittest.TestCase):
                 logging.debug(f"finished running on element {i}")
             logging.debug(f"run on all finished")
 
-        async def run_test(self, messages):
+        async def run_test(self, messages, payloads):
             nRegBits = 32
             host, device = trio.testing.lockstep_stream_pair()
             host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
@@ -92,28 +132,33 @@ class TestStreaming(unittest.TestCase):
                         result = []
                         with trio.move_on_after(0.5):
                             while True:
-                                msg = await result_recv_chan.receive()
-                                logging.debug(f"received message: {msg}")
-                                result.append(msg.get_packed())
-                        logging.info("result")
-                        logging.info(result)
-                        logging.info("messages")
-                        logging.info(messages)
-                        self.assertEqual(result, messages)
+                                nMissed, payload = await result_recv_chan.receive()
+                                logging.debug(f"received message: {payload}")
+                                self.assertEqual(nMissed, 0)
+                                result.append(payload)
+                        logging.debug("result")
+                        logging.debug(result)
+                        logging.debug("messages")
+                        logging.debug(payloads)
+                        self.assertEqual(result, payloads)
                         got_to_cancel = True
                         cancel_scope.cancel()
             self.assertTrue(got_to_cancel)
 
         for messages in [
-            [b">00s" + (b"%04i" % x) + b"." for x in range(5)],
-            [b">00s" + (b"%04i" % x) + b"." for x in range(50)],
+            [b">00s" + (b"%02X" % x) + b"," + (b"%04i" % x) + b"." for x in range(256)],
+            [
+                b">00s" + (b"%02X" % x) + b"," + (b"%04i" % (256 - x)) + b"."
+                for x in range(256)
+            ],
         ]:
             with self.subTest(i="messages={}".format(messages)):
                 messages = [
                     x + "{:04X}".format(self.crcFunc(x)).encode("ascii") + b"\n"
                     for x in messages
                 ]
-                trio.run(run_test, self, messages)
+                payloads = [message[7:11] for message in messages]
+                trio.run(run_test, self, messages, payloads)
 
     @unittest.skip("Have trouble with the memory stream")
     def test_receive_to_channel_with_memory_stream(self):
@@ -192,8 +237,11 @@ class TestStreaming(unittest.TestCase):
             self.assertTrue(got_to_cancel)
 
         for messages in [
-            [b">00s" + (b"%04i" % x) + b"." for x in range(5)],
-            [b">00s" + (b"%04i" % x) + b"." for x in range(50)],
+            [b">00s" + (b"%02X" % x) + b"," + (b"%04i" % x) + b"." for x in range(256)],
+            [
+                b">00s" + (b"%02X" % x) + b"," + (b"%04i" % (256 - x)) + b"."
+                for x in range(256)
+            ],
         ]:
             with self.subTest(i="messages={}".format(messages)):
                 messages = [
@@ -233,8 +281,11 @@ class TestStreaming(unittest.TestCase):
             self.assertTrue(got_to_cancel)
 
         for messages in [
-            [b">00s" + (b"%04i" % x) + b"." for x in range(5)],
-            # [b">00s" + (b"%04i" % x) + b"." for x in range(50)],
+            [b">00s" + (b"%02X" % x) + b"," + (b"%04i" % x) + b"." for x in range(256)],
+            [
+                b">00s" + (b"%02X" % x) + b"," + (b"%04i" % (256 - x)) + b"."
+                for x in range(256)
+            ],
         ]:
             with self.subTest(i="messages={}".format(messages)):
                 messages = [
