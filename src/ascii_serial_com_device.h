@@ -104,4 +104,13 @@ void ascii_serial_com_device_put_message_in_output_buffer(
     ascii_serial_com_device *ascd, char ascVersion, char appVersion,
     char command, char *data, size_t dataLen);
 
+/** \brief ASCII Serial Com Device put a 's' message in output buffer
+ *
+ * MAKE SURE ascd IS ALREADY INITIALIZED!
+ *
+ */
+void ascii_serial_com_device_put_s_message_in_output_buffer(
+    ascii_serial_com_device *ascd, char ascVersion, char appVersion, char *data,
+    size_t dataLen);
+
 #endif

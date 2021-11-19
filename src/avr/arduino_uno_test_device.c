@@ -91,8 +91,8 @@ int main(void) {
 
       if (stream_state.on && circular_buffer_get_size_uint8(asc_out_buf) == 0) {
         convert_uint8_to_hex(counter, counter_buffer, true);
-        ascii_serial_com_device_put_message_in_output_buffer(
-            &ascd, '0', '0', 's', counter_buffer, 2);
+        ascii_serial_com_device_put_s_message_in_output_buffer(
+            &ascd, '0', '0', counter_buffer, 2);
         counter++;
       }
       if (circular_buffer_get_size_uint8(asc_out_buf) > 0 &&

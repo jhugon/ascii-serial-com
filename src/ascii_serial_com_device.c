@@ -68,3 +68,10 @@ void ascii_serial_com_device_put_message_in_output_buffer(
   return ascii_serial_com_put_message_in_output_buffer(
       &ascd->asc, ascVersion, appVersion, command, data, dataLen);
 }
+
+void ascii_serial_com_device_put_s_message_in_output_buffer(
+    ascii_serial_com_device *ascd, char ascVersion, char appVersion, char *data,
+    size_t dataLen) {
+  return ascii_serial_com_put_s_message_in_output_buffer(
+      &ascd->asc, ascVersion, appVersion, data, dataLen);
+}
