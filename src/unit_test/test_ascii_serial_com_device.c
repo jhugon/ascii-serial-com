@@ -225,7 +225,7 @@ void test_ascii_serial_com_device_receive_null_func(void) {
         ascii_serial_com_device_get_output_buffer(&ascd);
 
     size_t messageLen = 13;
-    const char *message = ">00e14w.1DA4\n";
+    const char *message = ">00e15w.041C\n";
     circular_buffer_push_back_string_uint8(in_buf, ">00w.23A6\n");
     ascii_serial_com_device_receive(&ascd);
     TEST_ASSERT_EQUAL_size_t(messageLen,
@@ -238,9 +238,10 @@ void test_ascii_serial_com_device_receive_null_func(void) {
     circular_buffer_clear_uint8(out_buf);
 
     messageLen = 13;
-    message = ">12e14r.F8F5\n";
+    message = ">12e15r.E14D\n";
     circular_buffer_push_back_string_uint8(in_buf, ">12r.4EBA\n");
     ascii_serial_com_device_receive(&ascd);
+    circular_buffer_print_uint8(out_buf, stderr, 0);
     TEST_ASSERT_EQUAL_size_t(messageLen,
                              circular_buffer_get_size_uint8(out_buf));
     for (size_t i = 0; i < messageLen; i++) {
@@ -251,7 +252,7 @@ void test_ascii_serial_com_device_receive_null_func(void) {
     circular_buffer_clear_uint8(out_buf);
 
     messageLen = 22;
-    message = ">FFe14s111 222 3.3930\n";
+    message = ">FFe15s111 222 3.D5D7\n";
     circular_buffer_push_back_string_uint8(in_buf,
                                            ">FFs111 222 333 444.B049\n");
     ascii_serial_com_device_receive(&ascd);
@@ -265,7 +266,7 @@ void test_ascii_serial_com_device_receive_null_func(void) {
     circular_buffer_clear_uint8(out_buf);
 
     messageLen = 22;
-    message = ">34e145666666666.F246\n";
+    message = ">34e155666666666.1EA1\n";
     circular_buffer_push_back_string_uint8(
         in_buf,
         ">345666666666666666666666666666666666666666666666666666666.C7FB\n");
