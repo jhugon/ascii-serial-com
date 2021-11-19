@@ -48,7 +48,7 @@ The data frame consists of the following:
     \item 54 or less bytes
   \end{itemize}
   \item The end of data character `.'
-  \item A CRC code represented as ASCII hex 0-9A-F (capitals). The CRC should be run from the start of frame character to the end of data character (inclusive). Use CRC-16-DNP (\url{http://reveng.sourceforge.net/crc-catalogue/16.htm\#crc.cat-bits.16})
+  \item A CRC code represented as 4 bytes of ASCII hex 0-9A-F (capitals), so from 0000-FFFF. The CRC should be run from the start of frame character to the end of data character (inclusive). Use CRC-16-DNP (\url{http://reveng.sourceforge.net/crc-catalogue/16.htm\#crc.cat-bits.16}).
   \item The end of frame character `\textbackslash n'
 \end{itemize}
 
@@ -69,8 +69,6 @@ Command/Message Type Summary Table
 Description & Code & Host Sent Data & Dev Sent Data \\ \hline
 Read register & r & Reg num (4-byte) & Reg num (4-byte) comma (`,') reg content \\ \hline
 Write register & w & Reg num (4-byte) comma (`,') reg content & Reg num (4-byte) for success \\ \hline
-Dump device registers & d & no data, just req's dump & Dump all reg content into a frame delimited by commas (`,') (if too big for a frame, then all that fit) \\ \hline
-Configure device registers & c & Register content comma (`,') separated & reply with no data if success \\ \hline
 Data stream frame & s & frame number (2-byte) comma (`,') data &  frame number (2-byte) comma (`,') data \\ \hline
 Device stream on & n & & \\ \hline
 Device stream off & f & & \\ \hline
@@ -79,11 +77,9 @@ Error message & e & 2 hex digits of error code (`,') command code comma first 9 
 \end{center}
 
 \begin{itemize}
-  \item r: Read register: The host sends this command with a register number as 4-bytes of data (in capital hex). The device will respond with an `r' message with data register number in 4-bytes then comma (`,') then register value, both in capital hex.
-  \item w: Write register: The host sends this command with data: register number as 4-bytes of data then comma (`,') then register value, both in capital hex. On success, the device will respond with a `w' message with the register number as 4-bytes of data (in capital hex).
-  \item d: Dump device registers: The host sends this command with no data. The device replies with a `d' message. The reply data is each consecutive device register content, in ASCII capital hex, appended one after another, each separated by commas (`,'). If the number (and bit width) of registers is larger than the maximum frame size, then the device should only send the first N registers that fit (although the device can send fewer for simplicity). Note that the register numbers aren't sent, just their content.
-  \item c: Configure device registers: The host sends this command. The sent data is the same as described in the reply of the `d' command. Care should be taken that the host sends the correct bit-width of registers. On success, the device should reply with a `c' message with no data.
-  \item s: Data stream frame: The same format is sent from the host to the device or the device to the host. For streaming from the host, the host just starts streaming. For streaming to the host, the host must send the `n' and `f' commands to start and stop streaming. The data consists of a stream frame number, a `,' character, and the data. The stream frame number and data must be 2 bytes of ASCII capital hex (so 0-255). Spaces may be put into the data to act as e.g. field separators. The stream frame number must increment by one with each frame sent.
+  \item r: Read register: The host sends this command with a register number as 4-bytes of data in capital hex (so from 0000-FFFF). The device will respond with an `r' message with data register number in 4-bytes then comma (`,') then register value, both in capital hex.
+  \item w: Write register: The host sends this command with data: register number as 4-bytes of data (so from 0000-FFFF) then comma (`,') then register value, both in capital hex. On success, the device will respond with a `w' message with the register number as 4-bytes of data (in capital hex).
+  \item s: Data stream frame: The same format is sent from the host to the device or the device to the host. For streaming from the host, the host just starts streaming. For streaming to the host, the host must send the `n' and `f' commands to start and stop streaming. The data consists of a stream frame number, a `,' character, and the data. The stream frame number and data must be 2 bytes of ASCII capital hex (so from 00-FF). Spaces may be put into the data to act as e.g. field separators. The stream frame number must increment by one with each frame sent.
   \item n: Device stream on: The host sends this with no data to tell the device to start streaming data.
   \item f: Device stream off: The host sends this with no data to tell the device to stop streaming data.
   \item e: Usually device to host, replying with error and beginning of message that caused error.
@@ -94,8 +90,23 @@ Error message & e & 2 hex digits of error code (`,') command code comma first 9 
 Error Code Table
 \begin{tabularx}{\textwidth}{|l|X|} \hline
 Code & Description \\ \hline
-0 & Unknown Error \\ \hline
-1 & Command type not implemented \\ \hline
+0x00 & Unknown Error \\ \hline
+0x01 & No Error \\ \hline
+0x10 & Data too long for frame \\ \hline
+0x11 & Problem computing checksum \\ \hline
+0x12 & Invalid frame \\ \hline
+0x13 & Invalid frame: missing or misplaced `.' \\ \hline
+0x14 & Invalid frame: non-hex char where hex char expected \\ \hline
+0x15 & Command not implemented \\ \hline
+0x16 & Unexpected command \\ \hline
+0x17 & Data too short \\ \hline
+0x20 & Register block is null (invalid) \\ \hline
+0x21 & Register number out of bounds \\ \hline
+0x22 & Register value is wrong number of bytes \\ \hline
+0x30 & Circular buffer out of bounds \\ \hline
+0x31 & Circular buffer tried to pop from empty buffer \\ \hline
+0x40 & File read error \\ \hline
+0x41 & File write error \\ \hline
 \end{tabularx}
 \end{center}
 

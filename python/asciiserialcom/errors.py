@@ -4,6 +4,26 @@ Errors and Exceptions for ASCII Serial Com Python Interface
 
 import typing
 
+ERROR_CODE_DICT = {
+    0x00: "Unknown Error",
+    0x01: "No Error",
+    0x10: "Data too long for frame",
+    0x11: "Problem computing checksum",
+    0x12: "Invalid frame",
+    0x13: "Invalid frame: missing or misplaced '.'",
+    0x14: "Invalid frame: non-hex char where hex char expected",
+    0x15: "Command not implemented",
+    0x16: "Unexpected command",
+    0x17: "Data too short",
+    0x20: "Register block is null (invalid)",
+    0x21: "Register number out of bounds",
+    0x22: "Register value is wrong number of bytes",
+    0x30: "Circular buffer out of bounds",
+    0x31: "Circular buffer tried to pop from empty buffer",
+    0x40: "File read error",
+    0x41: "File write error",
+}
+
 
 def printError(error: Exception) -> None:
     args = error.args
