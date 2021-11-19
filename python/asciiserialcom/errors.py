@@ -125,3 +125,15 @@ class FileReadError(ASCErrorBase):
     """
     Incorrect argument(s) to shell command
     """
+
+
+class EMessageUnpackError(ASCErrorBase):
+    """
+    Error unpacking 'e' command
+    """
+
+
+class DeviceError(ASCErrorBase):
+    """
+    Received error message from device
+    """

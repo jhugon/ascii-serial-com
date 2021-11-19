@@ -245,9 +245,21 @@ class Base:
                                     )
                                     await self.write_s.write(line)
                         elif msg.command == b"e":
-                            logging.warning(f"Error message received: {msg}")
+                            (
+                                error_str,
+                                error_cause_msg,
+                            ) = self._unpack_received_e_message(msg)
+                            logging.warning(
+                                f"Device sent error message: {error_str} about message: {error_cause_msg}"
+                            )
+                            if error_cause_msg.command == b"w" and self.send_w:
+                                await self.send_w.send(msg)
+                            elif error_cause_msg.command == b"r" and self.send_r:
+                                await self.send_r.send(msg)
                         else:
-                            pass
+                            logging.warning(
+                                f"Received message with unrecognized command: {msg}"
+                            )
         except FileReadError as e:
             logging.warning("FileReadError while reading from serial port")
         except trio.Cancelled as e:
@@ -371,6 +383,26 @@ class Base:
         self.receive_stream_frame_counter = count
         payload = msg.data[3:]
         return missed_messages, payload
+
+    def _unpack_received_e_message(self, msg: ASC_Message) -> Tuple[str, ASC_Message]:
+        """
+        Unpacks an e message.
+
+        Returns tuple of (string description of device error, message that might have caused the
+            error with data truncated to 9 bytes)
+        """
+        try:
+            decoded_data = msg.data.decode("ASCII", "replace")
+            error_code = int(decoded_data[:2], 16)
+            error_message = ERROR_CODE_DICT[error_code]
+            result_command = decoded_data[3].encode()
+            result_data = msg.data[4:]
+            result_msg = ASC_Message(
+                msg.ascVersion, msg.appVersion, result_command, result_data
+            )
+            return error_message, result_msg
+        except Exception as e:
+            raise EMessageUnpackError(f"{type(e)}: {e}")
 
 
 def check_register_number(num: Union[int, str, bytes, bytearray]) -> bytes:
