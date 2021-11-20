@@ -115,11 +115,12 @@ def run_python_unit_tests():
     success = True
     stdout = ""
     cmpltProc = subprocess.run(
-        ["python3", "-m", "unittest", "discover", "python"],
+        ["python3", "-m", "unittest", "tests"],
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        cwd=os.path.abspath("python"),
     )
     success = cmpltProc.returncode == 0
     stdout += cmpltProc.stdout
