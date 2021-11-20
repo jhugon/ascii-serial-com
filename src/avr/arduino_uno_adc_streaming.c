@@ -13,9 +13,17 @@
 #define BAUD 9600
 #define MYUBRR (F_CPU / 16 / BAUD - 1)
 
+uint16_t timer0B_counter;
+
 char dataBuffer[MAXDATALEN];
-#define nRegs 3
-volatile REGTYPE *regPtrs[nRegs] = {&PORTB, &PORTC, &PORTD};
+#define nRegs 5
+volatile REGTYPE *regPtrs[nRegs] = {
+    &PORTB,
+    &PORTC,
+    &PORTD,
+    &((uint8_t *)(&timer0B_counter))[0],
+    &((uint8_t *)(&timer0B_counter))[1],
+};
 
 REGTYPE masks[nRegs] = {
     1 << 5,
@@ -61,10 +69,15 @@ int main(void) {
   //    0b101 = 0x5 is the lowest speed, clk/1024
   //    Setting this to != 0 is what enables the timer
   // The timer count can be access/modified at TCNT0
-  // OCR0A sets the value for output compare unit A
-  // TIMSK0: timer interrupt enable mask, bit OCIE0A enables output compare unit
-  // A Don't have to clear the interrupt flag manually, it's done automatically
+  // OCR0B sets the value for output compare unit B
+  // TIMSK0: timer interrupt enable mask, bit OCIE0B enables output compare unit
+  // Don't have to clear the interrupt flag manually, it's done automatically
   // It's the same with Tim1, it's just 16 bit
+  timer0B_counter = 0;
+  TCNT0 = 0;
+  OCR0B = F_CPU / 1024 / 100; // should be 100 times per second
+  TIMSK0 |= 1 << OCIE0B;
+  TCCR0B |= 0x5;
 
   nExceptions = 0;
   stream_state.on = 0;
@@ -101,11 +114,13 @@ int main(void) {
 
       ascii_serial_com_device_receive(&ascd);
 
-      if (stream_state.on && circular_buffer_get_size_uint8(asc_out_buf) == 0) {
+      if (stream_state.on && circular_buffer_get_size_uint8(asc_out_buf) == 0 &&
+          timer0B_counter > 100) {
         convert_uint8_to_hex(counter, counter_buffer, true);
         ascii_serial_com_device_put_s_message_in_output_buffer(
             &ascd, '0', '0', counter_buffer, 2);
         counter++;
+        ATOMIC_BLOCK(ATOMIC_FORCEON) { timer0B_counter = 0; }
       }
       if (circular_buffer_get_size_uint8(asc_out_buf) > 0 &&
           USART0_can_write_Tx_data) {
@@ -122,6 +137,8 @@ ISR(USART_RX_vect) {
   char c = UDR0;
   circular_buffer_push_back_uint8(&extraInputBuffer, c);
 }
+
+ISR(TIMER0_COMPB_vect) { timer0B_counter++; }
 
 void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
                         __attribute__((unused)) char ascVersion,
