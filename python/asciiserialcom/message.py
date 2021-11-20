@@ -104,7 +104,9 @@ class ASC_Message:
         if len(frame) == 0:
             raise MalformedFrameError("Zero length frame")
         if frame[0] != b">"[0] or ((frame[-1] != b"\n"[0]) and (frame[-1] != b"."[0])):
-            raise MalformedFrameError("Incorrect start and/or end chars: ", frame)
+            raise MalformedFrameError(
+                f"Incorrect start and/or end chars: {frame.decode('ascii','replace')}"
+            )
         if frame.count(b".") != 1:
             raise MalformedFrameError(
                 f"Improperly formatted frame: no end of data character '.': '{frame.decode('ascii','replace')}'"

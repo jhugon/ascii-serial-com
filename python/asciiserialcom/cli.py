@@ -11,6 +11,7 @@ from .host import Host
 from .utilities import Tracer
 from .tty_utils import setup_tty
 from .message import ASC_Message
+from .errors import *
 
 DEFAULT_TIMEOUT = 5
 
@@ -338,7 +339,11 @@ def compute_checksum(
     Computes and prints the checksum for the given message
     """
     message_bytes = message.encode("ASCII", "replace")
-    checksum = ASC_Message.compute_checksum(message_bytes)
+    try:
+        checksum = ASC_Message.compute_checksum(message_bytes)
+    except MalformedFrameError as e:
+        typer.echo(f"Couldn't decode message: {e}")
+        raise typer.Abort()
     whole_message = message_bytes + checksum + b"\n"
     typer.echo(checksum.decode("ASCII", "replace"))
     typer.echo(whole_message.decode("ASCII", "replace")[:-1] + "\\n")

@@ -224,10 +224,11 @@ void test_ascii_serial_com_device_receive_null_func(void) {
     circular_buffer_uint8 *out_buf =
         ascii_serial_com_device_get_output_buffer(&ascd);
 
-    size_t messageLen = 13;
-    const char *message = ">00e15w.041C\n";
+    size_t messageLen = 15;
+    const char *message = ">00e15,w,.DF68\n";
     circular_buffer_push_back_string_uint8(in_buf, ">00w.23A6\n");
     ascii_serial_com_device_receive(&ascd);
+    // circular_buffer_print_uint8(out_buf,stderr,0);
     TEST_ASSERT_EQUAL_size_t(messageLen,
                              circular_buffer_get_size_uint8(out_buf));
     for (size_t i = 0; i < messageLen; i++) {
@@ -237,11 +238,11 @@ void test_ascii_serial_com_device_receive_null_func(void) {
     circular_buffer_clear_uint8(in_buf);
     circular_buffer_clear_uint8(out_buf);
 
-    messageLen = 13;
-    message = ">12e15r.E14D\n";
+    messageLen = 15;
+    message = ">12e15,r,.52D5\n";
     circular_buffer_push_back_string_uint8(in_buf, ">12r.4EBA\n");
     ascii_serial_com_device_receive(&ascd);
-    circular_buffer_print_uint8(out_buf, stderr, 0);
+    // circular_buffer_print_uint8(out_buf, stderr, 0);
     TEST_ASSERT_EQUAL_size_t(messageLen,
                              circular_buffer_get_size_uint8(out_buf));
     for (size_t i = 0; i < messageLen; i++) {
@@ -251,8 +252,8 @@ void test_ascii_serial_com_device_receive_null_func(void) {
     circular_buffer_clear_uint8(in_buf);
     circular_buffer_clear_uint8(out_buf);
 
-    messageLen = 22;
-    message = ">FFe15s111 222 3.D5D7\n";
+    messageLen = 24;
+    message = ">FFe15,s,111 222 3.7005\n";
     circular_buffer_push_back_string_uint8(in_buf,
                                            ">FFs111 222 333 444.B049\n");
     ascii_serial_com_device_receive(&ascd);
@@ -265,8 +266,8 @@ void test_ascii_serial_com_device_receive_null_func(void) {
     circular_buffer_clear_uint8(in_buf);
     circular_buffer_clear_uint8(out_buf);
 
-    messageLen = 22;
-    message = ">34e155666666666.1EA1\n";
+    messageLen = 24;
+    message = ">34e15,5,666666666.6441\n";
     circular_buffer_push_back_string_uint8(
         in_buf,
         ">345666666666666666666666666666666666666666666666666666666.C7FB\n");
