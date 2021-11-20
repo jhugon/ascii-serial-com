@@ -94,7 +94,7 @@ class TestStreaming(unittest.TestCase):
         logging.basicConfig(
             # filename="test_integration.log",
             # level=logging.INFO,
-            level=logging.DEBUG,
+            # level=logging.DEBUG,
             format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s",
         )
         self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
@@ -293,6 +293,52 @@ class TestStreaming(unittest.TestCase):
                     for x in messages
                 ]
                 trio.run(run_test, self, messages)
+
+
+class TestUnpack(unittest.TestCase):
+    def setUp(self):
+        logging.basicConfig(
+            # filename="test_integration.log",
+            # level=logging.INFO,
+            # level=logging.DEBUG,
+            format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s",
+        )
+        self.crcFunc = crcmod.predefined.mkPredefinedCrcFun("crc-16-dnp")
+
+    def tearDown(self):
+        logging.basicConfig(
+            # filename="test_integration.log",
+            # level=logging.INFO,
+            # level=logging.DEBUG,
+            format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s"
+        )
+
+    def test_unpack_e(self):
+        async def run_test(self, msg, exp_error_text, exp_error_cause_message):
+            nRegBits = 32
+            host, device = trio.testing.lockstep_stream_pair()
+            host_write_stream, host_read_stream = breakStapledIntoWriteRead(host)
+            async with trio.open_nursery() as nursery:
+                host = Host(nursery, host_read_stream, host_write_stream, nRegBits)
+                error_text, error_cause_message = host._unpack_received_e_message(msg)
+                self.assertEqual(error_text, exp_error_text)
+                self.assertEqual(error_cause_message, exp_error_cause_message)
+                nursery.cancel_scope.cancel()
+
+        for msg, error_text, error_causing_message in [
+            (
+                ASC_Message(b"0", b"0", b"e", b"10,w,123412345"),
+                ERROR_CODE_DICT[0x10],
+                ASC_Message(b"0", b"0", b"w", b"123412345"),
+            ),
+            (
+                ASC_Message(b"0", b"0", b"e", b"30,s,FF"),
+                ERROR_CODE_DICT[0x30],
+                ASC_Message(b"0", b"0", b"s", b"FF"),
+            ),
+        ]:
+            with self.subTest(i="msg={}".format(msg)):
+                trio.run(run_test, self, msg, error_text, error_causing_message)
 
 
 class TestChecks(unittest.TestCase):

@@ -2,7 +2,7 @@
 
 \title{ASCII-Serial-Com Data Format}
 \author{Justin Hugon}
-\date{2020-06-05}
+\date{2021-11-19}
 
 \begin{document}
 
@@ -72,7 +72,7 @@ Write register & w & Reg num (4-byte) comma (`,') reg content & Reg num (4-byte)
 Data stream frame & s & frame number (2-byte) comma (`,') data &  frame number (2-byte) comma (`,') data \\ \hline
 Device stream on & n & & \\ \hline
 Device stream off & f & & \\ \hline
-Error message & e & 2 hex digits of error code (`,') command code comma first 9 bytes of data of message that caused error &  2 hex digits of error code (`,') first 9 bytes of data of message that caused error \\ \hline
+Error message & e & 2 hex digits of error code, comma (`,'), command code, comma (`,'), first 9 bytes of data of message that caused error & 2 hex digits of error code, comma (`,'), command code, comma (`,'), first 9 bytes of data of message that caused error \\ \hline
 \end{tabularx}
 \end{center}
 

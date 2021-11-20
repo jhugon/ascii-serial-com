@@ -396,7 +396,7 @@ class Base:
             error_code = int(decoded_data[:2], 16)
             error_message = ERROR_CODE_DICT[error_code]
             result_command = decoded_data[3].encode()
-            result_data = msg.data[4:]
+            result_data = msg.data[5:]
             result_msg = ASC_Message(
                 msg.ascVersion, msg.appVersion, result_command, result_data
             )

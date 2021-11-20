@@ -32,7 +32,7 @@
 #include <inttypes.h>
 //#include <stdio.h>
 
-#define error_message_data_len 12
+#define error_message_max_copy_data_len 9
 #define max_remove_unfinished_frames_tries 10
 
 void ascii_serial_com_init(ascii_serial_com *asc) {
@@ -241,15 +241,15 @@ void ascii_serial_com_put_error_in_output_buffer(ascii_serial_com *asc,
                                                  char appVersion, char command,
                                                  char *data, size_t dataLen,
                                                  enum asc_exception errorCode) {
-  char outData[error_message_data_len];
+  char outData[error_message_max_copy_data_len + 5];
   convert_uint8_to_hex((uint8_t)errorCode, outData, true);
-  outData[2] = command;
-  for (size_t i = 0; i < dataLen && i < (error_message_data_len - 3); i++) {
-    outData[i + 3] = data[i];
-  }
-  size_t outDataLen = dataLen + 3;
-  if (outDataLen > error_message_data_len) {
-    outDataLen = error_message_data_len;
+  outData[2] = ',';
+  outData[3] = command;
+  outData[4] = ',';
+  size_t outDataLen = 5;
+  for (size_t i = 0; i < dataLen && i < error_message_max_copy_data_len; i++) {
+    outData[i + 5] = data[i];
+    outDataLen++;
   }
   ascii_serial_com_put_message_in_output_buffer(asc, ascVersion, appVersion,
                                                 'e', outData, outDataLen);
