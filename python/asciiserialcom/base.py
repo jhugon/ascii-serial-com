@@ -261,7 +261,7 @@ class Base:
                                 f"Received message with unrecognized command: {msg}"
                             )
         except FileReadError as e:
-            logging.warning("FileReadError while reading from serial port")
+            logging.debug("FileReadError while reading from serial port")
         except trio.Cancelled as e:
             logging.debug(f"Cancellation happened")
             raise e

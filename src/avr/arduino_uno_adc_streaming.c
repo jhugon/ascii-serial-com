@@ -14,21 +14,20 @@
 #define MYUBRR (F_CPU / 16 / BAUD - 1)
 
 uint16_t timer0B_counter;
+uint16_t timer0B_counter_compare = 25;
 
-char dataBuffer[MAXDATALEN];
+// Lower byte of the 16 bit variables is in lower register number
 #define nRegs 5
 volatile REGTYPE *regPtrs[nRegs] = {
     &PORTB,
-    &PORTC,
-    &PORTD,
     &((uint8_t *)(&timer0B_counter))[0],
     &((uint8_t *)(&timer0B_counter))[1],
+    &((uint8_t *)(&timer0B_counter_compare))[0],
+    &((uint8_t *)(&timer0B_counter_compare))[1],
 };
 
 REGTYPE masks[nRegs] = {
-    1 << 5,
-    0,
-    0,
+    1 << 5, 0, 0, 0xFF, 0xFF,
 };
 
 typedef struct stream_state_struct {
@@ -73,11 +72,10 @@ int main(void) {
   // TIMSK0: timer interrupt enable mask, bit OCIE0B enables output compare unit
   // Don't have to clear the interrupt flag manually, it's done automatically
   // It's the same with Tim1, it's just 16 bit
-  timer0B_counter = 0;
   TCNT0 = 0;
   OCR0B = F_CPU / 1024 / 100; // should be 100 times per second
-  TIMSK0 |= 1 << OCIE0B;
-  TCCR0B |= 0x5;
+  TIMSK0 |= 1 << OCIE0B; // output comapre interrupt enable for timer 0 unit B
+  TCCR0B |= 0x5;         // enable timer with clk/1024
 
   nExceptions = 0;
   stream_state.on = 0;
@@ -115,7 +113,7 @@ int main(void) {
       ascii_serial_com_device_receive(&ascd);
 
       if (stream_state.on && circular_buffer_get_size_uint8(asc_out_buf) == 0 &&
-          timer0B_counter > 100) {
+          timer0B_counter > timer0B_counter_compare) {
         convert_uint8_to_hex(counter, counter_buffer, true);
         ascii_serial_com_device_put_s_message_in_output_buffer(
             &ascd, '0', '0', counter_buffer, 2);
@@ -149,7 +147,9 @@ void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
   on_off_stream_state *state = (on_off_stream_state *)state_vp;
   if (command == 'n') {
     state->on = 1;
+    TIMSK0 |= 1 << OCIE0B; // output comapre interrupt enable for timer 0 unit B
   } else if (command == 'f') {
     state->on = 0;
+    TIMSK0 &= ~(1 << OCIE0B); // disable interrupt
   }
 }
