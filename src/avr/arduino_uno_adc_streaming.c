@@ -79,7 +79,11 @@ int main(void) {
   TCCR0B |= 0x5;         // enable timer with clk/1024
 
   // ADC
-  // ADMUX top 2 bits select reference. Default is AREF
+  // ADMUX top 2 bits select reference. Default (0b00xxxxxx) is AREF--I think
+  // that means whatever is applied to the AREF pin
+  //    0b01xxxxxx selects AVCC (which is then connected to AREF so be careful
+  //    with what's hooked there) 0b11xxxxxx selects internal 1.1V reference
+  //    (which is then connected to AREF so be careful with what's hooked there)
   // ADMUX bottom 4 bits select channels 0 through 8 as just ints
   // ADMUX bottom 4 bits should be 0xF for ground and 0xE for bandgap (don't
   // use) ADCSRA Status and control reg A bits:
@@ -91,7 +95,8 @@ int main(void) {
   //            for us at 16MHz, that means we need the /128 which is 0b111 = 7
   // ADC data for 16 bit reads is at "ADC"
   // DIDR0 diables digial inputs for ADC0-5 if they are being used
-  ADMUX = 0xF;         // select ADC input
+  ADMUX = 0x40;        // select AVCC as reference
+  ADMUX |= 0xF;        // select ADC input
   ADCSRA = 7;          // set ADC clock prescaler
   ADCSRA |= 1 << ADEN; // enable ADC
 
