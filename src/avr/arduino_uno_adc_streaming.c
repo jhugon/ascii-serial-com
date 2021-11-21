@@ -1,3 +1,27 @@
+/*
+ * Uses timer to set interval between ADC single conversions that are then sent
+ * as stream messages to host.
+ *
+ * On receiving 'n' message, begins streaming ADC values to host (by default the
+ * ADC is connected to ground) Stops when 'f' message is received.
+ *
+ * ADC channel selection and time between ADC conversions are configurable with
+ * registers. I'm not quite sure what the units of timer counter compare are.
+ *
+ * Register map:
+ *
+ * 0: PORTB, only bit 5 is writable (the user LED)
+ * 1: lower 8 bits of the timer counter (read only)
+ * 2: upper 8 bits of the timer counter (read only)
+ * 3: lower 8 bits of the timer counter compare (r/w) default: 25
+ * 4: upper 8 bits of the timer counter compare (r/w) default: 0
+ * 5: ADMUX: the upper half of the register is the read only ADC reference
+ * selection the bottom 4 bits are r/w and are the channel selection, default:
+ * 0xF values of 0-7 select the ADC channel to read from and 0xF is GND Don't
+ * write any values besides 0-7 and 0xF, as it could cause issues.
+ *
+ */
+
 #include "asc_exception.h"
 #include "ascii_serial_com.h"
 #include "ascii_serial_com_device.h"
