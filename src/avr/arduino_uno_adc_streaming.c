@@ -16,19 +16,21 @@
 uint16_t timer0B_counter;
 uint16_t timer0B_counter_compare = 25;
 
+bool have_started_ADC_conversion = false;
+#define have_finished_ADC_conversion (!(ADCSRA & (1 << ADSC)))
+
 // Lower byte of the 16 bit variables is in lower register number
-#define nRegs 5
+#define nRegs 6
 volatile REGTYPE *regPtrs[nRegs] = {
     &PORTB,
     &((uint8_t *)(&timer0B_counter))[0],
     &((uint8_t *)(&timer0B_counter))[1],
     &((uint8_t *)(&timer0B_counter_compare))[0],
     &((uint8_t *)(&timer0B_counter_compare))[1],
+    &ADMUX,
 };
 
-REGTYPE masks[nRegs] = {
-    1 << 5, 0, 0, 0xFF, 0xFF,
-};
+REGTYPE masks[nRegs] = {1 << 5, 0, 0, 0xFF, 0xFF, 0x0F};
 
 typedef struct stream_state_struct {
   uint8_t on;
@@ -55,7 +57,6 @@ CEXCEPTION_T e;
 
 uint16_t nExceptions;
 uint8_t counter;
-char counter_buffer[2];
 
 int main(void) {
 
@@ -76,6 +77,23 @@ int main(void) {
   OCR0B = F_CPU / 1024 / 100; // should be 100 times per second
   TIMSK0 |= 1 << OCIE0B; // output comapre interrupt enable for timer 0 unit B
   TCCR0B |= 0x5;         // enable timer with clk/1024
+
+  // ADC
+  // ADMUX top 2 bits select reference. Default is AREF
+  // ADMUX bottom 4 bits select channels 0 through 8 as just ints
+  // ADMUX bottom 4 bits should be 0xF for ground and 0xE for bandgap (don't
+  // use) ADCSRA Status and control reg A bits:
+  //    ADEN: enable
+  //    ADSC: start conversion; in single shot mode stays 1 until conversion
+  //    complete ADIE: interrupt enable for conversion complete: ADC_vect Bottom
+  //    2 bits are the ADC prescaler, they should divide the main clock to be
+  //    between 50kHz and 200kHz
+  //            for us at 16MHz, that means we need the /128 which is 0b111 = 7
+  // ADC data for 16 bit reads is at "ADC"
+  // DIDR0 diables digial inputs for ADC0-5 if they are being used
+  ADMUX = 0xF;         // select ADC input
+  ADCSRA = 7;          // set ADC clock prescaler
+  ADCSRA |= 1 << ADEN; // enable ADC
 
   nExceptions = 0;
   stream_state.on = 0;
@@ -112,14 +130,33 @@ int main(void) {
 
       ascii_serial_com_device_receive(&ascd);
 
-      if (stream_state.on && circular_buffer_get_size_uint8(asc_out_buf) == 0 &&
+      // if (stream_state.on && circular_buffer_get_size_uint8(asc_out_buf) == 0
+      // &&
+      //    timer0B_counter > timer0B_counter_compare) {
+      //  char counter_buffer[2];
+      //  convert_uint8_to_hex(counter, counter_buffer, true);
+      //  ascii_serial_com_device_put_s_message_in_output_buffer(
+      //      &ascd, '0', '0', counter_buffer, 2);
+      //  counter++;
+      //  ATOMIC_BLOCK(ATOMIC_FORCEON) { timer0B_counter = 0; }
+      //}
+
+      if (stream_state.on && !have_started_ADC_conversion &&
           timer0B_counter > timer0B_counter_compare) {
-        convert_uint8_to_hex(counter, counter_buffer, true);
-        ascii_serial_com_device_put_s_message_in_output_buffer(
-            &ascd, '0', '0', counter_buffer, 2);
-        counter++;
+        ADCSRA |= 1 << ADSC; // start ADC conversion
         ATOMIC_BLOCK(ATOMIC_FORCEON) { timer0B_counter = 0; }
+        have_started_ADC_conversion = true;
       }
+      if (have_started_ADC_conversion && have_finished_ADC_conversion &&
+          circular_buffer_get_size_uint8(asc_out_buf) == 0) {
+        const uint16_t adc_val = ADC;
+        char adc_val_buffer[4];
+        convert_uint16_to_hex(adc_val, adc_val_buffer, true);
+        ascii_serial_com_device_put_s_message_in_output_buffer(
+            &ascd, '0', '0', adc_val_buffer, 4);
+        have_started_ADC_conversion = false;
+      }
+
       if (circular_buffer_get_size_uint8(asc_out_buf) > 0 &&
           USART0_can_write_Tx_data) {
         UDR0 = circular_buffer_pop_front_uint8(asc_out_buf);
@@ -147,7 +184,7 @@ void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
   on_off_stream_state *state = (on_off_stream_state *)state_vp;
   if (command == 'n') {
     state->on = 1;
-    TIMSK0 |= 1 << OCIE0B; // output comapre interrupt enable for timer 0 unit B
+    TIMSK0 |= 1 << OCIE0B; // output compare interrupt enable for timer 0 unit B
   } else if (command == 'f') {
     state->on = 0;
     TIMSK0 &= ~(1 << OCIE0B); // disable interrupt
