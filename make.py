@@ -135,6 +135,32 @@ def run_python_unit_tests():
     return success, stdout
 
 
+def run_python_mypy():
+    env = os.environ.copy()
+
+    success = True
+    stdout = ""
+    cmpltProc = subprocess.run(
+        ["mypy", "asciiserialcom", "tests"],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        cwd=os.path.abspath("python"),
+    )
+    success = cmpltProc.returncode == 0
+    stdout += cmpltProc.stdout
+    print()
+    print("========== Python MyPy =============")
+    print()
+    print(stdout)
+    if success:
+        print("MyPy Pass!")
+    else:
+        print("MyPy Failure")
+    return success, stdout
+
+
 def print_FW_size(targets):
     env = os.environ.copy()
     exe_path = env["PATH"]
@@ -156,6 +182,7 @@ def print_FW_size(targets):
             all_fwfiles += fwfiles
     if len(all_fwfiles) == 0:
         return
+    print("========= Firmware Size ==========")
     cmpltProc = subprocess.run(
         ["avr-size", "-G"] + all_fwfiles,
         env=env,
@@ -227,6 +254,12 @@ def main():
         help="Build Doxygen source documentation",
         action="store_true",
     )
+    parser.add_argument(
+        "--mypy",
+        "-m",
+        help="Run mypy on python code (if mypy package is installed)",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     targets = args.targets
@@ -275,6 +308,10 @@ def main():
 
         pythonTestsPass, testOutput = run_python_unit_tests()
 
+    mypyPass = False
+    if args.mypy:
+        mypyPass, testOutput = run_python_mypy()
+
     integrationTestsPass = False
     if args.integrationtest:
         integrationTestsPass, testOutput = run_integration_tests()
@@ -284,7 +321,7 @@ def main():
 
     print_FW_size(targets)
 
-    if args.unittest or args.integrationtest:
+    if args.unittest or args.integrationtest or args.mypy:
         print()
         print("============= Test Summary ===============")
         print()
@@ -302,7 +339,12 @@ def main():
             print("Integration Tests All Pass!")
         else:
             print("Integration Test Failure")
-    if args.unittest or args.integrationtest:
+    if args.mypy:
+        if mypyPass:
+            print("MyPy Python Static Analysis Pass!")
+        else:
+            print("MyPy Python Static Analysis Failure")
+    if args.unittest or args.integrationtest or args.mypy:
         print()
 
 
