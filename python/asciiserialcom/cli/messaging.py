@@ -14,8 +14,16 @@ from ..errors import *
 
 DEFAULT_TIMEOUT = 5
 
+SERIAL = None
+SERIAL_SEND = None
+VERBOSE = False
 
-async def run_read(timeout, fin_name, fout_name, reg_num):
+
+async def run_read(timeout, reg_num):
+    fin_name = SERIAL
+    fout_name = SERIAL
+    if SERIAL_SEND:
+        fout_name = SERIAL_SEND
     logging.debug(f"fin_name: {fin_name}")
     logging.debug(f"fout_name: {fout_name}")
     result = None
@@ -32,7 +40,11 @@ async def run_read(timeout, fin_name, fout_name, reg_num):
     return result
 
 
-async def run_write(timeout, fin_name, fout_name, reg_num, reg_val):
+async def run_write(timeout, reg_num, reg_val):
+    fin_name = SERIAL
+    fout_name = SERIAL
+    if SERIAL_SEND:
+        fout_name = SERIAL_SEND
     logging.debug(f"fin_name: {fin_name}")
     logging.debug(f"fout_name: {fout_name}")
     result = False
@@ -121,9 +133,11 @@ async def run_stream(
     stop_seperators,
     split_seperators_newlines,
     decode_hex_to_dec,
-    fin_name,
-    fout_name,
 ):
+    fin_name = SERIAL
+    fout_name = SERIAL
+    if SERIAL_SEND:
+        fout_name = SERIAL_SEND
     logging.debug(f"fin_name: {fin_name}")
     logging.debug(f"fout_name: {fout_name}")
     logging.debug(f"timeout: {timeout}")
@@ -163,8 +177,8 @@ async def run_stream(
 app = typer.Typer()
 
 
-@app.command()
-def read(
+@app.callback()
+def callback(
     serial: Path = typer.Argument(
         ...,
         help="Filename of the serial device",
@@ -172,26 +186,43 @@ def read(
         writable=True,
         readable=True,
     ),
-    register_number: int = typer.Argument(..., help="Register number", min=0),
-    timeout: float = typer.Option(
-        DEFAULT_TIMEOUT, help="Timeout for register read", min=0.0
-    ),
     serial_send: Optional[Path] = typer.Option(
         None,
         help="Filename of the serial device to write to. If present, SERIAL is only read from",
         exists=True,
         writable=True,
     ),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
 ) -> None:
-    if serial_send:
+    """
+    Communicate with a device with ASCII-Serial-Com
+
+    There are two levels of options: those before the serial device and those after. They are seperate groups.
+    """
+    global SERIAL
+    global SERIAL_SEND
+    global VERBOSE
+    SERIAL = serial
+    SERIAL_SEND = serial_send
+    VERBOSE = verbose
+    logging.debug(f"SERIAL: {SERIAL}, SERIAL_SEND: {SERIAL_SEND}, VERBOSE: {VERBOSE}")
+
+
+@app.command()
+def read(
+    register_number: int = typer.Argument(..., help="Register number", min=0),
+    timeout: float = typer.Option(
+        DEFAULT_TIMEOUT, help="Timeout for register read", min=0.0
+    ),
+) -> None:
+    if SERIAL_SEND:
         typer.echo(
-            f"Reading register {register_number} on send device {serial_send} and read device {serial}"
+            f"Reading register {register_number} on send device {SERIAL_SEND} and read device {SERIAL}"
         )
     else:
-        typer.echo(f"Reading register {register_number} on device {serial}")
-        serial_send = serial
+        typer.echo(f"Reading register {register_number} on device {SERIAL}")
     try:
-        result = trio.run(run_read, timeout, serial, serial_send, register_number)
+        result = trio.run(run_read, timeout, register_number)
         if result is None:
             typer.echo(
                 f"Error: read reply not received and timeout expired after {timeout} s",
@@ -208,13 +239,6 @@ def read(
 
 @app.command()
 def write(
-    serial: Path = typer.Argument(
-        ...,
-        help="Filename of the serial device",
-        exists=True,
-        writable=True,
-        readable=True,
-    ),
     register_number: int = typer.Argument(..., help="Register number", min=0),
     register_value: int = typer.Argument(
         ..., help="Register value to write to device", min=0
@@ -222,26 +246,17 @@ def write(
     timeout: float = typer.Option(
         DEFAULT_TIMEOUT, help="Timeout for register read", min=0.0
     ),
-    serial_send: Optional[Path] = typer.Option(
-        None,
-        help="Filename of the serial device to write to. If present, SERIAL is only read from",
-        exists=True,
-        writable=True,
-    ),
 ) -> None:
-    if serial_send:
+    if SERIAL_SEND:
         typer.echo(
-            f"Writing {register_value} (0x{register_value:02x}) to register {register_number} on send device {serial_send} and read device {serial}"
+            f"Writing {register_value} (0x{register_value:02x}) to register {register_number} on send device {SERIAL_SEND} and read device {SERIAL}"
         )
     else:
         typer.echo(
-            f"Writing {register_value} (0x{register_value:02x}) to register {register_number} on device {serial}"
+            f"Writing {register_value} (0x{register_value:02x}) to register {register_number} on device {SERIAL}"
         )
-        serial_send = serial
     try:
-        result = trio.run(
-            run_write, timeout, serial, serial_send, register_number, register_value
-        )
+        result = trio.run(run_write, timeout, register_number, register_value)
         if result:
             typer.echo(f"Success")
         else:
@@ -255,13 +270,6 @@ def write(
 
 @app.command()
 def stream(
-    serial: Path = typer.Argument(
-        ...,
-        help="Filename of the serial device",
-        exists=True,
-        writable=True,
-        readable=True,
-    ),
     outfile: Optional[Path] = typer.Option(
         None,
         help="Filename to write received data to instead of printing to stdout",
@@ -280,15 +288,6 @@ def stream(
         None,
         help="Stop after this many data-seperater characters have been received (spaces in the data field)",
     ),
-    # filename: Optional[Path] = typer.Option(
-    #    None, help="Write received data to a file instead of STDOUT"
-    # ),
-    serial_send: Optional[Path] = typer.Option(
-        None,
-        help="Filename of the serial device to write to. If present, SERIAL is only read from",
-        exists=True,
-        writable=True,
-    ),
     split_seperators_newlines: Optional[bool] = typer.Option(
         False,
         help="In addition to a newline for every message, there is a newline for every seperator",
@@ -303,13 +302,12 @@ def stream(
 
     With all the stop arguments and hitting Ctrl-C: whichever happens first will stop streaming.
     """
-    if serial_send:
+    if SERIAL_SEND:
         typer.echo(
-            f"Receive streaming data with send device {serial_send} and read device {serial}"
+            f"Receive streaming data with send device {SERIAL_SEND} and read device {SERIAL}"
         )
     else:
-        typer.echo(f"Receive streaming data with device {serial}")
-        serial_send = serial
+        typer.echo(f"Receive streaming data with device {SERIAL}")
     try:
         trio.run(
             run_stream,
@@ -320,8 +318,6 @@ def stream(
             stop_datasep,
             split_seperators_newlines,
             decode_hex_to_dec,
-            serial,
-            serial_send,
         )  # ,instruments=[Tracer()])
     except Exception as e:
         typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
