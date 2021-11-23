@@ -312,8 +312,9 @@ def read(
 @app.command()
 def write(
     register_number: int = typer.Argument(..., help="Register number", min=0),
-    register_value: int = typer.Argument(
-        ..., help="Register value to write to device", min=0
+    register_value: str = typer.Argument(
+        ...,
+        help="Register value to write to device in decimal, hex, octal, or binary with prefix (15,0xF,0o17,0b1111)",
     ),
     timeout: float = typer.Option(
         DEFAULT_TIMEOUT, "--timeout", "-t", help="Timeout in seconds", min=0.0
@@ -329,17 +330,26 @@ def write(
     """
     Write to a register
     """
+    register_value_int = None
+    try:
+        register_value_int = int(register_value, 0)
+    except ValueError:
+        typer.echo(
+            f'Error: couldn\'t convert REGISTER_VALUE "{register_value}" to int',
+            err=True,
+        )
+        raise typer.Exit(code=1)
     if SERIAL_SEND:
         typer.echo(
-            f"Writing {register_value} (0x{register_value:02x}) to register {register_number} on send device {SERIAL_SEND} and read device {SERIAL}"
+            f"Writing {register_value_int} (0x{register_value_int:02x}) to register {register_number} on send device {SERIAL_SEND} and read device {SERIAL}"
         )
     else:
         typer.echo(
-            f"Writing {register_value} (0x{register_value:02x}) to register {register_number} on device {SERIAL}"
+            f"Writing {register_value_int} (0x{register_value_int:02x}) to register {register_number} on device {SERIAL}"
         )
     try:
         result = trio.run(
-            run_write, timeout, register_number, register_value, register_bits
+            run_write, timeout, register_number, register_value_int, register_bits
         )
         if result:
             typer.echo(f"Success")
