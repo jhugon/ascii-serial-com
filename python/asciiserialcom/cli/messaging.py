@@ -21,6 +21,28 @@ VERBOSE = False
 BAUD = None
 
 
+async def run_send_message(timeout, command, data):
+    fin_name = SERIAL
+    fout_name = SERIAL
+    if SERIAL_SEND:
+        fout_name = SERIAL_SEND
+    logging.debug(f"fin_name: {fin_name}")
+    logging.debug(f"fout_name: {fout_name}")
+    result = None
+    with trio.move_on_after(timeout) as cancel_scope:
+        async with trio.open_nursery() as nursery:
+            async with await trio.open_file(fin_name, "br") as fin:
+                if fin_name.is_char_device():
+                    setup_tty(fin.wrapped, BAUD)
+                async with await trio.open_file(fout_name, "bw") as fout:
+                    logging.debug("Opened files and nursery")
+                    host = Host(
+                        nursery, fin, fout, DEFAULT_REGISTER_BITS, ignoreErrors=True
+                    )
+                    await host.send_message(command, data)
+    return result
+
+
 async def run_read(timeout, reg_num, reg_bits):
     fin_name = SERIAL
     fout_name = SERIAL
@@ -220,6 +242,31 @@ def callback(
 
 
 @app.command()
+def send_message(
+    command: str = typer.Argument(..., help="command, should be a lowercase letter"),
+    data: str = typer.Argument(..., help="data string"),
+    timeout: float = typer.Option(
+        DEFAULT_TIMEOUT, "--timeout", "-t", help="Timeout in seconds", min=0.0
+    ),
+) -> None:
+    """
+    Low-level message send command
+    """
+    if SERIAL_SEND:
+        typer.echo(
+            f"Sending command '{command}' data '{data}' on send device {SERIAL_SEND} and read device {SERIAL}"
+        )
+    else:
+        typer.echo(f"Sending command '{command}' data '{data}' on device {SERIAL}")
+    try:
+        trio.run(
+            run_send_message, timeout, command.encode("ASCII"), data.encode("ASCII")
+        )
+    except Exception as e:
+        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+
+
+@app.command()
 def read(
     register_number: int = typer.Argument(..., help="Register number", min=0),
     timeout: float = typer.Option(
@@ -233,6 +280,9 @@ def read(
         min=1,
     ),
 ) -> None:
+    """
+    Read a register
+    """
     if SERIAL_SEND:
         typer.echo(
             f"Reading register {register_number} on send device {SERIAL_SEND} and read device {SERIAL}"
@@ -257,7 +307,6 @@ def read(
                 )
     except Exception as e:
         typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
-        raise e
 
 
 @app.command()
@@ -277,6 +326,9 @@ def write(
         min=1,
     ),
 ) -> None:
+    """
+    Write to a register
+    """
     if SERIAL_SEND:
         typer.echo(
             f"Writing {register_value} (0x{register_value:02x}) to register {register_number} on send device {SERIAL_SEND} and read device {SERIAL}"
