@@ -17,6 +17,7 @@ DEFAULT_TIMEOUT = 5
 SERIAL = None
 SERIAL_SEND = None
 VERBOSE = False
+BAUD = None
 
 
 async def run_read(timeout, reg_num):
@@ -31,7 +32,7 @@ async def run_read(timeout, reg_num):
         async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
                 if fin_name.is_char_device():
-                    setup_tty(fin.wrapped, 9600)
+                    setup_tty(fin.wrapped, BAUD)
                 async with await trio.open_file(fout_name, "bw") as fout:
                     logging.debug("Opened files and nursery")
                     host = Host(nursery, fin, fout, 8, ignoreErrors=True)
@@ -52,7 +53,7 @@ async def run_write(timeout, reg_num, reg_val):
         async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
                 if fin_name.is_char_device():
-                    setup_tty(fin.wrapped, 9600)
+                    setup_tty(fin.wrapped, BAUD)
                 async with await trio.open_file(fout_name, "bw") as fout:
                     logging.debug("Opened files and nursery")
                     host = Host(nursery, fin, fout, 8, ignoreErrors=True)
@@ -151,7 +152,7 @@ async def run_stream(
             async with await trio.open_file(fin_name, "br") as fin:
                 async with await trio.open_file(fout_name, "bw") as fout:
                     if fin_name.is_char_device():
-                        setup_tty(fin.wrapped, 9600)
+                        setup_tty(fin.wrapped, BAUD)
                     logging.debug(f"Files open!")
                     host = Host(nursery, fin, fout, 8, ignoreErrors=True)
                     stop_event = trio.Event()
@@ -193,6 +194,7 @@ def callback(
         writable=True,
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
+    baud: int = typer.Option(9600, "--baud", "-b", help="Serial baud rate",),
 ) -> None:
     """
     Communicate with a device with ASCII-Serial-Com
@@ -202,9 +204,17 @@ def callback(
     global SERIAL
     global SERIAL_SEND
     global VERBOSE
+    global BAUD
     SERIAL = serial
     SERIAL_SEND = serial_send
     VERBOSE = verbose
+    BAUD = baud
+    level = logging.WARNING
+    if verbose:
+        level = logging.DEBUG
+    logging.basicConfig(
+        level=level, format="%(levelname)s L%(lineno)d %(funcName)s: %(message)s",
+    )
     logging.debug(f"SERIAL: {SERIAL}, SERIAL_SEND: {SERIAL_SEND}, VERBOSE: {VERBOSE}")
 
 
@@ -321,15 +331,7 @@ def stream(
         )  # ,instruments=[Tracer()])
     except Exception as e:
         typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
-        raise e
 
 
 def main():
-    logging.basicConfig(
-        # filename="test_hostiiSerialCom.log",
-        # level=logging.INFO,
-        # level=logging.DEBUG,
-        format="%(levelname)s L%(lineno)d %(funcName)s: %(message)s",
-    )
-
     app()

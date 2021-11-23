@@ -26,16 +26,15 @@ def setup_tty(f, speed, arduino_dont_hup=True):
         speedconstname = "B{:d}".format(speed)
         speedconst = getattr(termios, speedconstname)
     except AttributeError:
-        logging.error(
-            f"Error: setup_tty: speed not supported: {speed}", file=sys.stderr
-        )
+        errorstr = f"baud not supported: {speed}"
+        logging.error(errorstr)
         members = [x[0] for x in inspect.getmembers(termios)]
         avail_speeds = [
             x[1:] for x in members if len(x) > 2 and x[0] == "B" and x[1].isdecimal()
         ]
         avail_speeds.sort(key=int)
-        logging.info("Available options:", ", ".join(avail_speeds))
-        raise Exception
+        logging.info(f"Available options: {', '.join(avail_speeds)}")
+        raise Exception(errorstr)
     else:
         tty.setraw(f)
         tty_attrs = termios.tcgetattr(f)
