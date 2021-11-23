@@ -13,6 +13,7 @@ from ..tty_utils import setup_tty
 from ..errors import *
 
 DEFAULT_TIMEOUT = 5
+DEFAULT_REGISTER_BITS = 8
 
 SERIAL = None
 SERIAL_SEND = None
@@ -20,7 +21,7 @@ VERBOSE = False
 BAUD = None
 
 
-async def run_read(timeout, reg_num):
+async def run_read(timeout, reg_num, reg_bits):
     fin_name = SERIAL
     fout_name = SERIAL
     if SERIAL_SEND:
@@ -35,13 +36,13 @@ async def run_read(timeout, reg_num):
                     setup_tty(fin.wrapped, BAUD)
                 async with await trio.open_file(fout_name, "bw") as fout:
                     logging.debug("Opened files and nursery")
-                    host = Host(nursery, fin, fout, 8, ignoreErrors=True)
+                    host = Host(nursery, fin, fout, reg_bits, ignoreErrors=True)
                     # await host.stop_streaming()
                     result = await host.read_register(reg_num)
     return result
 
 
-async def run_write(timeout, reg_num, reg_val):
+async def run_write(timeout, reg_num, reg_val, reg_bits):
     fin_name = SERIAL
     fout_name = SERIAL
     if SERIAL_SEND:
@@ -56,7 +57,7 @@ async def run_write(timeout, reg_num, reg_val):
                     setup_tty(fin.wrapped, BAUD)
                 async with await trio.open_file(fout_name, "bw") as fout:
                     logging.debug("Opened files and nursery")
-                    host = Host(nursery, fin, fout, 8, ignoreErrors=True)
+                    host = Host(nursery, fin, fout, reg_bits, ignoreErrors=True)
                     # await host.stop_streaming()
                     await host.write_register(reg_num, reg_val)
                 result = True
@@ -222,7 +223,14 @@ def callback(
 def read(
     register_number: int = typer.Argument(..., help="Register number", min=0),
     timeout: float = typer.Option(
-        DEFAULT_TIMEOUT, help="Timeout for register read", min=0.0
+        DEFAULT_TIMEOUT, "--timeout", "-t", help="Timeout in seconds", min=0.0
+    ),
+    register_bits: int = typer.Option(
+        DEFAULT_REGISTER_BITS,
+        "--register-bits",
+        "-b",
+        help="Register bit width (typically 8,16,32)",
+        min=1,
     ),
 ) -> None:
     if SERIAL_SEND:
@@ -232,16 +240,21 @@ def read(
     else:
         typer.echo(f"Reading register {register_number} on device {SERIAL}")
     try:
-        result = trio.run(run_read, timeout, register_number)
+        result = trio.run(run_read, timeout, register_number, register_bits)
         if result is None:
             typer.echo(
                 f"Error: read reply not received and timeout expired after {timeout} s",
                 err=True,
             )
         else:
-            typer.echo(
-                f'Register {register_number} value is {result:5} = 0x{result:02x} = UTF-8: "{chr(result)}"'
-            )
+            if register_bits == 8:
+                typer.echo(
+                    f'Register {register_number} value is {result:3} = 0x{result:02x} = 0b{result:08b} = UTF-8: "{chr(result)}"'
+                )
+            else:
+                typer.echo(
+                    f"Register {register_number} value is {result:10} = 0x{result:08x}"
+                )
     except Exception as e:
         typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
         raise e
@@ -254,7 +267,14 @@ def write(
         ..., help="Register value to write to device", min=0
     ),
     timeout: float = typer.Option(
-        DEFAULT_TIMEOUT, help="Timeout for register read", min=0.0
+        DEFAULT_TIMEOUT, "--timeout", "-t", help="Timeout in seconds", min=0.0
+    ),
+    register_bits: int = typer.Option(
+        DEFAULT_REGISTER_BITS,
+        "--register-bits",
+        "-b",
+        help="Register bit width (typically 8,16,32)",
+        min=1,
     ),
 ) -> None:
     if SERIAL_SEND:
@@ -266,7 +286,9 @@ def write(
             f"Writing {register_value} (0x{register_value:02x}) to register {register_number} on device {SERIAL}"
         )
     try:
-        result = trio.run(run_write, timeout, register_number, register_value)
+        result = trio.run(
+            run_write, timeout, register_number, register_value, register_bits
+        )
         if result:
             typer.echo(f"Success")
         else:
