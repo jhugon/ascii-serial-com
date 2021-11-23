@@ -370,24 +370,33 @@ def stream(
         writable=True,
     ),
     stop_seconds: Optional[float] = typer.Option(
-        None, help="Stop after this many seconds"
+        None, "--stop-seconds", "-t", help="Stop after this many seconds"
     ),
     stop_messages: Optional[int] = typer.Option(
-        None, help="Stop after this many messages have been received"
+        None,
+        "--stop-messages",
+        "-m",
+        help="Stop after this many messages have been received",
     ),
     stop_bytes: Optional[int] = typer.Option(
-        None, help="Stop after this many bytes have been received"
+        None, "--stop-bytes", "-b", help="Stop after this many bytes have been received"
     ),
     stop_datasep: Optional[int] = typer.Option(
         None,
+        "--stop-datasep",
+        "-d",
         help="Stop after this many data-seperater characters have been received (spaces in the data field)",
     ),
     split_seperators_newlines: Optional[bool] = typer.Option(
         False,
+        "--split_seperators_newlines",
+        "-n",
         help="In addition to a newline for every message, there is a newline for every seperator",
     ),
     decode_hex_to_dec: Optional[bool] = typer.Option(
         False,
+        "--decode-hex-to-dec",
+        "-x",
         help="Convert each message (or seperated chunk of data) from hexadecimal to decimal integer. Implies --split-seperators-newlines",
     ),
 ) -> None:
