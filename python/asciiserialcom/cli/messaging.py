@@ -417,5 +417,55 @@ def stream(
         typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
 
 
+@app.command()
+def start_streaming(
+    timeout: float = typer.Option(
+        DEFAULT_TIMEOUT, "--timeout", "-t", help="Timeout in seconds", min=0.0
+    ),
+) -> None:
+    """
+    Low-level send device start streaming command
+    """
+    command = "n"
+    data = ""
+    if SERIAL_SEND:
+        typer.echo(
+            f"Sending command '{command}' data '{data}' on send device {SERIAL_SEND} and read device {SERIAL}"
+        )
+    else:
+        typer.echo(f"Sending command '{command}' data '{data}' on device {SERIAL}")
+    try:
+        trio.run(
+            run_send_message, timeout, command.encode("ASCII"), data.encode("ASCII")
+        )
+    except Exception as e:
+        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+
+
+@app.command()
+def stop_streaming(
+    timeout: float = typer.Option(
+        DEFAULT_TIMEOUT, "--timeout", "-t", help="Timeout in seconds", min=0.0
+    ),
+) -> None:
+    """
+    Low-level send device stop streaming command
+    """
+    command = "f"
+    data = ""
+    if SERIAL_SEND:
+        typer.echo(
+            f"Sending command '{command}' data '{data}' on send device {SERIAL_SEND} and read device {SERIAL}"
+        )
+    else:
+        typer.echo(f"Sending command '{command}' data '{data}' on device {SERIAL}")
+    try:
+        trio.run(
+            run_send_message, timeout, command.encode("ASCII"), data.encode("ASCII")
+        )
+    except Exception as e:
+        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+
+
 def main():
     app()
