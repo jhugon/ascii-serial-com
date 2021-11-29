@@ -9,6 +9,8 @@ from pathlib import Path
 
 STDOUT = subprocess.DEVNULL
 STDERR = subprocess.DEVNULL
+# STDOUT = None
+# STDERR = None
 
 
 class TestCLI(unittest.TestCase):
@@ -84,14 +86,14 @@ class TestCLI(unittest.TestCase):
                         partial(
                             trio.run_process,
                             [
-                                "asciiSerialComCli",
-                                "read",
+                                "asciiserialcom",
+                                "--serial-send",
+                                str(self.host_to_device_fifo),
                                 str(self.device_to_host_fifo),
+                                "read",
                                 "0",
                                 "--timeout",
                                 str(host_timeout),
-                                "--serial-send",
-                                str(self.host_to_device_fifo),
                             ],
                             stdout=STDOUT,
                             stderr=STDOUT,
@@ -139,15 +141,15 @@ class TestCLI(unittest.TestCase):
                         partial(
                             trio.run_process,
                             [
-                                "asciiSerialComCli",
-                                "write",
+                                "asciiserialcom",
+                                "--serial-send",
+                                str(self.host_to_device_fifo),
                                 str(self.device_to_host_fifo),
+                                "write",
                                 "0",
                                 "255",
                                 "--timeout",
                                 str(host_timeout),
-                                "--serial-send",
-                                str(self.host_to_device_fifo),
                             ],
                             stdout=STDOUT,
                             stderr=STDOUT,
@@ -219,13 +221,13 @@ class TestCLI(unittest.TestCase):
                         partial(
                             trio.run_process,
                             [
-                                "asciiSerialComCli",
-                                "stream",
-                                str(self.device_to_host_fifo),
-                                "--stop-seconds",
-                                str(host_timeout),
+                                "asciiserialcom",
                                 "--serial-send",
                                 str(self.host_to_device_fifo),
+                                str(self.device_to_host_fifo),
+                                "stream",
+                                "--stop-seconds",
+                                str(host_timeout),
                             ],
                             stdout=STDOUT,
                             stderr=STDOUT,
