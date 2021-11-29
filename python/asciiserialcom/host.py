@@ -153,3 +153,10 @@ class Host(Base):
         """
 
         await self.send_message(b"f", b"")
+
+    async def send_noop(self) -> None:
+        """
+        Send noop command
+        """
+
+        await self.send_message(b"z", b"")

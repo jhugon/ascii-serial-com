@@ -31,11 +31,11 @@ async def run_send_message(timeout, command, data):
     logging.debug(f"fin_name: {fin_name}")
     logging.debug(f"fout_name: {fout_name}")
     result = None
+    if fin_name.is_char_device():
+        setup_tty(fin_name, BAUD)
     with trio.move_on_after(timeout) as cancel_scope:
         async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
-                if fin_name.is_char_device():
-                    setup_tty(fin.wrapped, BAUD)
                 async with await trio.open_file(fout_name, "bw") as fout:
                     logging.debug("Opened files and nursery")
                     host = Host(
@@ -53,15 +53,14 @@ async def run_read(timeout, reg_num, reg_bits):
     logging.debug(f"fin_name: {fin_name}")
     logging.debug(f"fout_name: {fout_name}")
     result = None
+    if fin_name.is_char_device():
+        setup_tty(fin_name, BAUD)
     with trio.move_on_after(timeout) as cancel_scope:
         async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
-                if fin_name.is_char_device():
-                    setup_tty(fin.wrapped, BAUD)
                 async with await trio.open_file(fout_name, "bw") as fout:
                     logging.debug("Opened files and nursery")
                     host = Host(nursery, fin, fout, reg_bits, ignoreErrors=True)
-                    # await host.stop_streaming()
                     result = await host.read_register(reg_num)
     return result
 
@@ -74,15 +73,14 @@ async def run_write(timeout, reg_num, reg_val, reg_bits):
     logging.debug(f"fin_name: {fin_name}")
     logging.debug(f"fout_name: {fout_name}")
     result = False
+    if fin_name.is_char_device():
+        setup_tty(fin_name, BAUD)
     with trio.move_on_after(timeout) as cancel_scope:
         async with trio.open_nursery() as nursery:
             async with await trio.open_file(fin_name, "br") as fin:
-                if fin_name.is_char_device():
-                    setup_tty(fin.wrapped, BAUD)
                 async with await trio.open_file(fout_name, "bw") as fout:
                     logging.debug("Opened files and nursery")
                     host = Host(nursery, fin, fout, reg_bits, ignoreErrors=True)
-                    # await host.stop_streaming()
                     await host.write_register(reg_num, reg_val)
                 result = True
     return result
@@ -171,13 +169,13 @@ async def run_stream(
     if timeout is None:
         timeout = float("inf")
     timeout_cancel = timeout + 0.5
+    if fin_name.is_char_device():
+        setup_tty(fin_name, BAUD)
     with trio.move_on_after(timeout_cancel) as cancel_scope:
         async with trio.open_nursery() as nursery:
             logging.debug(f"About to open files")
             async with await trio.open_file(fin_name, "br") as fin:
                 async with await trio.open_file(fout_name, "bw") as fout:
-                    if fin_name.is_char_device():
-                        setup_tty(fin.wrapped, BAUD)
                     logging.debug(f"Files open!")
                     host = Host(nursery, fin, fout, 8, ignoreErrors=True)
                     stop_event = trio.Event()
@@ -214,13 +212,13 @@ async def run_stream_text_graph(
     if timeout is None:
         timeout = float("inf")
     timeout_cancel = timeout + 0.5
+    if fin_name.is_char_device():
+        setup_tty(fin_name, BAUD)
     with trio.move_on_after(timeout_cancel) as cancel_scope:
         async with trio.open_nursery() as nursery:
             logging.debug(f"About to open files")
             async with await trio.open_file(fin_name, "br") as fin:
                 async with await trio.open_file(fout_name, "bw") as fout:
-                    if fin_name.is_char_device():
-                        setup_tty(fin.wrapped, BAUD)
                     logging.debug(f"Files open!")
                     host = Host(nursery, fin, fout, 8, ignoreErrors=True)
                     stop_event = trio.Event()
@@ -619,6 +617,31 @@ def stop_streaming(
     Low-level send device stop streaming command
     """
     command = "f"
+    data = ""
+    if SERIAL_SEND:
+        typer.echo(
+            f"Sending command '{command}' data '{data}' on send device {SERIAL_SEND} and read device {SERIAL}"
+        )
+    else:
+        typer.echo(f"Sending command '{command}' data '{data}' on device {SERIAL}")
+    try:
+        trio.run(
+            run_send_message, timeout, command.encode("ASCII"), data.encode("ASCII")
+        )
+    except Exception as e:
+        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+
+
+@app.command()
+def noop(
+    timeout: float = typer.Option(
+        DEFAULT_TIMEOUT, "--timeout", "-t", help="Timeout in seconds", min=0.0
+    ),
+) -> None:
+    """
+    Low-level send no-op command
+    """
+    command = "z"
     data = ""
     if SERIAL_SEND:
         typer.echo(

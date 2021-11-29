@@ -45,6 +45,8 @@ void ascii_serial_com_device_receive(ascii_serial_com_device *ascd) {
           &ascd->asc, ascd->ascVersion, ascd->appVersion, ascd->command,
           ascd->dataBuffer, ascd->dataLen, ASC_ERROR_COMMAND_NOT_IMPLEMENTED);
     }
+  } else if (ascd->command == 'z') {
+    // pass this is noop
   } else {
     ascii_serial_com_put_error_in_output_buffer(
         &ascd->asc, ascd->ascVersion, ascd->appVersion, ascd->command,

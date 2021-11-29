@@ -2,7 +2,7 @@
 
 \title{ASCII-Serial-Com Data Format}
 \author{Justin Hugon}
-\date{2021-11-19}
+\date{2021-11-29}
 
 \begin{document}
 
@@ -73,6 +73,7 @@ Data stream frame & s & frame number (2-byte) comma (`,') data &  frame number (
 Device stream on & n & & \\ \hline
 Device stream off & f & & \\ \hline
 Error message & e & 2 hex digits of error code, comma (`,'), command code, comma (`,'), first 9 bytes of data of message that caused error & 2 hex digits of error code, comma (`,'), command code, comma (`,'), first 9 bytes of data of message that caused error \\ \hline
+No-op & z & Optional: any data & Optional: any data \\ \hline
 \end{tabularx}
 \end{center}
 
@@ -83,6 +84,7 @@ Error message & e & 2 hex digits of error code, comma (`,'), command code, comma
   \item n: Device stream on: The host sends this with no data to tell the device to start streaming data.
   \item f: Device stream off: The host sends this with no data to tell the device to stop streaming data.
   \item e: Usually device to host, replying with error and beginning of message that caused error.
+  \item z: No-op: used for testing and similar. No meaning. May contain any data.
 \end{itemize}
 
 \begin{center}
