@@ -17,3 +17,4 @@ ifeq ($(platform),native)
   include src/unit_test/Makefile
 endif
 include src/avr/Makefile
+include src/arm/Makefile
