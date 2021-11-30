@@ -176,26 +176,34 @@ async def run_stream(
             logging.debug(f"About to open files")
             async with await trio.open_file(fin_name, "br") as fin:
                 async with await trio.open_file(fout_name, "bw") as fout:
-                    logging.debug(f"Files open!")
-                    host = Host(nursery, fin, fout, 8, ignoreErrors=True)
-                    stop_event = trio.Event()
-                    nursery.start_soon(
-                        forward_received_messages_to_print,
-                        recv_ch,
-                        outfile,
-                        stop_messages,
-                        stop_bytes,
-                        stop_seperators,
-                        stop_event,
-                        split_seperators_newlines,
-                        decode_hex_to_dec,
-                    )
-                    host.forward_received_s_messages_to(send_ch)
-                    await host.start_streaming()
-                    await trio_util.wait_any(
-                        partial(trio.sleep, timeout), stop_event.wait
-                    )
-                    await host.stop_streaming()
+                    try:
+                        logging.debug(f"Files open!")
+                        host = Host(nursery, fin, fout, 8, ignoreErrors=True)
+                        stop_event = trio.Event()
+                        nursery.start_soon(
+                            forward_received_messages_to_print,
+                            recv_ch,
+                            outfile,
+                            stop_messages,
+                            stop_bytes,
+                            stop_seperators,
+                            stop_event,
+                            split_seperators_newlines,
+                            decode_hex_to_dec,
+                        )
+                        host.forward_received_s_messages_to(send_ch)
+                        await host.start_streaming()
+                        await trio_util.wait_any(
+                            partial(trio.sleep, timeout), stop_event.wait
+                        )
+                    except BaseException as e:
+                        logging.debug(
+                            f"Caught exception while receiving stream: {type(e)} {e}"
+                        )
+                        if not isinstance(e, KeyboardInterrupt):
+                            raise e
+                    finally:
+                        await host.stop_streaming()
 
 
 async def run_stream_text_graph(
