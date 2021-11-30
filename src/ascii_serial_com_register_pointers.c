@@ -27,19 +27,31 @@ void ascii_serial_com_register_pointers_handle_message(
     ascii_serial_com *asc, char ascVersion, char appVersion, char command,
     char *data, size_t dataLen, void *register_pointers_state_vp) {
   if (!register_pointers_state_vp) {
-    Throw(ASC_ERROR_REG_BLOCK_NULL);
+    ascii_serial_com_put_error_in_output_buffer(asc, ascVersion, appVersion,
+                                                command, data, dataLen,
+                                                ASC_ERROR_REG_BLOCK_NULL);
+    return;
   }
   const ascii_serial_com_register_pointers *register_pointers_state =
       (ascii_serial_com_register_pointers *)register_pointers_state_vp;
   if (command != 'r' && command != 'w') {
-    Throw(ASC_ERROR_UNEXPECTED_COMMAND);
+    ascii_serial_com_put_error_in_output_buffer(asc, ascVersion, appVersion,
+                                                command, data, dataLen,
+                                                ASC_ERROR_UNEXPECTED_COMMAND);
+    return;
   }
   if (dataLen < 4) { // need room for reg num
-    Throw(ASC_ERROR_DATA_TOO_SHORT);
+    ascii_serial_com_put_error_in_output_buffer(asc, ascVersion, appVersion,
+                                                command, data, dataLen,
+                                                ASC_ERROR_DATA_TOO_SHORT);
+    return;
   }
   uint16_t reg_num = convert_hex_to_uint16(data);
   if (reg_num >= register_pointers_state->n_regs) {
-    Throw(ASC_ERROR_REGNUM_OOB);
+    ascii_serial_com_put_error_in_output_buffer(asc, ascVersion, appVersion,
+                                                command, data, dataLen,
+                                                ASC_ERROR_REGNUM_OOB);
+    return;
   }
   volatile REGTYPE *pointer = register_pointers_state->pointers[reg_num];
   if (command == 'r') {
@@ -52,7 +64,10 @@ void ascii_serial_com_register_pointers_handle_message(
     dataLen = 5 + REGWIDTHBYTES * 2;
   } else {
     if (dataLen < 5 + REGWIDTHBYTES) {
-      Throw(ASC_ERROR_REGVAL_LEN);
+      ascii_serial_com_put_error_in_output_buffer(asc, ascVersion, appVersion,
+                                                  command, data, dataLen,
+                                                  ASC_ERROR_REGVAL_LEN);
+      return;
     }
     if (pointer) {
       REGTYPE new_reg_val = get_val_from_bytes(data + 5);

@@ -198,7 +198,7 @@ async def run_stream(
                         )
                     except BaseException as e:
                         logging.debug(
-                            f"Caught exception while receiving stream: {type(e)} {e}"
+                            f"Caught exception while receiving stream: {e.__class__.__name__} {e}"
                         )
                         if not isinstance(e, KeyboardInterrupt):
                             raise e
@@ -374,7 +374,7 @@ def send_message(
             run_send_message, timeout, command.encode("ASCII"), data.encode("ASCII")
         )
     except Exception as e:
-        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+        typer.echo(f"Error: unhandled exception: {e.__class__.__name__}: {e}", err=True)
 
 
 @app.command()
@@ -417,7 +417,7 @@ def read(
                     f"Register {register_number} value is {result:10} = 0x{result:08x}"
                 )
     except Exception as e:
-        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+        typer.echo(f"Error: unhandled exception: {e.__class__.__name__}: {e}", err=True)
 
 
 @app.command()
@@ -470,7 +470,7 @@ def write(
                 err=True,
             )
     except Exception as e:
-        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+        typer.echo(f"Error: unhandled exception: {e.__class__.__name__}: {e}", err=True)
 
 
 @app.command()
@@ -534,7 +534,7 @@ def stream(
             decode_hex_to_dec,
         )  # ,instruments=[Tracer()])
     except Exception as e:
-        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+        typer.echo(f"Error: unhandled exception: {e.__class__.__name__}: {e}", err=True)
 
 
 @app.command()
@@ -587,7 +587,7 @@ def stream_text_graph(
             stop_lines,
         )  # ,instruments=[Tracer()])
     except Exception as e:
-        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+        typer.echo(f"Error: unhandled exception: {e.__class__.__name__}: {e}", err=True)
 
 
 @app.command()
@@ -612,7 +612,7 @@ def start_streaming(
             run_send_message, timeout, command.encode("ASCII"), data.encode("ASCII")
         )
     except Exception as e:
-        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+        typer.echo(f"Error: unhandled exception: {e.__class__.__name__}: {e}", err=True)
 
 
 @app.command()
@@ -637,7 +637,7 @@ def stop_streaming(
             run_send_message, timeout, command.encode("ASCII"), data.encode("ASCII")
         )
     except Exception as e:
-        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+        typer.echo(f"Error: unhandled exception: {e.__class__.__name__}: {e}", err=True)
 
 
 @app.command()
@@ -662,7 +662,7 @@ def noop(
             run_send_message, timeout, command.encode("ASCII"), data.encode("ASCII")
         )
     except Exception as e:
-        typer.echo(f"Error: unhandled exception: {type(e)}: {e}", err=True)
+        typer.echo(f"Error: unhandled exception: {e.__class__.__name__}: {e}", err=True)
 
 
 def main():

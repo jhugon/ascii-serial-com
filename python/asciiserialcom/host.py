@@ -76,10 +76,10 @@ class Host(Base):
                             break
                 elif msg.command == b"e":
                     error_str, error_cause_msg = self._unpack_received_e_message(msg)
-                    if error_cause_msg.command == "r":
+                    if error_cause_msg.command == b"r":
                         if error_cause_msg.data == regnum_hex:
                             raise DeviceError(
-                                f"Device returned error while trying to read register: {error_str}"
+                                f'Device returned error while trying to read register: "{error_str}"'
                             )
                     else:
                         raise Exception(
@@ -126,10 +126,10 @@ class Host(Base):
                             break
                 elif msg.command == b"e":
                     error_str, error_cause_msg = self._unpack_received_e_message(msg)
-                    if error_cause_msg.command == "w":
+                    if error_cause_msg.command == b"w":
                         if error_cause_msg.data == data:
                             raise DeviceError(
-                                f"Device returned error while trying to write register: {error_str}"
+                                f'Device returned error while trying to write register: "{error_str}"'
                             )
                     else:
                         raise Exception(

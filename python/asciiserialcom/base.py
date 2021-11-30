@@ -250,7 +250,7 @@ class Base:
                                 error_cause_msg,
                             ) = self._unpack_received_e_message(msg)
                             logging.warning(
-                                f"Device sent error message: {error_str} about message: {error_cause_msg}"
+                                f'Device sent error message: "{error_str}" about message: {error_cause_msg}'
                             )
                             if error_cause_msg.command == b"w" and self.send_w:
                                 await self.send_w.send(msg)
