@@ -17,6 +17,9 @@ REGTYPE regs[nRegs];
 circular_buffer_io_fd_poll cb_io;
 ascii_serial_com_device ascd;
 ascii_serial_com_register_block reg_block;
+ascii_serial_com_device_config ascd_config = {
+    .func_rw = ascii_serial_com_register_block_handle_message,
+    .state_rw = &reg_block};
 
 CEXCEPTION_T e;
 
@@ -88,9 +91,7 @@ int main(int argc, char *argv[]) {
   }
 
   ascii_serial_com_register_block_init(&reg_block, regs, nRegs);
-  ascii_serial_com_device_init(&ascd,
-                               ascii_serial_com_register_block_handle_message,
-                               NULL, NULL, NULL, &reg_block, NULL, NULL, NULL);
+  ascii_serial_com_device_init(&ascd, &ascd_config);
   circular_buffer_uint8 *asc_in_buf =
       ascii_serial_com_device_get_input_buffer(&ascd);
   circular_buffer_uint8 *asc_out_buf =

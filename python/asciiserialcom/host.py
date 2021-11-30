@@ -24,9 +24,16 @@ class Host(Base):
         registerBitWidth: int,
         asciiSerialComVersion: bytes = b"0",
         appVersion: bytes = b"0",
+        ignoreErrors: bool = False,
     ) -> None:
         super().__init__(
-            nursery, fin, fout, registerBitWidth, asciiSerialComVersion, appVersion
+            nursery,
+            fin,
+            fout,
+            registerBitWidth,
+            asciiSerialComVersion,
+            appVersion,
+            ignoreErrors,
         )
 
     async def read_register(self, regnum: int) -> int:
@@ -54,18 +61,32 @@ class Host(Base):
                 msg = cast(ASC_Message, msg_raw)
                 if msg is None:
                     continue
-                logging.debug(f"Received message: {msg}")
-                splitdata = msg.data.split(b",")
-                try:
-                    rec_regnum, rec_value = splitdata
-                except ValueError:
-                    logging.warning(
-                        f"Read response data, {msg.data.decode('ascii','replace')}, can't be split into a reg num and reg val (no comma!)"
-                    )
+                if msg.command == b"r":
+                    logging.debug(f"Received message: {msg}")
+                    splitdata = msg.data.split(b",")
+                    try:
+                        rec_regnum, rec_value = splitdata
+                    except ValueError:
+                        logging.warning(
+                            f"Read response data, {msg.data.decode('ascii','replace')}, can't be split into a reg num and reg val (no comma!)"
+                        )
+                    else:
+                        if int(rec_regnum, 16) == int(regnum_hex, 16):
+                            result = convert_from_hex(rec_value)
+                            break
+                elif msg.command == b"e":
+                    error_str, error_cause_msg = self._unpack_received_e_message(msg)
+                    if error_cause_msg.command == b"r":
+                        if error_cause_msg.data == regnum_hex:
+                            raise DeviceError(
+                                f'Device returned error while trying to read register: "{error_str}"'
+                            )
+                    else:
+                        raise Exception(
+                            f"read_register function somehow received: {msg}"
+                        )
                 else:
-                    if int(rec_regnum, 16) == int(regnum_hex, 16):
-                        result = convert_from_hex(rec_value)
-                        break
+                    raise Exception(f"read_register function somehow received: {msg}")
         self.forward_received_r_messages_to(None)
         return result
 
@@ -103,5 +124,39 @@ class Host(Base):
                     else:
                         if msg_regnum == int(regnum_hex, 16):
                             break
+                elif msg.command == b"e":
+                    error_str, error_cause_msg = self._unpack_received_e_message(msg)
+                    if error_cause_msg.command == b"w":
+                        if error_cause_msg.data == data:
+                            raise DeviceError(
+                                f'Device returned error while trying to write register: "{error_str}"'
+                            )
+                    else:
+                        raise Exception(
+                            f"read_register function somehow received: {msg}"
+                        )
+                else:
+                    raise Exception(f"read_register function somehow received: {msg}")
         self.forward_received_w_messages_to(None)
         return
+
+    async def start_streaming(self) -> None:
+        """
+        Send command to start streaming from device to host (if supported on device)
+        """
+
+        await self.send_message(b"n", b"")
+
+    async def stop_streaming(self) -> None:
+        """
+        Send command to stop streaming from device to host (if supported on device)
+        """
+
+        await self.send_message(b"f", b"")
+
+    async def send_noop(self) -> None:
+        """
+        Send noop command
+        """
+
+        await self.send_message(b"z", b"")

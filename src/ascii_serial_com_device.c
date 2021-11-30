@@ -2,26 +2,10 @@
 
 /** \file */
 
-void ascii_serial_com_device_init(
-    ascii_serial_com_device *ascd,
-    void (*frw)(ascii_serial_com *, char, char, char, char *data, size_t,
-                void *), /**< called for r or w messages */
-    void (*fs)(ascii_serial_com *, char, char, char, char *data, size_t,
-               void *), /**< called for s messages */
-    void (*fnf)(ascii_serial_com *, char, char, char, char *data, size_t,
-                void *), /**< called for n and f messages */
-    void (*fother)(ascii_serial_com *, char, char, char, char *data, size_t,
-                   void *), /**< called for other messages */
-    void *state_frw, void *state_fs, void *state_fnf, void *state_fother) {
+void ascii_serial_com_device_init(ascii_serial_com_device *ascd,
+                                  ascii_serial_com_device_config *config) {
   ascii_serial_com_init(&ascd->asc);
-  ascd->frw = frw;
-  ascd->fs = fs;
-  ascd->fnf = fnf;
-  ascd->fother = fother;
-  ascd->state_frw = state_frw;
-  ascd->state_fs = state_fs;
-  ascd->state_fnf = state_fnf;
-  ascd->state_fother = state_fother;
+  ascd->config = config;
 }
 
 void ascii_serial_com_device_receive(ascii_serial_com_device *ascd) {
@@ -32,42 +16,41 @@ void ascii_serial_com_device_receive(ascii_serial_com_device *ascd) {
   if (ascd->command == '\0') { // no message in input buffer
     // pass
   } else if (ascd->command == 'r' || ascd->command == 'w') {
-    if (ascd->frw) {
-      ascd->frw(&ascd->asc, ascd->ascVersion, ascd->appVersion, ascd->command,
-                ascd->dataBuffer, ascd->dataLen, ascd->state_frw);
+    if (ascd->config->func_rw) {
+      ascd->config->func_rw(&ascd->asc, ascd->ascVersion, ascd->appVersion,
+                            ascd->command, ascd->dataBuffer, ascd->dataLen,
+                            ascd->config->state_rw);
     } else {
       ascii_serial_com_put_error_in_output_buffer(
           &ascd->asc, ascd->ascVersion, ascd->appVersion, ascd->command,
           ascd->dataBuffer, ascd->dataLen, ASC_ERROR_COMMAND_NOT_IMPLEMENTED);
     }
   } else if (ascd->command == 's') {
-    if (ascd->fs) {
-      ascd->fs(&ascd->asc, ascd->ascVersion, ascd->appVersion, ascd->command,
-               ascd->dataBuffer, ascd->dataLen, ascd->state_fs);
+    if (ascd->config->func_s) {
+      ascd->config->func_s(&ascd->asc, ascd->ascVersion, ascd->appVersion,
+                           ascd->command, ascd->dataBuffer, ascd->dataLen,
+                           ascd->config->state_s);
     } else {
       ascii_serial_com_put_error_in_output_buffer(
           &ascd->asc, ascd->ascVersion, ascd->appVersion, ascd->command,
           ascd->dataBuffer, ascd->dataLen, ASC_ERROR_COMMAND_NOT_IMPLEMENTED);
     }
   } else if (ascd->command == 'n' || ascd->command == 'f') {
-    if (ascd->fnf) {
-      ascd->fnf(&ascd->asc, ascd->ascVersion, ascd->appVersion, ascd->command,
-                ascd->dataBuffer, ascd->dataLen, ascd->state_fnf);
+    if (ascd->config->func_nf) {
+      ascd->config->func_nf(&ascd->asc, ascd->ascVersion, ascd->appVersion,
+                            ascd->command, ascd->dataBuffer, ascd->dataLen,
+                            ascd->config->state_nf);
     } else {
       ascii_serial_com_put_error_in_output_buffer(
           &ascd->asc, ascd->ascVersion, ascd->appVersion, ascd->command,
           ascd->dataBuffer, ascd->dataLen, ASC_ERROR_COMMAND_NOT_IMPLEMENTED);
     }
+  } else if (ascd->command == 'z') {
+    // pass this is noop
   } else {
-    if (ascd->fother) {
-      ascd->fother(&ascd->asc, ascd->ascVersion, ascd->appVersion,
-                   ascd->command, ascd->dataBuffer, ascd->dataLen,
-                   ascd->state_fother);
-    } else {
-      ascii_serial_com_put_error_in_output_buffer(
-          &ascd->asc, ascd->ascVersion, ascd->appVersion, ascd->command,
-          ascd->dataBuffer, ascd->dataLen, ASC_ERROR_COMMAND_NOT_IMPLEMENTED);
-    }
+    ascii_serial_com_put_error_in_output_buffer(
+        &ascd->asc, ascd->ascVersion, ascd->appVersion, ascd->command,
+        ascd->dataBuffer, ascd->dataLen, ASC_ERROR_COMMAND_NOT_IMPLEMENTED);
   }
 }
 
@@ -86,4 +69,11 @@ void ascii_serial_com_device_put_message_in_output_buffer(
     char command, char *data, size_t dataLen) {
   return ascii_serial_com_put_message_in_output_buffer(
       &ascd->asc, ascVersion, appVersion, command, data, dataLen);
+}
+
+void ascii_serial_com_device_put_s_message_in_output_buffer(
+    ascii_serial_com_device *ascd, char ascVersion, char appVersion, char *data,
+    size_t dataLen) {
+  return ascii_serial_com_put_s_message_in_output_buffer(
+      &ascd->asc, ascVersion, appVersion, data, dataLen);
 }

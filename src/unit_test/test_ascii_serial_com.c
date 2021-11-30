@@ -236,9 +236,6 @@ void test_ascii_serial_com_compute_checksum(void) {
 }
 
 void test_ascii_serial_com_put_message_in_output_buffer(void) {
-  fprintf(stderr,
-          "Startin test_ascii_serial_com_put_message_in_output_buffer\n");
-  fflush(stderr);
   Try {
     ascii_serial_com asc;
     ascii_serial_com_init(&asc);
@@ -351,17 +348,15 @@ void test_ascii_serial_com_get_message_from_input_buffer(void) {
   }
 }
 
-void test_ascii_serial_com_put_error_in_output_buffer(void) {
+void test_ascii_serial_com_put_s_message_in_output_buffer(void) {
   Try {
     ascii_serial_com asc;
     ascii_serial_com_init(&asc);
     circular_buffer_uint8 *out_buf = ascii_serial_com_get_output_buffer(&asc);
 
-    const char *message1 = ">00eFFw.E0DD\n";
+    const char *message1 = ">00s00,.7216\n";
     size_t messageLen = 13;
-    ascii_serial_com_put_error_in_output_buffer(&asc, '0', '0', 'w', "", 0,
-                                                0xFF);
-    // circular_buffer_print_uint8(out_buf,stderr);
+    ascii_serial_com_put_s_message_in_output_buffer(&asc, '0', '0', "", 0);
     TEST_ASSERT_EQUAL_size_t(messageLen,
                              circular_buffer_get_size_uint8(out_buf));
     for (size_t i = 0; i < messageLen; i++) {
@@ -370,8 +365,58 @@ void test_ascii_serial_com_put_error_in_output_buffer(void) {
     }
     circular_buffer_clear_uint8(out_buf);
 
-    const char *message2 = ">1Fe05e0123.FBBE\n";
-    messageLen = 17;
+    const char *message2 = ">00s01,0000.91AE\n";
+    size_t message2Len = 17;
+    ascii_serial_com_put_s_message_in_output_buffer(&asc, '0', '0', "0000", 4);
+    TEST_ASSERT_EQUAL_size_t(message2Len,
+                             circular_buffer_get_size_uint8(out_buf));
+    for (size_t i = 0; i < message2Len; i++) {
+      TEST_ASSERT_EQUAL_UINT8(message2[i],
+                              circular_buffer_get_element_uint8(out_buf, i));
+    }
+    circular_buffer_clear_uint8(out_buf);
+
+    const char *message3 =
+        ">00s02,000000000000000000000000000000000000000000000000000.7448\n";
+    size_t message3Len = 64;
+    ascii_serial_com_put_s_message_in_output_buffer(
+        &asc, '0', '0', "000000000000000000000000000000000000000000000000000",
+        51);
+    TEST_ASSERT_EQUAL_size_t(message3Len,
+                             circular_buffer_get_size_uint8(out_buf));
+    for (size_t i = 0; i < message3Len; i++) {
+      TEST_ASSERT_EQUAL_UINT8(message3[i],
+                              circular_buffer_get_element_uint8(out_buf, i));
+    }
+    circular_buffer_clear_uint8(out_buf);
+  }
+  Catch(e1) {
+    printf("Uncaught exception: %u\n", e1);
+    TEST_FAIL_MESSAGE("Uncaught exception!");
+  }
+}
+
+void test_ascii_serial_com_put_error_in_output_buffer(void) {
+  Try {
+    ascii_serial_com asc;
+    ascii_serial_com_init(&asc);
+    circular_buffer_uint8 *out_buf = ascii_serial_com_get_output_buffer(&asc);
+
+    const char *message1 = ">00eFF,w,.C117\n";
+    size_t messageLen = 15;
+    ascii_serial_com_put_error_in_output_buffer(&asc, '0', '0', 'w', "", 0,
+                                                0xFF);
+    // circular_buffer_print_uint8(out_buf,stderr,0);
+    TEST_ASSERT_EQUAL_size_t(messageLen,
+                             circular_buffer_get_size_uint8(out_buf));
+    for (size_t i = 0; i < messageLen; i++) {
+      TEST_ASSERT_EQUAL_UINT8(message1[i],
+                              circular_buffer_get_element_uint8(out_buf, i));
+    }
+    circular_buffer_clear_uint8(out_buf);
+
+    const char *message2 = ">1Fe05,e,0123.5368\n";
+    messageLen = 19;
     ascii_serial_com_put_error_in_output_buffer(&asc, '1', 'F', 'e', "0123", 4,
                                                 5);
     // circular_buffer_print_uint8(out_buf, stderr);
@@ -383,8 +428,8 @@ void test_ascii_serial_com_put_error_in_output_buffer(void) {
     }
     circular_buffer_clear_uint8(out_buf);
 
-    const char *message3 = ">1FeFFs012345678.E6F5\n";
-    messageLen = 22;
+    const char *message3 = ">1FeFF,s,012345678.2FA0\n";
+    messageLen = 24;
     ascii_serial_com_put_error_in_output_buffer(&asc, '1', 'F', 's',
                                                 "0123456789ABCDEF", 16, 0xFF);
     // circular_buffer_print_uint8(out_buf, stderr);
@@ -413,6 +458,7 @@ int main(void) {
   RUN_TEST(test_ascii_serial_com_compute_checksum);
   RUN_TEST(test_ascii_serial_com_put_message_in_output_buffer);
   RUN_TEST(test_ascii_serial_com_get_message_from_input_buffer);
+  RUN_TEST(test_ascii_serial_com_put_s_message_in_output_buffer);
   RUN_TEST(test_ascii_serial_com_put_error_in_output_buffer);
   return UNITY_END();
 }

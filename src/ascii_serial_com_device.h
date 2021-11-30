@@ -8,6 +8,32 @@
 
 #include "ascii_serial_com.h"
 
+/** \brief ASCII Serial Com Device Config Struct
+ *
+ * Use at initialization to configure a device
+ *
+ * Passed to ascii_serial_com_device_init
+ *
+ * Define like:
+ *
+ * ascii_serial_com_device_config dev_config = {.func_rw = myfunrw, .state_rw =
+ * myrwstate};
+ *
+ * All other members set to 0 (so null pointers).
+ *
+ */
+typedef struct __ascii_serial_com_device_config {
+  void (*func_rw)(ascii_serial_com *, char, char, char, char *data, size_t,
+                  void *); /**< called for r or w messages */
+  void (*func_s)(ascii_serial_com *, char, char, char, char *data, size_t,
+                 void *); /**< called for s messages */
+  void (*func_nf)(ascii_serial_com *, char, char, char, char *data, size_t,
+                  void *); /**< called for n and f messages */
+  void *state_rw;
+  void *state_s;
+  void *state_nf;
+} ascii_serial_com_device_config;
+
 /** \brief ASCII Serial Com Device State struct
  *
  *  Keeps track of the state of the ASCII Serial Com device
@@ -17,7 +43,7 @@
  * possible state/configuration info. If the functions are null ptrs, an error
  * message returned to host. This class owns the data buffer passed around.
  */
-typedef struct ascii_serial_com_device_struct {
+typedef struct __ascii_serial_com_device {
   ascii_serial_com asc; /**< used to receive messages and reply */
   char ascVersion; /**< This and next 4 variables just hold results, putting
                       them here lets them be statically allocated */
@@ -25,18 +51,7 @@ typedef struct ascii_serial_com_device_struct {
   char command;
   char dataBuffer[MAXDATALEN]; /**< data part of message received here */
   size_t dataLen;
-  void (*frw)(ascii_serial_com *, char, char, char, char *data, size_t,
-              void *); /**< called for r or w messages */
-  void (*fs)(ascii_serial_com *, char, char, char, char *data, size_t,
-             void *); /**< called for s messages */
-  void (*fnf)(ascii_serial_com *, char, char, char, char *data, size_t,
-              void *); /**< called for n and f messages */
-  void (*fother)(ascii_serial_com *, char, char, char, char *data, size_t,
-                 void *); /**< called for other messages */
-  void *state_frw;
-  void *state_fs;
-  void *state_fnf;
-  void *state_fother;
+  ascii_serial_com_device_config *config;
 } ascii_serial_com_device;
 
 /** \brief ASCII Serial Com Device init
@@ -49,17 +64,8 @@ typedef struct ascii_serial_com_device_struct {
  * message returned to host. This class owns the data buffer passed around.
  *
  */
-void ascii_serial_com_device_init(
-    ascii_serial_com_device *ascd,
-    void (*frw)(ascii_serial_com *, char, char, char, char *data, size_t,
-                void *), /**< called for r or w messages */
-    void (*fs)(ascii_serial_com *, char, char, char, char *data, size_t,
-               void *), /**< called for s messages */
-    void (*fnf)(ascii_serial_com *, char, char, char, char *data, size_t,
-                void *), /**< called for n and f messages */
-    void (*fother)(ascii_serial_com *, char, char, char, char *data, size_t,
-                   void *), /**< called for other messages */
-    void *state_frw, void *state_fs, void *state_fnf, void *state_fother);
+void ascii_serial_com_device_init(ascii_serial_com_device *ascd,
+                                  ascii_serial_com_device_config *config);
 
 /** \brief ASCII Serial Com Device receive messages
  *
@@ -97,5 +103,14 @@ ascii_serial_com_device_get_output_buffer(ascii_serial_com_device *ascd);
 void ascii_serial_com_device_put_message_in_output_buffer(
     ascii_serial_com_device *ascd, char ascVersion, char appVersion,
     char command, char *data, size_t dataLen);
+
+/** \brief ASCII Serial Com Device put a 's' message in output buffer
+ *
+ * MAKE SURE ascd IS ALREADY INITIALIZED!
+ *
+ */
+void ascii_serial_com_device_put_s_message_in_output_buffer(
+    ascii_serial_com_device *ascd, char ascVersion, char appVersion, char *data,
+    size_t dataLen);
 
 #endif

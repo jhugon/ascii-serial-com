@@ -8,13 +8,6 @@ import crcmod  # type: ignore
 import trio
 import trio.testing
 
-logging.basicConfig(
-    # filename="test_asciiSerialCom.log",
-    # level=logging.INFO,
-    # level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s"
-)
-
 
 class TestRegisters(unittest.TestCase):
     def setUp(self):

@@ -76,21 +76,6 @@ class ASC_Message:
             raise MessageIntegrityError(
                 f"Message checksums don't match; computed: {comp_checksum!r} vs received: {bytes(checksum)!r}"
             )
-        #            self.nCrcErrors += 1
-        #            if crcFailBehavior != "pass":
-        #                print(
-        #                    "Checksum mismatch, computed: {} received: {}".format(
-        #                        comp_checksum, checksum
-        #                    )
-        #                )
-        #                if crcFailBehavior == "throw":
-        #                    raise MessageIntegrityError("Message checksums don't match")
-        #                elif crcFailBehavior == "warn":
-        #                    pass
-        #                else:
-        #                    raise ConfigurationError(
-        #                        "crcFailBehavior value not understood: ", crcFailBehavior
-        #                    )
         frame = frame.lstrip(b">")
         try:
             ascVersion = frame[0]
@@ -119,10 +104,12 @@ class ASC_Message:
         if len(frame) == 0:
             raise MalformedFrameError("Zero length frame")
         if frame[0] != b">"[0] or ((frame[-1] != b"\n"[0]) and (frame[-1] != b"."[0])):
-            raise MalformedFrameError("Incorrect start and/or end chars: ", frame)
+            raise MalformedFrameError(
+                f"Incorrect start and/or end chars: {frame.decode('ascii','replace')}"
+            )
         if frame.count(b".") != 1:
             raise MalformedFrameError(
-                "Inproperly formatted frame: no end of data character '.': ", frame
+                f"Improperly formatted frame: no end of data character '.': '{frame.decode('ascii','replace')}'"
             )
         frame = frame.split(b".")[0] + b"."
         result = "{:04X}".format(ASC_Message.crcFunc(frame)).encode("ascii")

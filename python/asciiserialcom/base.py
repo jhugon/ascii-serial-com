@@ -17,7 +17,7 @@ from .errors import *
 from .circularBuffer import Circular_Buffer_Bytes
 from .message import ASC_Message
 
-from typing import Union, Optional, Any
+from typing import Union, Optional, Any, Tuple
 from collections.abc import Sequence
 
 
@@ -25,6 +25,7 @@ class Base:
     asciiSerialComVersion: bytes
     appVersion: bytes
     registerBitWidth: int
+    ignoreErrors: bool
     send_w: Optional[trio.abc.SendChannel] = None
     send_r: Optional[trio.abc.SendChannel] = None
     send_s: Optional[trio.abc.SendChannel] = None
@@ -34,6 +35,8 @@ class Base:
     send_all_received_channel: Optional[trio.abc.SendChannel] = None
     send_all_received_channel_copy: bool = True
     buf: Circular_Buffer_Bytes = Circular_Buffer_Bytes(128)
+    send_stream_frame_counter: int = 0
+    receive_stream_frame_counter: Optional[int] = None
 
     def __init__(
         self,
@@ -43,6 +46,7 @@ class Base:
         registerBitWidth: int,
         asciiSerialComVersion: bytes = b"0",
         appVersion: bytes = b"0",
+        ignoreErrors: bool = False,
     ) -> None:
         if len(asciiSerialComVersion) != 1:
             raise Exception(
@@ -57,6 +61,7 @@ class Base:
         self.asciiSerialComVersion = asciiSerialComVersion
         self.appVersion = appVersion
         self.registerBitWidth = registerBitWidth
+        self.ignoreErrors = ignoreErrors
 
         try:
             path = Path(fin.name)
@@ -85,6 +90,21 @@ class Base:
         await self.fout.write(message)
         await self.fout.flush()
         logging.info("sent:          {}".format(msg))
+
+    async def send_stream_message(self, data: bytes) -> None:
+        """
+        Send a streaming frame containing given data
+        Does not check if message was received successfully
+
+        data: bytes
+        """
+
+        counter = self.send_stream_frame_counter
+        if self.send_stream_frame_counter == 255:
+            self.send_stream_frame_counter = 0
+        else:
+            self.send_stream_frame_counter += 1
+        await self.send_message(b"s", convert_to_hex(counter) + b"," + data)
 
     def forward_received_w_messages_to(
         self, channel: Union[None, trio.abc.SendChannel, io.IOBase, AsyncIOWrapper]
@@ -135,6 +155,9 @@ class Base:
     ) -> None:
         """
         Send all future streaming frame "s" command messages to the given channel.
+        Each message consists of a tuple (nMissed,payload)
+        nMissed is the number of missed s messages since the last one received.
+        payload is the s message payload data.
 
         If channel is None, then "s" command messages are dropped.
         """
@@ -174,37 +197,71 @@ class Base:
         """
         try:
             while True:
-                msg = await self._receive_message()
-                if msg:
-                    logging.debug(msg)
-                    if self.send_all_received_channel:
-                        await self.send_all_received_channel.send(msg)
-                        if not self.send_all_received_channel_copy:
-                            continue  # skip all of the other sends
-                    if msg.command == b"w":
-                        if self.send_w:
-                            await self.send_w.send(msg)
-                        elif self.write_w:
-                            await self.write_w.write(msg.get_packed())
-                    elif msg.command == b"r":
-                        if self.send_r:
-                            logging.debug(f"Trying to send message to send_r")
-                            await self.send_r.send(msg)
-                        elif self.write_r:
-                            await self.write_r.write(msg.get_packed())
-                    elif msg.command == b"s":
-                        if self.send_s:
-                            logging.debug(f"About to send to send_s {msg}")
-                            await self.send_s.send(msg)
-                        elif self.write_s:
-                            logging.debug(f"About to write to write_s {msg}")
-                            await self.write_s.write(msg.get_packed())
-                    elif msg.command == b"e":
-                        logging.warning(f"Error message received: {msg}")
+                try:
+                    msg = await self._receive_message()
+                except ASCErrorBase as e:
+                    if isinstance(e, FileReadError) or not self.ignoreErrors:
+                        raise e
                     else:
-                        pass
+                        logging.error(f"{type(e).__name__}: {e}")
+                        # logging.exception(f"{type(e)}: {e}")
+                else:
+                    if msg:
+                        logging.debug(msg)
+                        if self.send_all_received_channel:
+                            await self.send_all_received_channel.send(msg)
+                            if not self.send_all_received_channel_copy:
+                                continue  # skip all of the other sends
+                        if msg.command == b"w":
+                            if self.send_w:
+                                await self.send_w.send(msg)
+                            elif self.write_w:
+                                await self.write_w.write(msg.get_packed())
+                        elif msg.command == b"r":
+                            if self.send_r:
+                                logging.debug(f"Trying to send message to send_r")
+                                await self.send_r.send(msg)
+                            elif self.write_r:
+                                await self.write_r.write(msg.get_packed())
+                        elif msg.command == b"s":
+                            try:
+                                nMissed, payload = self._unpack_received_s_message(msg)
+                            except ASCErrorBase as e:
+                                if self.ignoreErrors:
+                                    logging.error(f"{type(e).__name__}: {e}")
+                                    # logging.exception(f"{type(e)}: {e}")
+                                else:
+                                    raise e
+                            else:
+                                if self.send_s:
+                                    logging.debug(
+                                        f"About to send to send_s {(nMissed,payload.decode('ascii','replace'))}"
+                                    )
+                                    await self.send_s.send((nMissed, payload))
+                                elif self.write_s:
+                                    line = "{:03n},".format(nMissed).encode() + payload
+                                    logging.debug(
+                                        f"About to write to write_s {line.decode('ascii','replace')}"
+                                    )
+                                    await self.write_s.write(line)
+                        elif msg.command == b"e":
+                            (
+                                error_str,
+                                error_cause_msg,
+                            ) = self._unpack_received_e_message(msg)
+                            logging.warning(
+                                f'Device sent error message: "{error_str}" about message: {error_cause_msg}'
+                            )
+                            if error_cause_msg.command == b"w" and self.send_w:
+                                await self.send_w.send(msg)
+                            elif error_cause_msg.command == b"r" and self.send_r:
+                                await self.send_r.send(msg)
+                        else:
+                            logging.warning(
+                                f"Received message with unrecognized command: {msg}"
+                            )
         except FileReadError as e:
-            logging.warning("FileReadError while reading from serial port")
+            logging.debug("FileReadError while reading from serial port")
         except trio.Cancelled as e:
             logging.debug(f"Cancellation happened")
             raise e
@@ -293,6 +350,59 @@ class Base:
                 return None
             logging.debug("have a whole message")
             return self.buf.pop_front(iNewline + 1)
+
+    def _unpack_received_s_message(self, msg: ASC_Message) -> Tuple[int, bytes]:
+        """
+        Unpacks an s message, dealing with the counter.
+
+        Returns tuple of (payload bytes, number of missed messages)
+            where the number of missed messages is determined from the counter
+        """
+        if len(msg.data) < 3:
+            raise BadStreamMsgNumberError(
+                f"Message not long enough to contain number and ',' in data '{msg.data.decode('ascii','replace')}'"
+            )
+        if msg.data[2] != b","[0]:
+            raise BadStreamMsgNumberError(
+                f"3rd byte must be ',' in data '{msg.data.decode('ascii','replace')}'"
+            )
+        count_bytes = msg.data[:2]
+        count = convert_from_hex(count_bytes)
+        last_count = self.receive_stream_frame_counter
+        missed_messages = 0
+        if not (last_count is None):
+            difference = 0
+            if count >= last_count:
+                difference = count - last_count
+            elif count < last_count:
+                difference = count + 256 - last_count
+            missed_messages = difference - 1
+            logging.debug(
+                f"count: {count}, last_count: {last_count}, difference: {difference}, missed_messages: {missed_messages}"
+            )
+        self.receive_stream_frame_counter = count
+        payload = msg.data[3:]
+        return missed_messages, payload
+
+    def _unpack_received_e_message(self, msg: ASC_Message) -> Tuple[str, ASC_Message]:
+        """
+        Unpacks an e message.
+
+        Returns tuple of (string description of device error, message that might have caused the
+            error with data truncated to 9 bytes)
+        """
+        try:
+            decoded_data = msg.data.decode("ASCII", "replace")
+            error_code = int(decoded_data[:2], 16)
+            error_message = ERROR_CODE_DICT[error_code]
+            result_command = decoded_data[3].encode()
+            result_data = msg.data[5:]
+            result_msg = ASC_Message(
+                msg.ascVersion, msg.appVersion, result_command, result_data
+            )
+            return error_message, result_msg
+        except Exception as e:
+            raise EMessageUnpackError(f"{type(e)}: {e}")
 
 
 def check_register_number(num: Union[int, str, bytes, bytearray]) -> bytes:

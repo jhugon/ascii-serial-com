@@ -13,6 +13,7 @@
 
 #define MAXMESSAGELEN 64
 #define MAXDATALEN 54
+#define MAXSPAYLOADEN (MAXDATALEN - 3)
 #define NCHARCHECKSUM 4
 
 ////////////////////////////////////////////////////
@@ -50,11 +51,17 @@
  *  9) go back to 4)
  *
  */
-typedef struct ascii_serial_com_struct {
+typedef struct __ascii_serial_com_struct {
   circular_buffer_uint8 in_buf;  /**< Input buffer */
   circular_buffer_uint8 out_buf; /**< Output buffer */
   uint8_t
       raw_buffer[2 * MAXMESSAGELEN]; /**< Raw buffer used by circular buffers */
+  uint8_t
+      send_stream_frame_counter; /**< counter put in sent streaming messages */
+  uint8_t receive_stream_frame_counter; /**< counter streaming messages for
+                                           checking received messages */
+  bool receive_stream_frame_counter_initialized; /**< true after receiving first
+                                                    s message */
   bool ignoreCRCMismatch; /**< if true, ignore CRC errors. default false */
 } ascii_serial_com;
 
@@ -71,7 +78,7 @@ void ascii_serial_com_init(ascii_serial_com *asc);
  *
  *  Packs the message into the output format and push it onto the output buffer
  *  USER'S RESPONSIBILITY TO MAKE SURE MESSAGE CAN FIT IN OUTPUT CIRCULAR
- * BUFFER. Message length is dataLen + (MAXMESSAGELEN-MAXMESSAGELEN)
+ * BUFFER. Message length is dataLen + (MAXMESSAGELEN-MAXDATALEN)
  *
  *  \param asc is a pointer to an initialized ascii_serial_com struct
  *
@@ -144,6 +151,36 @@ circular_buffer_uint8 *ascii_serial_com_get_input_buffer(ascii_serial_com *asc);
  */
 circular_buffer_uint8 *
 ascii_serial_com_get_output_buffer(ascii_serial_com *asc);
+
+/** \brief ASCII Serial Com Pack and put 's' message in output buffer
+ *
+ *  Packs the message into the output format and push it onto the output buffer
+ *  USER'S RESPONSIBILITY TO MAKE SURE MESSAGE CAN FIT IN OUTPUT CIRCULAR
+ * BUFFER. Message length is dataLen + (MAXMESSAGELEN-MAXDATALEN)
+ *
+ *  This sends streaming data. If this is a device, you should only do this
+ *  once you've received an 'n' message and stop after receiving an 'f' message.
+ *
+ *  \param asc is a pointer to an initialized ascii_serial_com struct
+ *
+ *  \param ascVersion: the single char ASCII Serial Com version (probably '0')
+ *
+ *  \param appVersion: the single char application version (user application
+ * info)
+ *
+ *  \param data: The message data
+ *
+ *  \param dataLen: The length of the data, must be <= MAXSPAYLOADEN
+ *
+ *  May raise ASC_ERROR_DATA_TOO_LONG or the errors
+ *  ascii_serial_com_compute_checksum raises
+ *
+ */
+void ascii_serial_com_put_s_message_in_output_buffer(ascii_serial_com *asc,
+                                                     char ascVersion,
+                                                     char appVersion,
+                                                     const char *data,
+                                                     size_t dataLen);
 
 /** \brief ASCII Serial Com put error message in out buffer
  *

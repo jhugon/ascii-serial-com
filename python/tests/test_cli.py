@@ -2,8 +2,15 @@ import logging
 import unittest
 import trio
 import trio.testing
+import subprocess
 import os
+from functools import partial
 from pathlib import Path
+
+STDOUT = subprocess.DEVNULL
+STDERR = subprocess.DEVNULL
+# STDOUT = None
+# STDERR = None
 
 
 class TestCLI(unittest.TestCase):
@@ -11,7 +18,7 @@ class TestCLI(unittest.TestCase):
         logging.basicConfig(
             # filename="test_integration.log",
             # level=logging.INFO,
-            level=logging.DEBUG,
+            # level=logging.DEBUG,
             format="%(asctime)s %(levelname)s L%(lineno)d %(funcName)s: %(message)s",
         )
         host_to_device_fifo = Path("host_to_device.fifo")
@@ -76,17 +83,21 @@ class TestCLI(unittest.TestCase):
                     nursery.start_soon(receiver, self, message_received)
                     nursery.start_soon(sender, self, message_received)
                     nursery.start_soon(
-                        trio.run_process,
-                        [
-                            "asciiSerialComCli",
-                            "read",
-                            str(self.device_to_host_fifo),
-                            "0",
-                            "--timeout",
-                            str(host_timeout),
-                            "--serial-send",
-                            str(self.host_to_device_fifo),
-                        ],
+                        partial(
+                            trio.run_process,
+                            [
+                                "asciiserialcom",
+                                "--serial-send",
+                                str(self.host_to_device_fifo),
+                                str(self.device_to_host_fifo),
+                                "read",
+                                "0",
+                                "--timeout",
+                                str(host_timeout),
+                            ],
+                            stdout=STDOUT,
+                            stderr=STDOUT,
+                        )
                     )
 
         trio.run(run_test, self)
@@ -127,18 +138,22 @@ class TestCLI(unittest.TestCase):
                     nursery.start_soon(receiver, self, message_received)
                     nursery.start_soon(sender, self, message_received)
                     nursery.start_soon(
-                        trio.run_process,
-                        [
-                            "asciiSerialComCli",
-                            "write",
-                            str(self.device_to_host_fifo),
-                            "0",
-                            "255",
-                            "--timeout",
-                            str(host_timeout),
-                            "--serial-send",
-                            str(self.host_to_device_fifo),
-                        ],
+                        partial(
+                            trio.run_process,
+                            [
+                                "asciiserialcom",
+                                "--serial-send",
+                                str(self.host_to_device_fifo),
+                                str(self.device_to_host_fifo),
+                                "write",
+                                "0",
+                                "255",
+                                "--timeout",
+                                str(host_timeout),
+                            ],
+                            stdout=STDOUT,
+                            stderr=STDOUT,
+                        )
                     )
 
         trio.run(run_test, self)
@@ -203,16 +218,20 @@ class TestCLI(unittest.TestCase):
                     nursery.start_soon(receiver, self, start_streaming, stop_streaming)
                     nursery.start_soon(sender, self, start_streaming, stop_streaming)
                     nursery.start_soon(
-                        trio.run_process,
-                        [
-                            "asciiSerialComCli",
-                            "stream",
-                            str(self.device_to_host_fifo),
-                            "--stop-seconds",
-                            str(host_timeout),
-                            "--serial-send",
-                            str(self.host_to_device_fifo),
-                        ],
+                        partial(
+                            trio.run_process,
+                            [
+                                "asciiserialcom",
+                                "--serial-send",
+                                str(self.host_to_device_fifo),
+                                str(self.device_to_host_fifo),
+                                "stream",
+                                "--stop-seconds",
+                                str(host_timeout),
+                            ],
+                            stdout=STDOUT,
+                            stderr=STDOUT,
+                        )
                     )
 
         trio.run(run_test, self)

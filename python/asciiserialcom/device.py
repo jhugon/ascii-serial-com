@@ -46,9 +46,16 @@ class Device(Base):
         printRegistersInterval: float = 1,
         asciiSerialComVersion: bytes = b"0",
         appVersion: bytes = b"0",
+        ignoreErrors: bool = False,
     ) -> None:
         super().__init__(
-            nursery, fin, fout, registerBitWidth, asciiSerialComVersion, appVersion
+            nursery,
+            fin,
+            fout,
+            registerBitWidth,
+            asciiSerialComVersion,
+            appVersion,
+            ignoreErrors,
         )
         self.nRegisters = nRegisters
         self.registers = [0] * self.nRegisters
