@@ -14,7 +14,7 @@ avrdude -p atmega4809 -c cnano -Uflash:w:build/avrxmega3_gcc_debug/atmega4809_cn
 # Usually has problems. Only worked once after flashing from Atmel Studio.
 avrdude -p attiny817 -c xplainedmini_updi -Uflash:w:build/avrxmega3_gcc_debug/attiny817_xplained_blink
 
-openocd -f /usr/share/openocd/scripts/board/st_nucleo_f0.cfg -c "program build/cortex-m0_gcc_debug/stm32f091nucleo64_blink verify reset exit"
+openocd -f /usr/share/openocd/scripts/board/st_nucleo_f0.cfg -c "program build/cortex-m0_gcc_debug/stm32f091nucleo64_blink.elf verify reset exit"
 ```
 
 Put this in your ~/.avrduderc:
@@ -53,7 +53,7 @@ openocd -f /usr/share/openocd/scripts/board/st_nucleo_f0.cfg
 And the debugger in another:
 
 ```
-arm-none-eabi-gdb build/cortex-m0_gcc_debug/stm32f091nucleo64_blink
+arm-none-eabi-gdb build/cortex-m0_gcc_debug/stm32f091nucleo64_blink.elf
 target extended-remote localhost:3333
 monitor reset halt
 load

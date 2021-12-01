@@ -96,3 +96,7 @@ clean:
 	rm -rf $(allgcno)
 	rm -rf $(allgcda)
 	#rm -rf $(allgcov)
+	rm -rf src/*.d
+	rm -rf src/arm/*.d
+	rm -rf src/avr/*.d
+	rm -rf src/arm/generated.*
