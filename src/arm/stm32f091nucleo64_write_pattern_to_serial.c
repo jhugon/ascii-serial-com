@@ -38,7 +38,6 @@ static void gpio_setup(void) {
 uint8_t counter = 0;
 
 int main(void) {
-  int i;
 
   gpio_setup();
   usart_setup();
@@ -47,13 +46,13 @@ int main(void) {
     usart_send_blocking(USART2, '0' + counter);
     if (counter >= 9) {
       counter = 0;
-      gpio_toggle(PORT_LED, PIN_LED);
+      //      gpio_toggle(PORT_LED, PIN_LED);
     } else {
       counter++;
     }
-    for (i = 0; i < 10000; i++) {
-      __asm__("nop");
-    }
+    //   for (int i = 0; i < 10000; i++) {
+    //     __asm__("nop");
+    //   }
   }
 
   return 0;
