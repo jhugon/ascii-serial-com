@@ -1,4 +1,4 @@
-stm32f091rcfirmware=src/arm/stm32f091nucleo64_blink.elf src/arm/stm32f091nucleo64_write_pattern_to_serial.elf
+stm32f091rcfirmware=src/arm/stm32f091nucleo64_blink.elf src/arm/stm32f091nucleo64_write_pattern_to_serial.elf src/arm/stm32f091nucleo64_char_loopback.elf
 stm32f091rcldscript=src/arm/generated.stm32f091rc.ld
 
 CFLAGSstm32f091rc=$(CFLAGS) -DSTM32F0 -DSTM32F091RC -msoft-float
