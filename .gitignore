@@ -2,6 +2,7 @@
 *.pyc
 .*.un~
 *.o
+*.d
 *.a
 build/
 tags

@@ -3,7 +3,7 @@
 
 #define PORT_LED GPIOA
 #define PIN_LED GPIO5
-#define RCC_GPIO_LED RCC_GPIOC
+#define RCC_GPIO_LED RCC_GPIOA
 
 static void gpio_setup(void) {
   rcc_periph_clock_enable(RCC_GPIO_LED);

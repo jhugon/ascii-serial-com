@@ -55,7 +55,7 @@ endif
 
 ifneq (,$(findstring cortex,$(platform)))
   CC=arm-none-eabi-gcc
-  CFLAGS=$(GCCFLAGS) -std=c18 -mcpu=$(platform) -mthumb -Itools/libopencm3/include
+  CFLAGS=$(GCCFLAGS) -std=c18 -mcpu=$(platform) -mthumb -Itools/libopencm3/include -MD -static -nostartfiles -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
   CXXFLAGS=$(GCCFLAGS) -std=c++17 -Wsuggest-override -Wplacement-new=2 -mcpu=$(platform) -mthumb -Itools/libopencm3/include
   ifeq ($(build_type),debug)
     CFLAGS+=-g -Og
