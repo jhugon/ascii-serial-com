@@ -26,10 +26,11 @@ class TestCharLoopback(unittest.TestCase):
         logging.basicConfig(
             # filename="test_asciiSerialCom.log",
             # level=logging.INFO,
-            level=logging.DEBUG,
-            # level=logging.WARNING,
+            # level=logging.DEBUG,
+            level=logging.WARNING,
             format="%(levelname)s L%(lineno)d %(funcName)s: %(message)s",
         )
+        setup_tty(self.dev_path, self.baud)
 
     def test_just_device(self):
         test_string = b"abcdefghijklmnop987654321"
@@ -66,11 +67,10 @@ class TestCharLoopback(unittest.TestCase):
             with trio.move_on_after(10) as moveon_scope:
                 try:
                     async with await trio.open_file(self.dev_path, "bw") as async_ser:
-                        setup_tty(async_ser.wrapped, self.baud)
                         async with trio.open_nursery() as nursery:
                             await nursery.start(reader, self, reader_finished)
                             for x in test_string:
-                                await trio.sleep(0.1)
+                                await trio.sleep(0)
                                 x = chr(x).encode("ascii")
                                 await trio.sleep(0)
                                 await async_ser.write(x)
@@ -110,7 +110,7 @@ class TestCharLoopback(unittest.TestCase):
                                 )
                                 if received_data_len == test_string_len:
                                     break
-                                logging.info(f"read: {data}")
+                                logging.debug(f"read: {data}")
                     except Exception as e:
                         logging.error(e)
             logging.debug("Reader exiting")
@@ -122,7 +122,6 @@ class TestCharLoopback(unittest.TestCase):
             with trio.move_on_after(10) as moveon_scope:
                 try:
                     async with await trio.open_file(self.dev_path, "bw") as async_ser:
-                        setup_tty(async_ser.wrapped, self.baud)
                         async with trio.open_nursery() as nursery:
                             await nursery.start(reader, self, reader_finished)
                             await async_ser.write(test_string)
@@ -171,7 +170,6 @@ class TestCharLoopback(unittest.TestCase):
                 logging.info("About to open file...")
                 async with await trio.open_file(self.dev_path, "br") as portr:
                     async with await trio.open_file(self.dev_path, "bw") as portw:
-                        setup_tty(portr.wrapped, self.baud)
                         termios.tcflush(portr.wrapped, termios.TCIFLUSH)
                         logging.debug("TTY setup and flushed")
                         async with trio.open_nursery() as nursery:

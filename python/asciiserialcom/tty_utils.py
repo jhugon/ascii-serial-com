@@ -62,4 +62,6 @@ def _do_setup(f: Union[IO, int], speedconst: str, arduino_dont_hup: bool):
     if arduino_dont_hup:
         tty_attrs[2] &= ~termios.HUPCL
 
+    tty_attrs[3] &= ~termios.ECHO  # added for STLink
+
     termios.tcsetattr(f, termios.TCSAFLUSH, tty_attrs)
