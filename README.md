@@ -40,11 +40,14 @@ SUBSYSTEM=="usb", ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2175", MODE="0666"
 SUBSYSTEM=="usb", ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2145", MODE="0666"
 # for ST-Link
 SUBSYSTEM=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="374b", MODE="0666"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="3752", MODE="0666"
 ```
 
 ## GDB for Cortex-M
 
 Startup OpenOCD in one terminal:
+
+*Updating and changing firmware type may help if having issues, because the ones w/ and w/o mass storage need different openocd configs*
 
 ```
 openocd -f /usr/share/openocd/scripts/board/st_nucleo_f0.cfg

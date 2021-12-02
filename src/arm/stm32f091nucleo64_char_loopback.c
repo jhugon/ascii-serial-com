@@ -25,15 +25,37 @@ static void usart_setup(void) {
   usart_enable(USART2);
 }
 
-uint8_t tmp_byte;
+#define PORT_LED GPIOA
+#define PIN_LED GPIO5
+#define RCC_GPIO_LED RCC_GPIOA
+
+static void led_setup(void) {
+  rcc_periph_clock_enable(RCC_GPIO_LED);
+  gpio_mode_setup(PORT_LED, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, PIN_LED);
+}
+
+uint8_t tmp_byte = 0;
 
 int main(void) {
 
   usart_setup();
+  led_setup();
 
   while (1) {
-    tmp_byte = (uint8_t)usart_recv_blocking(USART2) & 0xFF;
-    usart_send_blocking(USART2, tmp_byte);
+    if ((USART_ISR(USART2) & USART_ISR_RXNE)) {
+      // tmp_byte = (uint8_t)usart_recv(USART2) & 0xFF;
+      tmp_byte = (uint8_t)(USART_RDR(USART2) & 0xFF);
+      USART_RQR(USART2) &= USART_RQR_RXFRQ;
+      gpio_toggle(PORT_LED, PIN_LED);
+      // usart_send_blocking(USART2, tmp_byte);
+    }
+    for (int i = 0; i < 1000000; i++) {
+      __asm__("nop");
+    }
+    if (tmp_byte && (USART_ISR(USART2) & USART_ISR_TXE)) {
+      usart_send(USART2, tmp_byte);
+      tmp_byte = 0;
+    }
   }
 
   return 0;
