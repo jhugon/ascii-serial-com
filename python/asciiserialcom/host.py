@@ -133,7 +133,7 @@ class Host(Base):
                             )
                         else:
                             logging.debug(
-                                f"write_register received error message caused by original message {error_cause_msg} not matching this message's data {data} with error: {error_str}"
+                                f"write_register received error message caused by original message {error_cause_msg} not matching this message's data {data.decode('ascii','replace')} with error: {error_str}"
                             )
                     else:
                         raise Exception(
