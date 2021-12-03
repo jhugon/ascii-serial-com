@@ -127,9 +127,13 @@ class Host(Base):
                 elif msg.command == b"e":
                     error_str, error_cause_msg = self._unpack_received_e_message(msg)
                     if error_cause_msg.command == b"w":
-                        if error_cause_msg.data == data:
+                        if error_cause_msg.data.split(b",")[0] == data.split(b",")[0]:
                             raise DeviceError(
                                 f'Device returned error while trying to write register: "{error_str}"'
+                            )
+                        else:
+                            logging.debug(
+                                f"write_register received error message caused by original message {error_cause_msg} not matching this message's data {data} with error: {error_str}"
                             )
                     else:
                         raise Exception(
