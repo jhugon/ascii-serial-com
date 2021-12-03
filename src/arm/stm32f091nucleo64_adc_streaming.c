@@ -41,11 +41,23 @@ volatile REGTYPE *regPtrs[nRegs] = {
 
 REGTYPE masks[nRegs] = {0, 1 << 5};
 
+typedef struct stream_state_struct {
+  uint8_t on;
+} on_off_stream_state;
+void handle_nf_messages(ascii_serial_com *asc, char ascVersion, char appVersion,
+                        char command, char *data, size_t dataLen,
+                        void *state_vp);
+
+uint32_t counter = 0;
+on_off_stream_state stream_state;
+
 ascii_serial_com_device ascd;
 ascii_serial_com_register_pointers reg_pointers_state;
 ascii_serial_com_device_config ascd_config = {
     .func_rw = ascii_serial_com_register_pointers_handle_message,
-    .state_rw = &reg_pointers_state};
+    .state_rw = &reg_pointers_state,
+    .func_nf = handle_nf_messages,
+    .state_nf = &stream_state};
 
 ///////////////////////////////////
 
@@ -115,6 +127,14 @@ int main(void) {
       // parse and handle received messages
       ascii_serial_com_device_receive(&ascd);
 
+      if (stream_state.on && circular_buffer_get_size_uint8(asc_out_buf) == 0) {
+        char counter_buffer[8];
+        convert_uint32_to_hex(counter, counter_buffer, true);
+        ascii_serial_com_device_put_s_message_in_output_buffer(
+            &ascd, '0', '0', counter_buffer, 8);
+        counter++;
+      }
+
       // Write data from asc_out_buf to serial
       if (!circular_buffer_is_empty_uint8(asc_out_buf) &&
           (USART_ISR(USART2) & USART_ISR_TXE)) {
@@ -140,5 +160,19 @@ void usart2_isr(void) {
       ((USART_ISR(USART2) & USART_ISR_RXNE) != 0)) {
     isr_tmp_byte = usart_recv(USART2) & 0xFF;
     circular_buffer_push_back_uint8(&extraInputBuffer, isr_tmp_byte);
+  }
+}
+
+void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
+                        __attribute__((unused)) char ascVersion,
+                        __attribute__((unused)) char appVersion, char command,
+                        __attribute__((unused)) char *data,
+                        __attribute__((unused)) size_t dataLen,
+                        void *state_vp) {
+  on_off_stream_state *state = (on_off_stream_state *)state_vp;
+  if (command == 'n') {
+    state->on = 1;
+  } else if (command == 'f') {
+    state->on = 0;
   }
 }
