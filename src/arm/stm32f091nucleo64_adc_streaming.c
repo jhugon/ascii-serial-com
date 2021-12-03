@@ -3,7 +3,8 @@
  *
  * 0: PORTA input data register, bit 5 is LED (r)
  * 1: PORTA output data register, bit 5 is LED (r, bit 5 is writable)
- *
+ * 2: optionFlags
+ *      bit 0: if 0: stream ADC, if 1: stream counter
  */
 
 #include <libopencm3/cm3/cortex.h>
@@ -33,13 +34,16 @@ uint16_t nExceptions;
 
 /////////////////////////////////
 
-#define nRegs 2
+uint32_t optionFlags = 0;
+
+#define nRegs 3
 volatile REGTYPE *regPtrs[nRegs] = {
     &GPIOA_IDR, // input data reg
     &GPIOA_ODR, // output data reg
+    &optionFlags,
 };
 
-REGTYPE masks[nRegs] = {0, 1 << 5};
+REGTYPE masks[nRegs] = {0, 1 << 5, 0xFFFFFFFF};
 
 typedef struct stream_state_struct {
   uint8_t on;
@@ -128,11 +132,13 @@ int main(void) {
       ascii_serial_com_device_receive(&ascd);
 
       if (stream_state.on && circular_buffer_get_size_uint8(asc_out_buf) == 0) {
-        char counter_buffer[8];
-        convert_uint32_to_hex(counter, counter_buffer, true);
-        ascii_serial_com_device_put_s_message_in_output_buffer(
-            &ascd, '0', '0', counter_buffer, 8);
-        counter++;
+        if (optionFlags & 1) {
+          char counter_buffer[8];
+          convert_uint32_to_hex(counter, counter_buffer, true);
+          ascii_serial_com_device_put_s_message_in_output_buffer(
+              &ascd, '0', '0', counter_buffer, 8);
+          counter++;
+        }
       }
 
       // Write data from asc_out_buf to serial
