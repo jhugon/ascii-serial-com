@@ -1,4 +1,13 @@
 /*
+ * Streams ADC data from pin A0 (happens to be labelled A0 on the Arduino
+ * connector of nucleo-f091rc board)
+ *
+ * The ADC conversion rate is just as fast as the serial stream can keep up with
+ *
+ * Through changing option flag, can instead stream a 32 bit counter
+ *
+ * A register write can also turn on/off the LED
+ *
  * Register map:
  *
  * 0: PORTA input data register, bit 5 is LED (r)
@@ -9,6 +18,7 @@
 
 #include <libopencm3/cm3/cortex.h>
 #include <libopencm3/cm3/nvic.h>
+#include <libopencm3/stm32/adc.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/usart.h>
@@ -98,7 +108,38 @@ static void usart_setup(void) {
   usart_enable(USART2);
 }
 
+static void adc_setup(void) {
+  // With nChans == 1 and ADC_MODE_SCAN, there is only one conversion per
+  // "trigger" You can manually trigger by setting ADSTART in ADC_CR
+  //      ADSTART will stay set and only be cleared when EOSEQ is set
+  // After the conversion is complete EOC and EOSEQ are both set (in ADC_ISR)
+  // You can read the data from ADC_DR
+  rcc_periph_clock_enable(RCC_ADC);
+  rcc_periph_clock_enable(RCC_GPIOA);
+
+  // Only pins A0=ADC_IN0
+  gpio_mode_setup(GPIOA, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO0);
+#define nChans 1
+  uint8_t adc_channel_sequence[nChans] = {0};
+
+  adc_power_off(ADC);
+  adc_set_clk_source(ADC, ADC_CLKSOURCE_ADC);
+  adc_calibrate(ADC);
+  adc_set_operation_mode(
+      ADC, ADC_MODE_SCAN); // ADC_MODE_SCAN is ~cont and ~discon;
+                           // ADC_MODE_SCAN_INFINITE is cont and ~dicon
+  adc_disable_external_trigger_regular(ADC);
+  adc_set_right_aligned(ADC);
+  adc_enable_temperature_sensor();
+  adc_set_sample_time_on_all_channels(ADC, ADC_SMPTIME_071DOT5);
+  adc_set_regular_sequence(ADC, nChans, adc_channel_sequence);
+  adc_set_resolution(ADC, ADC_RESOLUTION_12BIT);
+  adc_disable_analog_watchdog(ADC);
+  adc_power_on(ADC); // this sync waits until ADRDY is set
+}
+
 uint8_t tmp_byte = 0;
+bool adc_started_ever = false;
 
 int main(void) {
 
@@ -116,6 +157,7 @@ int main(void) {
                              extraInputBuffer_raw);
 
   gpio_setup();
+  adc_setup();
   usart_setup();
 
   while (1) {
@@ -132,12 +174,25 @@ int main(void) {
       ascii_serial_com_device_receive(&ascd);
 
       if (stream_state.on && circular_buffer_get_size_uint8(asc_out_buf) == 0) {
-        if (optionFlags & 1) {
+        if (optionFlags & 1) { // counter stream mode
           char counter_buffer[8];
           convert_uint32_to_hex(counter, counter_buffer, true);
           ascii_serial_com_device_put_s_message_in_output_buffer(
               &ascd, '0', '0', counter_buffer, 8);
           counter++;
+        } else { // ADC stream mode
+          if (adc_eos(ADC)) {
+            static uint16_t adc_val;
+            static char adc_val_buffer[4];
+            adc_val = adc_read_regular(ADC);
+            adc_start_conversion_regular(ADC);
+            convert_uint16_to_hex(adc_val, adc_val_buffer, true);
+            ascii_serial_com_device_put_s_message_in_output_buffer(
+                &ascd, '0', '0', adc_val_buffer + 1, 3);
+          } else if (!adc_started_ever) {
+            adc_start_conversion_regular(ADC);
+            adc_started_ever = true;
+          }
         }
       }
 
