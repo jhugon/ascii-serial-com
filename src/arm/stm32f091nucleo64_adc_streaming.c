@@ -6,6 +6,9 @@
  *
  * Through changing option flag, can instead stream a 32 bit counter
  *
+ * DAC channel 1 (A4 and Arduino A2 on board) is also enabled
+ * and may be changed by writing to register 3.
+ *
  * A register write can also turn on/off the LED
  *
  * Register map:
@@ -14,11 +17,15 @@
  * 1: PORTA output data register, bit 5 is LED (r, bit 5 is writable)
  * 2: optionFlags
  *      bit 0: if 0: stream ADC, if 1: stream counter
+ * 3: DAC Channel 1 data holding register (r, bottom 12 bits writable)
+ *      write a value here for it to appear on DAC output
+ * 4: Reserved for DAC Channel 2, but not implemented
  */
 
 #include <libopencm3/cm3/cortex.h>
 #include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/adc.h>
+#include <libopencm3/stm32/dac.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/usart.h>
@@ -46,14 +53,16 @@ uint16_t nExceptions;
 
 uint32_t optionFlags = 0;
 
-#define nRegs 3
+#define nRegs 5
 volatile REGTYPE *regPtrs[nRegs] = {
     &GPIOA_IDR, // input data reg
     &GPIOA_ODR, // output data reg
     &optionFlags,
+    &DAC_DHR12R1(DAC1), // DAC Channel 1 Data holding register
+    &DAC_DHR12R2(DAC1), // DAC Channel 2 Data holding register (not active)
 };
 
-REGTYPE masks[nRegs] = {0, 1 << 5, 0xFFFFFFFF};
+REGTYPE masks[nRegs] = {0, 1 << 5, 0xFFFFFFFF, 0xFFF, 0};
 
 typedef struct stream_state_struct {
   uint8_t on;
@@ -117,7 +126,7 @@ static void adc_setup(void) {
   rcc_periph_clock_enable(RCC_ADC);
   rcc_periph_clock_enable(RCC_GPIOA);
 
-  // Only pins A0=ADC_IN0
+  // Only pins A0=ADC_IN0 happens to also be Arduino A0
   gpio_mode_setup(GPIOA, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO0);
 #define nChans 1
   uint8_t adc_channel_sequence[nChans] = {0};
@@ -136,6 +145,23 @@ static void adc_setup(void) {
   adc_set_resolution(ADC, ADC_RESOLUTION_12BIT);
   adc_disable_analog_watchdog(ADC);
   adc_power_on(ADC); // this sync waits until ADRDY is set
+}
+
+static void dac_setup(void) {
+  // Setting this up in the mode where you just write to the data register and
+  // it updates 1 clock after
+  rcc_periph_clock_enable(RCC_DAC);
+  rcc_periph_clock_enable(RCC_GPIOA);
+
+  // Pin A4 is DAC1 output and Arduino A2 on board
+  // Pin A5 is DAC2 output and Arduino D13 on board
+  // Only enable DAC1 for now
+  gpio_mode_setup(GPIOA, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO4);
+
+  dac_disable(DAC1, DAC_CHANNEL1);
+  dac_buffer_enable(DAC1, DAC_CHANNEL1);
+  dac_trigger_disable(DAC1, DAC_CHANNEL1);
+  dac_enable(DAC1, DAC_CHANNEL1);
 }
 
 uint8_t tmp_byte = 0;
@@ -158,6 +184,7 @@ int main(void) {
 
   gpio_setup();
   adc_setup();
+  dac_setup();
   usart_setup();
 
   while (1) {
