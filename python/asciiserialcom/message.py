@@ -74,7 +74,7 @@ class ASC_Message:
         checksum = checksum.rstrip(b"\n")
         if checksum != comp_checksum:
             raise MessageIntegrityError(
-                f"Message checksums don't match; computed: {comp_checksum!r} vs received: {bytes(checksum)!r}"
+                f"Message checksums don't match; computed: {comp_checksum!r} vs received: {bytes(checksum)!r} for message: {bytes(original_frame)!r}"
             )
         frame = frame.lstrip(b">")
         try:

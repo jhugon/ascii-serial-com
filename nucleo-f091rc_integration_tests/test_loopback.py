@@ -14,7 +14,7 @@ class TestCharLoopback(unittest.TestCase):
     """
         Requires firmware:
 
-        openocd -f /usr/share/openocd/scripts/board/st_nucleo_f0.cfg -c "program build/cortex-m0_gcc_debug/stm32f091nucleo64_char_loopback.elf verify reset
+        openocd -f /usr/share/openocd/scripts/board/st_nucleo_f0.cfg -c "program build/cortex-m0_gcc_debug/stm32f091nucleo64_char_loopback.elf verify reset exit"
 
     """
 
@@ -196,7 +196,7 @@ class TestASCLoopback(unittest.TestCase):
     """
         Requires firmware:
 
-        openocd -f /usr/share/openocd/scripts/board/st_nucleo_f0.cfg -c "program build/cortex-m0_gcc_debug/stm32f091nucleo64_asc_loopback.elf verify reset
+        openocd -f /usr/share/openocd/scripts/board/st_nucleo_f0.cfg -c "program build/cortex-m0_gcc_debug/stm32f091nucleo64_asc_loopback.elf verify reset exit"
 
     """
 
