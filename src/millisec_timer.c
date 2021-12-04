@@ -1,0 +1,33 @@
+#include "millisec_timer.h"
+#ifdef linux
+#include <time.h>
+#endif
+
+/** \file */
+
+void millisec_timer_set_rel(millisec_timer *timer,
+                            const millisec_timer_unit_t now,
+                            const millisec_timer_unit_t rel) {
+  timer->enabled = true;
+  timer->set_time = now;
+  timer->expire_time = now + rel;
+}
+
+bool millisec_timer_is_expired(millisec_timer *timer,
+                               const millisec_timer_unit_t now) {
+  if (timer->enabled && now >= timer->expire_time) {
+    timer->enabled = false;
+    return true;
+  }
+  return false;
+}
+bool millisec_timer_is_expired_repeat(millisec_timer *timer,
+                                      const millisec_timer_unit_t now) {
+  if (timer->enabled && now >= timer->expire_time) {
+    const millisec_timer_unit_t old_expire_time = timer->expire_time;
+    timer->expire_time = old_expire_time + (old_expire_time - timer->set_time);
+    timer->set_time = old_expire_time;
+    return true;
+  }
+  return false;
+}
