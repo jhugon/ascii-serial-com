@@ -1,3 +1,4 @@
 .eggs/
 asciiserialcom.egg-info/
 venv*/
+.coverage
