@@ -31,3 +31,13 @@ bool millisec_timer_is_expired_repeat(millisec_timer *timer,
   }
   return false;
 }
+
+#ifdef __ARM_ARCH
+void millisec_timer_systick_setup(uint32_t ahb_frequency) {
+  systick_set_clocksource(1 << STK_CSR_CLKSOURCE_LSB); // always AHB clock
+  STK_CVR = 0;                                         // clear clock
+  systick_set_reload(ahb_frequency / 1000);
+  systick_counter_enable();
+  systick_interrupt_enable();
+}
+#endif

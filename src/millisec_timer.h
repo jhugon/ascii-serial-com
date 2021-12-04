@@ -10,6 +10,9 @@
 #ifdef linux
 #include <stdio.h>
 #endif
+#ifdef __ARM_ARCH
+#include <libopencm3/cm3/systick.h>
+#endif
 
 typedef uint32_t millisec_timer_unit_t;
 
@@ -57,7 +60,41 @@ bool millisec_timer_is_expired_repeat(millisec_timer *timer,
                                       const millisec_timer_unit_t now);
 
 #ifdef __ARM_ARCH
-// Do some systick setup here
+
+/** \brief A counter that increments every millisecond
+ *
+ * This value will increment every millisecond if you put:
+ *
+ * 1) #include <libopencm3/cm3/nvic.h> at the top of your main file
+ *
+ * 2) MILLISECOND_TIMER_SYSTICK_IT outside of any function to
+ *    define the systick interrupt
+ *
+ * 3) millisec_timer_systick_setup(rcc_ahb_frequency); in the setup
+ *    portion of your main function. It's probably best to put
+ *    before other things.
+ *
+ */
+
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic push
+static uint32_t MILLISECOND_TIMER_NOW = 0;
+#pragma GCC diagnostic pop
+
+/** \brief Setup the systick timer
+ *
+ * Configures the systick timer to raise the interrupt every millisecond.
+ *
+ */
+#define MILLISECOND_TIMER_SYSTICK_IT                                           \
+  void sys_tick_handler(void) { MILLISECOND_TIMER_NOW++; }
+
+/** \brief Setup the systick timer
+ *
+ * Configures the systick timer to raise the interrupt every millisecond.
+ *
+ */
+void millisec_timer_systick_setup(uint32_t ahb_frequency);
 #endif
 
 #endif
