@@ -30,7 +30,7 @@ def run_make(platform, CC, build_type, args):
     if args.unittest:
         stdout = ""
         success = True
-        print(outdir)
+        print(outdir, flush=True)
         for fn in os.listdir(outdir):
             print(fn)
             if "test_" == fn[:5]:
@@ -84,6 +84,9 @@ def run_integration_tests():
     test_dir = "integration_tests"
     tests = os.listdir(test_dir)
     success = True
+    print()
+    print("========== Integration Tests =============")
+    print()
     stdout = ""
     for test in tests:
         if test[-3:] != ".py":
@@ -97,11 +100,8 @@ def run_integration_tests():
             text=True,
         )
         success = success and (cmpltProc.returncode == 0)
+        print(cmpltProc.stdout, flush=True)
         stdout += cmpltProc.stdout
-    print()
-    print("========== Integration Tests =============")
-    print()
-    print(stdout)
     if success:
         print("Integration Tests All Pass!")
     else:
@@ -166,39 +166,38 @@ def print_FW_size(targets):
     exe_path = env["PATH"]
     exe_path = os.path.abspath("tools/avr-install/bin") + ":" + exe_path
     env["PATH"] = exe_path
-    all_fwfiles = []
+    avr_fwfiles = []
+    cortex_fwfiles = []
     for target in sorted(targets):
         for build_type in ["debug", "opt"]:
             target_list = target.split("_")
             assert len(target_list) == 2
             platform = target_list[0]
-            if not ("avr" in platform):
-                continue
-            CC = target_list[1]
-            outdir = "build/{}_{}_{}".format(platform, CC, build_type)
-            outdir = os.path.abspath(outdir)
-            outfiles = os.listdir(outdir)
-            fwfiles = [os.path.join(outdir, x) for x in outfiles if x[-2:] != ".a"]
-            all_fwfiles += fwfiles
-    if len(all_fwfiles) == 0:
+            if "avr" in platform:
+                CC = target_list[1]
+                outdir = "build/{}_{}_{}".format(platform, CC, build_type)
+                outdir = os.path.abspath(outdir)
+                outfiles = os.listdir(outdir)
+                fwfiles = [os.path.join(outdir, x) for x in outfiles if x[-2:] != ".a"]
+                avr_fwfiles += fwfiles
+            elif "cortex" in platform:
+                CC = target_list[1]
+                outdir = "build/{}_{}_{}".format(platform, CC, build_type)
+                outdir = os.path.abspath(outdir)
+                outfiles = os.listdir(outdir)
+                fwfiles = [os.path.join(outdir, x) for x in outfiles if x[-2:] != ".a"]
+                cortex_fwfiles += fwfiles
+    if len(avr_fwfiles) + len(cortex_fwfiles) == 0:
         return
     print("========= Firmware Size ==========")
+    cmpltProc = subprocess.run(["avr-size", "-G"] + avr_fwfiles, env=env, text=True,)
     cmpltProc = subprocess.run(
-        ["avr-size", "-G"] + all_fwfiles,
-        env=env,
-        # stdout=subprocess.PIPE,
-        # stderr=subprocess.STDOUT,
-        text=True,
+        ["arm-none-eabi-size", "-G"] + cortex_fwfiles, env=env, text=True,
     )
 
 
 def run_doxygen():
-    cmpltProc = subprocess.run(
-        ["doxygen", "doc/Doxyfile"],
-        # stdout=subprocess.PIPE,
-        # stderr=subprocess.STDOUT,
-        # text=True,
-    )
+    cmpltProc = subprocess.run(["doxygen", "doc/Doxyfile"],)
 
 
 def main():

@@ -414,7 +414,7 @@ def read(
                 )
             else:
                 typer.echo(
-                    f"Register {register_number} value is {result:10} = 0x{result:08x}"
+                    f"Register {register_number} value is {result:10} = 0x{result:08x} = 0b{result:032b}"
                 )
     except Exception as e:
         typer.echo(f"Error: unhandled exception: {e.__class__.__name__}: {e}", err=True)

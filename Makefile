@@ -36,6 +36,7 @@ include src/Makefile
 #$(info allobjs is ${allobjs})
 #$(info testexes is ${testexes})
 #$(info avrfirmware is ${avrfirmware})
+#$(info armfirmware is ${armfirmware})
 
 .PHONY: all_later
 all_later: $(alllibs) $(exes) $(testexes) $(avrfirmware) $(armfirmware)
@@ -95,3 +96,7 @@ clean:
 	rm -rf $(allgcno)
 	rm -rf $(allgcda)
 	#rm -rf $(allgcov)
+	rm -rf src/*.d
+	rm -rf src/arm/*.d
+	rm -rf src/avr/*.d
+	rm -rf src/arm/generated.*

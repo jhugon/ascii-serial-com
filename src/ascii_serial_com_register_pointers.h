@@ -38,11 +38,19 @@
 
 #include "ascii_serial_com.h"
 
+#ifdef __AVR
 #define REGWIDTHBITS 8
 #define REGWIDTHBYTES 1
 #define REGTYPE uint8_t
 #define REGPRINTTYPEINT PRIu8
 #define REGPRINTTYPEHEX PRIX8
+#else
+#define REGWIDTHBITS 32
+#define REGWIDTHBYTES 4
+#define REGTYPE uint32_t
+#define REGPRINTTYPEINT PRIu32
+#define REGPRINTTYPEHEX PRIX32
+#endif
 
 /** \brief ASCII Serial Com Register Pointers State struct
  *

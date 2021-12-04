@@ -13,6 +13,8 @@ avrdude -p atmega4809 -c cnano -Uflash:w:build/avrxmega3_gcc_debug/atmega4809_cn
 
 # Usually has problems. Only worked once after flashing from Atmel Studio.
 avrdude -p attiny817 -c xplainedmini_updi -Uflash:w:build/avrxmega3_gcc_debug/attiny817_xplained_blink
+
+openocd -f /usr/share/openocd/scripts/board/st_nucleo_f0.cfg -c "program build/cortex-m0_gcc_debug/stm32f091nucleo64_blink.elf verify reset exit"
 ```
 
 Put this in your ~/.avrduderc:
@@ -36,6 +38,29 @@ Put in something like /etc/udev/rules.d/99-devboard.rules
 SUBSYSTEM=="usb", ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2175", MODE="0666"
 # for attiny817-xmini
 SUBSYSTEM=="usb", ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2145", MODE="0666"
+# for ST-Link
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="374b", MODE="0666"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="3752", MODE="0666"
+```
+
+## GDB for Cortex-M
+
+Startup OpenOCD in one terminal:
+
+*Updating and changing firmware type may help if having issues, because the ones w/ and w/o mass storage need different openocd configs*
+
+```
+openocd -f /usr/share/openocd/scripts/board/st_nucleo_f0.cfg
+```
+
+And the debugger in another:
+
+```
+arm-none-eabi-gdb build/cortex-m0_gcc_debug/stm32f091nucleo64_blink.elf
+target extended-remote localhost:3333
+monitor reset halt
+load
+continue
 ```
 
 ## Transmit/Receive Data Interface

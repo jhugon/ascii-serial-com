@@ -55,16 +55,20 @@ endif
 
 ifneq (,$(findstring cortex,$(platform)))
   CC=arm-none-eabi-gcc
-  CFLAGS=$(GCCFLAGS) -std=c18 -mcpu=$(platform)
-  CXXFLAGS=$(GCCFLAGS) -std=c++17 -Wsuggest-override -Wplacement-new=2-mcpu=$(platform)
+  CFLAGS=$(GCCFLAGS) -std=c18 -mcpu=$(platform) -mthumb -Itools/libopencm3/include -MD -static -nostartfiles -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
+  CXXFLAGS=$(GCCFLAGS) -std=c++17 -Wsuggest-override -Wplacement-new=2 -mcpu=$(platform) -mthumb -Itools/libopencm3/include
   ifeq ($(build_type),debug)
     CFLAGS+=-g -Og
   else
     CFLAGS+=-Os -flto -Wstrict-aliasing -fstrict-aliasing
   endif
+  LDFLAGS+=-Ltools/libopencm3/lib
 endif
 
 ###############################################
 
-LDFLAGS=$(CFLAGS)
+LDFLAGS+=$(CFLAGS)
 CFLAGS+=-Isrc/
+
+OPENCM3_DIR=tools/libopencm3
+OPENCM3_DEVICES_DATA=$(OPENCM3_DIR)/ld/devices.data

@@ -316,7 +316,7 @@ class Base:
                     msg.appVersion, self.appVersion
                 )
             )
-        logging.info("received: {}".format(msg))
+        logging.debug("received: {}".format(msg))
         return msg
 
     async def frame_from_input_stream(self) -> Optional[Sequence]:
