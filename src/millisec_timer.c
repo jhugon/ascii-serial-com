@@ -15,19 +15,33 @@ void millisec_timer_set_rel(millisec_timer *timer,
 
 bool millisec_timer_is_expired(millisec_timer *timer,
                                const millisec_timer_unit_t now) {
-  if (timer->enabled && now >= timer->expire_time) {
-    timer->enabled = false;
-    return true;
+  if (timer->enabled) {
+    if ((timer->expire_time == timer->set_time) ||
+        (timer->expire_time > timer->set_time &&
+         (now >= timer->expire_time || now < timer->set_time)) ||
+        (timer->expire_time < timer->set_time && now >= timer->expire_time &&
+         now < timer->set_time)) {
+      timer->enabled = false;
+      return true;
+    }
   }
   return false;
 }
 bool millisec_timer_is_expired_repeat(millisec_timer *timer,
                                       const millisec_timer_unit_t now) {
-  if (timer->enabled && now >= timer->expire_time) {
-    const millisec_timer_unit_t old_expire_time = timer->expire_time;
-    timer->expire_time = old_expire_time + (old_expire_time - timer->set_time);
-    timer->set_time = old_expire_time;
-    return true;
+  if (timer->enabled) {
+    if (timer->expire_time == timer->set_time) {
+      return true;
+    } else if ((timer->expire_time > timer->set_time &&
+                (now >= timer->expire_time || now < timer->set_time)) ||
+               (timer->expire_time < timer->set_time &&
+                now >= timer->expire_time && now < timer->set_time)) {
+      const millisec_timer_unit_t old_expire_time = timer->expire_time;
+      timer->expire_time =
+          old_expire_time + (old_expire_time - timer->set_time);
+      timer->set_time = old_expire_time;
+      return true;
+    }
   }
   return false;
 }
