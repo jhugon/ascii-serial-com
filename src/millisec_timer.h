@@ -75,15 +75,14 @@ bool millisec_timer_is_expired_repeat(millisec_timer *timer,
  *    before other things.
  *
  */
-
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic push
 static uint32_t MILLISECOND_TIMER_NOW = 0;
 #pragma GCC diagnostic pop
 
-/** \brief Setup the systick timer
+/** \brief Millisecond timer SysTick interrupt
  *
- * Configures the systick timer to raise the interrupt every millisecond.
+ *  Implements an interrupt handler that increments MILLISECOND_TIMER_NOW
  *
  */
 #define MILLISECOND_TIMER_SYSTICK_IT                                           \
