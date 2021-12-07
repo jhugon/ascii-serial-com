@@ -1,8 +1,9 @@
-/*
- * Streams ADC data from pin A0 (happens to be labelled A0 on the Arduino
+/** \file
+ *
+ * \brief Streams ADC data from pin A0 (happens to be labelled A0 on the Arduino
  * connector of nucleo-f091rc board)
  *
- * The ADC conversion rate is just as fast as the serial stream can keep up with
+ * The time between ADC conversions is set in register 6, in milliseconds.
  *
  * Through changing option flag, can instead stream a 32 bit counter
  *
@@ -11,15 +12,8 @@
  *
  * A register write can also turn on/off the LED
  *
- * Register map:
+ * Register map is documented at \ref register_map
  *
- * 0: PORTA input data register, bit 5 is LED (r)
- * 1: PORTA output data register, bit 5 is LED (r, bit 5 is writable)
- * 2: optionFlags
- *      bit 0: if 0: stream ADC, if 1: stream counter
- * 3: DAC Channel 1 data holding register (r, bottom 12 bits writable)
- *      write a value here for it to appear on DAC output
- * 4: Reserved for DAC Channel 2, but not implemented
  */
 
 #include <libopencm3/cm3/cortex.h>
@@ -35,6 +29,7 @@
 #include "ascii_serial_com_device.h"
 #include "ascii_serial_com_register_pointers.h"
 #include "circular_buffer.h"
+#include "millisec_timer.h"
 
 #define PORT_LED GPIOA
 #define PIN_LED GPIO5
@@ -49,20 +44,60 @@ circular_buffer_uint8 extraInputBuffer;
 CEXCEPTION_T e;
 uint16_t nExceptions;
 
+MILLISEC_TIMER_SYSTICK_IT;
+millisec_timer adc_timer;
+uint32_t adc_sample_period_ms = 1000;
+uint32_t adc_n_overruns = 0;
+
 /////////////////////////////////
 
 uint32_t optionFlags = 0;
 
-#define nRegs 5
-volatile REGTYPE *regPtrs[nRegs] = {
+#define nRegs 8
+
+/** \brief Register Map
+ *
+ * |Register Number | Description | r/w |
+ * | -------------- |------------ | --- |
+ * | 0 | PORTA input data register, bit 5 is LED | r |
+ * | 1 | PORTA output data register, bit 5 is LED | r, bit 5 is w |
+ * | 2 | optionFlags: bit 0: if 0: stream ADC, if 1: stream counter | r/w |
+ * | 3 | DAC Channel 1 data holding register: write a value here for it to
+ * appear on DAC output | r, bottom 12 bits w | | 4 | Reserved for DAC Channel
+ * 2, but not implemented | r | | 5 | Current millisecond_timer value | r | | 6
+ * | Period between ADC samples in ms (only written to ADC register when 'n'
+ * command received) | r/w | | 7 | Number of times ADC overrun flag has been set
+ * | r |
+ *
+ * @see register_write_masks
+ *
+ */
+volatile REGTYPE *register_map[nRegs] = {
     &GPIOA_IDR, // input data reg
     &GPIOA_ODR, // output data reg
     &optionFlags,
-    &DAC_DHR12R1(DAC1), // DAC Channel 1 Data holding register
-    &DAC_DHR12R2(DAC1), // DAC Channel 2 Data holding register (not active)
+    &DAC_DHR12R1(DAC1),    // DAC Channel 1 Data holding register
+    &DAC_DHR12R2(DAC1),    // DAC Channel 2 Data holding register (not active)
+    &MILLISEC_TIMER_NOW,   // millisec timer value
+    &adc_sample_period_ms, // Time between ADC samples in ms
+    &adc_n_overruns,       // number of times overrun bit has been set
 };
 
-REGTYPE masks[nRegs] = {0, 1 << 5, 0xFFFFFFFF, 0xFFF, 0};
+/** \brief Write masks for \ref register_map
+ *
+ * These define whether the given register in register_map is writable or not
+ *
+ */
+REGTYPE register_write_masks[nRegs] = {
+    0,          // input data reg
+    1 << 5,     // output data reg
+    0xFFFFFFFF, // option flags
+    0xFFF,      // DAC_DHR12R1
+    0,          // DAC_DHR12R2
+    0,          // MILLISEC_TIMER_NOW
+    0xFFFFFFFF, // adc_sample_period_ms
+    0,          // adc_n_overruns
+};
 
 typedef struct stream_state_struct {
   uint8_t on;
@@ -165,14 +200,12 @@ static void dac_setup(void) {
 }
 
 uint8_t tmp_byte = 0;
-bool adc_started_ever = false;
-
 int main(void) {
 
   nExceptions = 0;
 
-  ascii_serial_com_register_pointers_init(&reg_pointers_state, regPtrs, masks,
-                                          nRegs);
+  ascii_serial_com_register_pointers_init(&reg_pointers_state, register_map,
+                                          register_write_masks, nRegs);
   ascii_serial_com_device_init(&ascd, &ascd_config);
   circular_buffer_uint8 *asc_in_buf =
       ascii_serial_com_device_get_input_buffer(&ascd);
@@ -182,6 +215,7 @@ int main(void) {
   circular_buffer_init_uint8(&extraInputBuffer, extraInputBuffer_size,
                              extraInputBuffer_raw);
 
+  millisec_timer_systick_setup(rcc_ahb_frequency);
   gpio_setup();
   adc_setup();
   dac_setup();
@@ -200,6 +234,11 @@ int main(void) {
       // parse and handle received messages
       ascii_serial_com_device_receive(&ascd);
 
+      if (stream_state.on && !(optionFlags & 1) &&
+          millisec_timer_is_expired_repeat(&adc_timer, MILLISEC_TIMER_NOW)) {
+        adc_start_conversion_regular(ADC);
+      }
+
       if (stream_state.on && circular_buffer_get_size_uint8(asc_out_buf) == 0) {
         if (optionFlags & 1) { // counter stream mode
           char counter_buffer[8];
@@ -209,16 +248,17 @@ int main(void) {
           counter++;
         } else { // ADC stream mode
           if (adc_eos(ADC)) {
+            if (adc_get_overrun_flag(ADC)) {
+              adc_n_overruns++;
+              adc_clear_overrun_flag(ADC);
+            }
             static uint16_t adc_val;
             static char adc_val_buffer[4];
             adc_val = adc_read_regular(ADC);
-            adc_start_conversion_regular(ADC);
+            ADC_ISR(ADC) |= (1 << ADC_ISR_EOSEQ) | (1 << ADC_ISR_EOC);
             convert_uint16_to_hex(adc_val, adc_val_buffer, true);
             ascii_serial_com_device_put_s_message_in_output_buffer(
                 &ascd, '0', '0', adc_val_buffer + 1, 3);
-          } else if (!adc_started_ever) {
-            adc_start_conversion_regular(ADC);
-            adc_started_ever = true;
           }
         }
       }
@@ -260,6 +300,8 @@ void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
   on_off_stream_state *state = (on_off_stream_state *)state_vp;
   if (command == 'n') {
     state->on = 1;
+    millisec_timer_set_rel(&adc_timer, MILLISEC_TIMER_NOW,
+                           adc_sample_period_ms);
   } else if (command == 'f') {
     state->on = 0;
   }

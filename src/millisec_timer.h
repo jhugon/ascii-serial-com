@@ -67,7 +67,7 @@ bool millisec_timer_is_expired_repeat(millisec_timer *timer,
  *
  * 1) #include <libopencm3/cm3/nvic.h> at the top of your main file
  *
- * 2) MILLISECOND_TIMER_SYSTICK_IT outside of any function to
+ * 2) MILLISEC_TIMER_SYSTICK_IT; outside of any function to
  *    define the systick interrupt
  *
  * 3) millisec_timer_systick_setup(rcc_ahb_frequency); in the setup
@@ -77,16 +77,16 @@ bool millisec_timer_is_expired_repeat(millisec_timer *timer,
  */
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic push
-static uint32_t MILLISECOND_TIMER_NOW = 0;
+static uint32_t MILLISEC_TIMER_NOW = 0;
 #pragma GCC diagnostic pop
 
 /** \brief Millisecond timer SysTick interrupt
  *
- *  Implements an interrupt handler that increments MILLISECOND_TIMER_NOW
+ *  Implements an interrupt handler that increments MILLISEC_TIMER_NOW
  *
  */
-#define MILLISECOND_TIMER_SYSTICK_IT                                           \
-  void sys_tick_handler(void) { MILLISECOND_TIMER_NOW++; }
+#define MILLISEC_TIMER_SYSTICK_IT                                              \
+  void sys_tick_handler(void) { MILLISEC_TIMER_NOW++; }
 
 /** \brief Setup the systick timer
  *
