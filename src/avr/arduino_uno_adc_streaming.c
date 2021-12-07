@@ -1,6 +1,7 @@
-/*
- * Uses timer to set interval between ADC single conversions that are then sent
- * as stream messages to host.
+/** \file
+ *
+ * \brief Uses timer to set interval between ADC single conversions that are
+ * then sent as stream messages to host.
  *
  * On receiving 'n' message, begins streaming ADC values to host (by default the
  * ADC is connected to ground) Stops when 'f' message is received.
@@ -8,17 +9,7 @@
  * ADC channel selection and time between ADC conversions are configurable with
  * registers. I'm not quite sure what the units of timer counter compare are.
  *
- * Register map:
- *
- * 0: PORTB, only bit 5 is writable (the user LED)
- * 1: lower 8 bits of the timer counter (read only)
- * 2: upper 8 bits of the timer counter (read only)
- * 3: lower 8 bits of the timer counter compare (r/w) default: 25
- * 4: upper 8 bits of the timer counter compare (r/w) default: 0
- * 5: ADMUX: the upper half of the register is the read only ADC reference
- * selection the bottom 4 bits are r/w and are the channel selection, default:
- * 0xF values of 0-7 select the ADC channel to read from and 0xF is GND Don't
- * write any values besides 0-7 and 0xF, as it could cause issues.
+ * Register map is documented at \ref register_map
  *
  */
 
@@ -28,6 +19,7 @@
 #include "ascii_serial_com_register_pointers.h"
 #include "avr/avr_uart.h"
 #include "circular_buffer.h"
+#include "millisec_timer.h"
 
 #include <avr/interrupt.h>
 #include <avr/io.h>
@@ -43,9 +35,31 @@ uint16_t timer0B_counter_compare = 25;
 bool have_started_ADC_conversion = false;
 #define have_finished_ADC_conversion (!(ADCSRA & (1 << ADSC)))
 
-// Lower byte of the 16 bit variables is in lower register number
 #define nRegs 6
-volatile REGTYPE *regPtrs[nRegs] = {
+
+/** \brief Register Map
+ *
+ * Lower byte of the 16 bit variables is in lower register number
+ *
+ * |Register Number | Description | r/w | Default |
+ * | -------------- |------------ | --- | ------- |
+ * | 0 | PORTB, bit 5 is LED | r, bit 5 is w | 0 |
+ * | 1 | timer0B counter (low bits) | r | counting |
+ * | 2 | timer0B counter (high bits) | r | counting |
+ * | 3 | timer0B counter compare (low bits) | r/w | 25 |
+ * | 4 | timer0B counter compare (high bits) | r/w | 0 |
+ * | 5 | ADMUX | r, lower 4 bits w | F (ground) |
+ *
+ *
+ * ADMUX: the upper half of the register is the read only ADC reference
+ * selection. The bottom 4 bits are r/w and are the channel selection.
+ * values of 0-7 select the ADC channel to read from and 0xF is GND. **Don't
+ * write any values besides 0-7 and 0xF, as it could cause issues.**
+ *
+ * @see register_write_masks
+ *
+ */
+volatile REGTYPE *register_map[nRegs] = {
     &PORTB,
     &((uint8_t *)(&timer0B_counter))[0],
     &((uint8_t *)(&timer0B_counter))[1],
@@ -54,7 +68,19 @@ volatile REGTYPE *regPtrs[nRegs] = {
     &ADMUX,
 };
 
-REGTYPE masks[nRegs] = {1 << 5, 0, 0, 0xFF, 0xFF, 0x0F};
+/** \brief Write masks for \ref register_map
+ *
+ * These define whether the given register in register_map is writable or not
+ *
+ */
+REGTYPE register_write_masks[nRegs] = {
+    1 << 5, // PORTB
+    0,      // timer0B_counter[0]
+    0,      // timer0B_counter[1]
+    0xFF,   // timer0B_counter_compare[0]
+    0xFF,   // timer0B_counter_compare[1]
+    0x0F,   // ADMUX
+};
 
 typedef struct stream_state_struct {
   uint8_t on;
@@ -128,8 +154,8 @@ int main(void) {
   stream_state.on = 0;
   counter = 0;
 
-  ascii_serial_com_register_pointers_init(&reg_pointers_state, regPtrs, masks,
-                                          nRegs);
+  ascii_serial_com_register_pointers_init(&reg_pointers_state, register_map,
+                                          register_write_masks, nRegs);
   ascii_serial_com_device_init(&ascd, &ascd_config);
   circular_buffer_uint8 *asc_in_buf =
       ascii_serial_com_device_get_input_buffer(&ascd);
