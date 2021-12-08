@@ -8,7 +8,8 @@
  * Through changing option flag, can instead stream a 32 bit counter
  *
  * DAC channel 1 (A4 and Arduino A2 on board) is also enabled
- * and may be changed by writing to register 3.
+ * and may be changed by writing to register 3. Period between
+ * DAC conversions is configurable as is trinagle/noise generation.
  *
  * A register write can also turn on/off the LED
  *
@@ -22,6 +23,7 @@
 #include <libopencm3/stm32/dac.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/usart.h>
 
 #include "asc_exception.h"
@@ -53,7 +55,7 @@ uint32_t adc_n_overruns = 0;
 
 uint32_t optionFlags = 0;
 
-#define nRegs 8
+#define nRegs 10
 
 /** \brief Register Map
  *
@@ -67,9 +69,33 @@ uint32_t optionFlags = 0;
  * | 5 | Current millisecond_timer value | r |
  * | 6 | Period between ADC samples in ms * | r/w |
  * | 7 | Number of times ADC overrun flag has been set | r |
+ * | 8 | Time between DAC conversion in 100 us * | r/w 16 bits |
+ * | 9 | DAC waveform & waveform amplitude sel. * | r, w bits 6-10 |
  *
  * Register 6: ADC sample period only written to ADC register when 'n' command
  * received
+ *
+ * Register 8: default 100, so update every 10 ms
+ *
+ * Register 9: default 0. Bits 6-7 (start from 0) control waveform generation.
+ * 00: disabled, 01: noise, 1x: triangle. Bits 8-11 are amplitude: where the
+ * max-min is 2^(n+1)-1, where n is the value (at least for triangle), maxing
+ * out at 0b1011=0xB. The triangle starts from reg 3 and goes up to the max-min
+ * value programmed, then comes back down. The noise is centered around
+ * register 3.
+ *
+ * So, write to the register: 0xYZ0, where Y is the amplitude: 0-B, and Z is
+ * the waveform type: 0 for none, 1 for nosie, 8 for triangle.
+ *
+ * I'd say the noise has an RMS in the region of 10 counts. The mask doesn't
+ * change the RMS that much.
+ *
+ * Register 9 examples:
+ *
+ * - triangle with max-min = 127: 0b10110000000 = 0x680
+ * - full scale triangle: write 9 0xB80, write 3 0, write 8 3
+ * - noise with large amplitude: 0xB10
+ * - flat, waveform disabled: 0
  *
  * @see register_write_masks
  *
@@ -83,6 +109,9 @@ volatile REGTYPE *register_map[nRegs] = {
     &MILLISEC_TIMER_NOW,   // millisec timer value
     &adc_sample_period_ms, // Time between ADC samples in ms
     &adc_n_overruns,       // number of times overrun bit has been set
+    &TIM_ARR(TIM6),        // time between DAC conversions in 100 us
+    &DAC_CR(DAC1), // waveform and waveform amplitude selection only want bits
+                   // 6-11 (start from 0)
 };
 
 /** \brief Write masks for \ref register_map
@@ -99,6 +128,8 @@ REGTYPE register_write_masks[nRegs] = {
     0,          // MILLISEC_TIMER_NOW
     0xFFFFFFFF, // adc_sample_period_ms
     0,          // adc_n_overruns
+    0xFFFF,     // TIM_ARR(TIM6)
+    0xFC0,      // DAC_CR(DAC), w bits 6-11
 };
 
 typedef struct stream_state_struct {
@@ -185,8 +216,16 @@ static void adc_setup(void) {
 }
 
 static void dac_setup(void) {
-  // Setting this up in the mode where you just write to the data register and
-  // it updates 1 clock after
+  // Setup TIM6
+  rcc_periph_clock_enable(RCC_TIM6);
+  TIM_PSC(TIM6) = rcc_ahb_frequency / 100 - 1; // tick every 100 us
+  TIM_ARR(TIM6) = 100;                         // by default, update every 10 ms
+  TIM_CR2(TIM6) |= TIM_CR2_MMS_UPDATE;         // trigger output on update
+  TIM_CR1(TIM6) |= TIM_CR1_ARPE; // wait for update to update the value of
+                                 // auto-reload shadow reg
+  TIM_CR1(TIM6) |= TIM_CR1_CEN;  // enable
+
+  // Setting this up to trigger using timer 6, so setting that up here too.
   rcc_periph_clock_enable(RCC_DAC);
   rcc_periph_clock_enable(RCC_GPIOA);
 
@@ -197,7 +236,9 @@ static void dac_setup(void) {
 
   dac_disable(DAC1, DAC_CHANNEL1);
   dac_buffer_enable(DAC1, DAC_CHANNEL1);
-  dac_trigger_disable(DAC1, DAC_CHANNEL1);
+  dac_disable_waveform_generation(DAC1, DAC_CHANNEL1);
+  dac_set_trigger_source(DAC1, DAC_CR_TSEL1_T6);
+  dac_trigger_enable(DAC1, DAC_CHANNEL1);
   dac_enable(DAC1, DAC_CHANNEL1);
 }
 
