@@ -138,7 +138,7 @@ void millisec_timer_systick_setup(uint32_t ahb_frequency);
 #define millisec_timer_avr_timer0_setup_16MHz()                                \
   TCCR0B |= 0x3;                                                               \
   TCCR0A |= 2;                                                                 \
-  OCCR0A = 250;                                                                \
+  OCR0A = 250;                                                                 \
   TIMSK0 |= 1 << OCIE0A
 
 #endif
