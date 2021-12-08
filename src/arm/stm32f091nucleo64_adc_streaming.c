@@ -62,12 +62,14 @@ uint32_t optionFlags = 0;
  * | 0 | PORTA input data register, bit 5 is LED | r |
  * | 1 | PORTA output data register, bit 5 is LED | r, bit 5 is w |
  * | 2 | optionFlags: bit 0: if 0: stream ADC, if 1: stream counter | r/w |
- * | 3 | DAC Channel 1 data holding register: write a value here for it to
- * appear on DAC output | r, bottom 12 bits w | | 4 | Reserved for DAC Channel
- * 2, but not implemented | r | | 5 | Current millisecond_timer value | r | | 6
- * | Period between ADC samples in ms (only written to ADC register when 'n'
- * command received) | r/w | | 7 | Number of times ADC overrun flag has been set
- * | r |
+ * | 3 | DAC Channel 1 output val | r, bottom 12 bits w |
+ * | 4 | Reserved for DAC Channel 2, but not implemented | r |
+ * | 5 | Current millisecond_timer value | r |
+ * | 6 | Period between ADC samples in ms * | r/w |
+ * | 7 | Number of times ADC overrun flag has been set | r |
+ *
+ * Register 6: ADC sample period only written to ADC register when 'n' command
+ * received
  *
  * @see register_write_masks
  *

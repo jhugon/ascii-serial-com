@@ -665,5 +665,65 @@ def noop(
         typer.echo(f"Error: unhandled exception: {e.__class__.__name__}: {e}", err=True)
 
 
+@app.command()
+def dump(
+    timeout: float = typer.Option(
+        DEFAULT_TIMEOUT, "--timeout", "-t", help="Timeout in seconds", min=0.0
+    ),
+    register_bits: int = typer.Option(
+        DEFAULT_REGISTER_BITS,
+        "--register-bits",
+        "-b",
+        help="Register bit width (typically 8,16,32)",
+        min=1,
+    ),
+) -> None:
+    """
+    Read registers starting from 0 until receive "register number out of bounds" error from device
+    """
+    if SERIAL_SEND:
+        typer.echo(
+            f"Dumping registers on send device {SERIAL_SEND} and read device {SERIAL}"
+        )
+    else:
+        typer.echo(f"Dumping registers on device {SERIAL}")
+
+    logging.basicConfig(
+        level=logging.ERROR,
+        format="%(levelname)s L%(lineno)d %(funcName)s: %(message)s",
+    )
+    register_number = 0
+    while True:
+        try:
+            result = trio.run(run_read, timeout, register_number, register_bits)
+            if result is None:
+                typer.echo(
+                    f"Error: read reply not received and timeout expired after {timeout} s",
+                    err=True,
+                )
+                break
+            else:
+                if register_bits == 8:
+                    typer.echo(
+                        f"{register_number}: {result:3} = 0x{result:02x} = 0b{result:08b}"
+                    )
+                else:
+                    typer.echo(
+                        f"{register_number}: {result:10} = 0x{result:08x} = 0b{result:032b}"
+                    )
+                register_number += 1
+        except DeviceError as e:
+            if not ("Register number out of bounds" in str(e)):
+                typer.echo(
+                    f"Error: unhandled exception: {e.__class__.__name__}: {e}", err=True
+                )
+            break
+        except Exception as e:
+            typer.echo(
+                f"Error: unhandled exception: {e.__class__.__name__}: {e}", err=True
+            )
+            break
+
+
 def main():
     app()
