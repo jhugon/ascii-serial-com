@@ -227,25 +227,33 @@ async def run_stream_text_graph(
             logging.debug(f"About to open files")
             async with await trio.open_file(fin_name, "br") as fin:
                 async with await trio.open_file(fout_name, "bw") as fout:
-                    logging.debug(f"Files open!")
-                    host = Host(nursery, fin, fout, 8, ignoreErrors=True)
-                    stop_event = trio.Event()
-                    nursery.start_soon(
-                        forward_received_messages_to_text_graph,
-                        recv_ch,
-                        minimum_value,
-                        maximum_value,
-                        stop_messages,
-                        stop_bytes,
-                        stop_lines,
-                        stop_event,
-                    )
-                    host.forward_received_s_messages_to(send_ch)
-                    await host.start_streaming()
-                    await trio_util.wait_any(
-                        partial(trio.sleep, timeout), stop_event.wait
-                    )
-                    await host.stop_streaming()
+                    try:
+                        logging.debug(f"Files open!")
+                        host = Host(nursery, fin, fout, 8, ignoreErrors=True)
+                        stop_event = trio.Event()
+                        nursery.start_soon(
+                            forward_received_messages_to_text_graph,
+                            recv_ch,
+                            minimum_value,
+                            maximum_value,
+                            stop_messages,
+                            stop_bytes,
+                            stop_lines,
+                            stop_event,
+                        )
+                        host.forward_received_s_messages_to(send_ch)
+                        await host.start_streaming()
+                        await trio_util.wait_any(
+                            partial(trio.sleep, timeout), stop_event.wait
+                        )
+                    except BaseException as e:
+                        logging.debug(
+                            f"Caught exception while receiving stream: {e.__class__.__name__} {e}"
+                        )
+                        if not isinstance(e, KeyboardInterrupt):
+                            raise e
+                    finally:
+                        await host.stop_streaming()
 
 
 async def forward_received_messages_to_text_graph(
