@@ -1,24 +1,17 @@
-/*
- * Uses timer to set interval between ADC single conversions that are then sent
- * as stream messages to host.
+/** \file
+ *
+ * \brief Uses timer to set interval between ADC single conversions that are
+ * then sent as stream messages to host.
  *
  * On receiving 'n' message, begins streaming ADC values to host (by default the
  * ADC is connected to ground) Stops when 'f' message is received.
  *
  * ADC channel selection and time between ADC conversions are configurable with
- * registers. I'm not quite sure what the units of timer counter compare are.
+ * registers.
  *
- * Register map:
+ * You can also turn on and off the user LED with register 0, bit 5
  *
- * 0: PORTB, only bit 5 is writable (the user LED)
- * 1: lower 8 bits of the timer counter (read only)
- * 2: upper 8 bits of the timer counter (read only)
- * 3: lower 8 bits of the timer counter compare (r/w) default: 25
- * 4: upper 8 bits of the timer counter compare (r/w) default: 0
- * 5: ADMUX: the upper half of the register is the read only ADC reference
- * selection the bottom 4 bits are r/w and are the channel selection, default:
- * 0xF values of 0-7 select the ADC channel to read from and 0xF is GND Don't
- * write any values besides 0-7 and 0xF, as it could cause issues.
+ * Register map is documented at \ref register_map
  *
  */
 
@@ -28,6 +21,7 @@
 #include "ascii_serial_com_register_pointers.h"
 #include "avr/avr_uart.h"
 #include "circular_buffer.h"
+#include "millisec_timer.h"
 
 #include <avr/interrupt.h>
 #include <avr/io.h>
@@ -37,24 +31,72 @@
 #define BAUD 9600
 #define MYUBRR (F_CPU / 16 / BAUD - 1)
 
-uint16_t timer0B_counter;
-uint16_t timer0B_counter_compare = 25;
-
 bool have_started_ADC_conversion = false;
 #define have_finished_ADC_conversion (!(ADCSRA & (1 << ADSC)))
 
-// Lower byte of the 16 bit variables is in lower register number
-#define nRegs 6
-volatile REGTYPE *regPtrs[nRegs] = {
+millisec_timer adc_timer;
+uint32_t adc_sample_period_ms = 1000;
+
+#define nRegs 10
+
+/** \brief Register Map
+ *
+ * Lower byte of the 16 bit variables is in lower register number
+ *
+ * |Register Number | Description | r/w | Default |
+ * | -------------- |------------ | --- | ------- |
+ * | 0 | PORTB, bit 5 is LED | r, bit 5 is w | 0 |
+ * | 1 | ADMUX | r, lower 4 bits w | 0x4F (ground) |
+ * | 2 | adc_sample_period_ms lowest 8 bits | r/w | 0xe8 (1000)|
+ * | 3 | adc_sample_period_ms bits 8-15 | r/w | 0x03 |
+ * | 4 | adc_sample_period_ms bits 16-23 | r/w | 0 |
+ * | 5 | adc_sample_period_ms bits 24-21 | r/w | 0 |
+ * | 6 | MILLISEC_TIMER_NOW lowest 8 bits | r | counting |
+ * | 7 | MILLISEC_TIMER_NOW bits 8-15 | r | counting |
+ * | 8 | MILLISEC_TIMER_NOW bits 16-23 | r | counting |
+ * | 9 | MILLISEC_TIMER_NOW bits 24-21 | r | counting |
+ *
+ * ADMUX: the upper half of the register is the read only ADC reference
+ * selection. The bottom 4 bits are r/w and are the channel selection.
+ * values of 0-7 select the ADC channel to read from and 0xF is GND. **Don't
+ * write any values besides 0-7 and 0xF, as it could cause issues.**
+ *
+ * adc_sample_period_ms: the time between ADC conversion
+ * in milliseconds. default: 1000 ms = 1 s
+ *
+ * @see register_write_masks
+ *
+ */
+volatile REGTYPE *register_map[nRegs] = {
     &PORTB,
-    &((uint8_t *)(&timer0B_counter))[0],
-    &((uint8_t *)(&timer0B_counter))[1],
-    &((uint8_t *)(&timer0B_counter_compare))[0],
-    &((uint8_t *)(&timer0B_counter_compare))[1],
     &ADMUX,
+    &((uint8_t *)(&adc_sample_period_ms))[0],
+    &((uint8_t *)(&adc_sample_period_ms))[1],
+    &((uint8_t *)(&adc_sample_period_ms))[2],
+    &((uint8_t *)(&adc_sample_period_ms))[3],
+    &((uint8_t *)(&MILLISEC_TIMER_NOW))[0],
+    &((uint8_t *)(&MILLISEC_TIMER_NOW))[1],
+    &((uint8_t *)(&MILLISEC_TIMER_NOW))[2],
+    &((uint8_t *)(&MILLISEC_TIMER_NOW))[3],
 };
 
-REGTYPE masks[nRegs] = {1 << 5, 0, 0, 0xFF, 0xFF, 0x0F};
+/** \brief Write masks for \ref register_map
+ *
+ * These define whether the given register in register_map is writable or not
+ *
+ */
+REGTYPE register_write_masks[nRegs] = {
+    1 << 5, // PORTB
+    0x0F,   // ADMUX
+    0xFF,   // adc_sample_period_ms
+    0xFF,   // adc_sample_period_ms
+    0xFF,   // adc_sample_period_ms
+    0xFF,   // adc_sample_period_ms
+    0,      // MILLISEC_TIMER_NOW
+    0,      // MILLISEC_TIMER_NOW
+    0,      // MILLISEC_TIMER_NOW
+    0,      // MILLISEC_TIMER_NOW
+};
 
 typedef struct stream_state_struct {
   uint8_t on;
@@ -86,21 +128,7 @@ int main(void) {
 
   DDRB |= 1 << 5;
 
-  // Use Tim0 interrupts to time ADC conversions
-  // Tim0 in normal mode, which is default
-  // Output compare is the interrupt
-  // Bottom 3 bits of TCCR0B control clock prescaling
-  //    0b101 = 0x5 is the lowest speed, clk/1024
-  //    Setting this to != 0 is what enables the timer
-  // The timer count can be access/modified at TCNT0
-  // OCR0B sets the value for output compare unit B
-  // TIMSK0: timer interrupt enable mask, bit OCIE0B enables output compare unit
-  // Don't have to clear the interrupt flag manually, it's done automatically
-  // It's the same with Tim1, it's just 16 bit
-  TCNT0 = 0;
-  OCR0B = F_CPU / 1024 / 100; // should be 100 times per second
-  TIMSK0 |= 1 << OCIE0B; // output comapre interrupt enable for timer 0 unit B
-  TCCR0B |= 0x5;         // enable timer with clk/1024
+  millisec_timer_avr_timer0_setup_16MHz();
 
   // ADC
   // ADMUX top 2 bits select reference. Default (0b00xxxxxx) is AREF--I think
@@ -128,8 +156,8 @@ int main(void) {
   stream_state.on = 0;
   counter = 0;
 
-  ascii_serial_com_register_pointers_init(&reg_pointers_state, regPtrs, masks,
-                                          nRegs);
+  ascii_serial_com_register_pointers_init(&reg_pointers_state, register_map,
+                                          register_write_masks, nRegs);
   ascii_serial_com_device_init(&ascd, &ascd_config);
   circular_buffer_uint8 *asc_in_buf =
       ascii_serial_com_device_get_input_buffer(&ascd);
@@ -159,21 +187,9 @@ int main(void) {
 
       ascii_serial_com_device_receive(&ascd);
 
-      // if (stream_state.on && circular_buffer_get_size_uint8(asc_out_buf) == 0
-      // &&
-      //    timer0B_counter > timer0B_counter_compare) {
-      //  char counter_buffer[2];
-      //  convert_uint8_to_hex(counter, counter_buffer, true);
-      //  ascii_serial_com_device_put_s_message_in_output_buffer(
-      //      &ascd, '0', '0', counter_buffer, 2);
-      //  counter++;
-      //  ATOMIC_BLOCK(ATOMIC_FORCEON) { timer0B_counter = 0; }
-      //}
-
       if (stream_state.on && !have_started_ADC_conversion &&
-          timer0B_counter > timer0B_counter_compare) {
+          millisec_timer_is_expired_repeat(&adc_timer, MILLISEC_TIMER_NOW)) {
         ADCSRA |= 1 << ADSC; // start ADC conversion
-        ATOMIC_BLOCK(ATOMIC_FORCEON) { timer0B_counter = 0; }
         have_started_ADC_conversion = true;
       }
       if (have_started_ADC_conversion && have_finished_ADC_conversion &&
@@ -182,7 +198,7 @@ int main(void) {
         char adc_val_buffer[4];
         convert_uint16_to_hex(adc_val, adc_val_buffer, true);
         ascii_serial_com_device_put_s_message_in_output_buffer(
-            &ascd, '0', '0', adc_val_buffer, 4);
+            &ascd, '0', '0', adc_val_buffer + 1, 3);
         have_started_ADC_conversion = false;
       }
 
@@ -202,7 +218,7 @@ ISR(USART_RX_vect) {
   circular_buffer_push_back_uint8(&extraInputBuffer, c);
 }
 
-ISR(TIMER0_COMPB_vect) { timer0B_counter++; }
+MILLISEC_TIMER_AVR_TIMER0_ISR;
 
 void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
                         __attribute__((unused)) char ascVersion,
@@ -213,9 +229,9 @@ void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
   on_off_stream_state *state = (on_off_stream_state *)state_vp;
   if (command == 'n') {
     state->on = 1;
-    TIMSK0 |= 1 << OCIE0B; // output compare interrupt enable for timer 0 unit B
+    millisec_timer_set_rel(&adc_timer, MILLISEC_TIMER_NOW,
+                           adc_sample_period_ms);
   } else if (command == 'f') {
     state->on = 0;
-    TIMSK0 &= ~(1 << OCIE0B); // disable interrupt
   }
 }
