@@ -50,6 +50,8 @@ MILLISEC_TIMER_SYSTICK_IT;
 millisec_timer adc_timer;
 uint32_t adc_sample_period_ms = 1000;
 uint32_t adc_n_overruns = 0;
+millisec_timer dac_reset_timer;
+#define DAC_RESET_TIME_MS 500
 
 /////////////////////////////////
 
@@ -59,11 +61,13 @@ uint32_t optionFlags = 0;
 
 /** \brief Register Map
  *
+ * ## Register Map
+ *
  * |Register Number | Description | r/w |
  * | -------------- |------------ | --- |
  * | 0 | PORTA input data register, bit 5 is LED | r |
  * | 1 | PORTA output data register, bit 5 is LED | r, bit 5 is w |
- * | 2 | optionFlags: bit 0: if 0: stream ADC, if 1: stream counter | r/w |
+ * | 2 | optionFlags: see below | r/w |
  * | 3 | DAC Channel 1 output val | r, bottom 12 bits w |
  * | 4 | Reserved for DAC Channel 2, but not implemented | r |
  * | 5 | Current millisecond_timer value | r |
@@ -72,10 +76,19 @@ uint32_t optionFlags = 0;
  * | 8 | Time between DAC conversion in 100 us * | r/w 16 bits |
  * | 9 | DAC waveform & waveform amplitude sel. * | r, w bits 6-10 |
  *
+ * ### Option flags
+ *
+ * |Big Number | Description |
+ * | -------------- |------------ |
+ * | 0 | if 0: stream ADC, if 1: stream counter |
+ * | 1 | if 1: disable & re-enable DAC, then reset bit to 0, if 0: nothing |
+ *
  * Register 6: ADC sample period only written to ADC register when 'n' command
  * received
  *
  * Register 8: default 100, so update every 10 ms
+ *
+ * ### Waveform generation with register 9
  *
  * Register 9: default 0. Bits 6-7 (start from 0) control waveform generation.
  * 00: disabled, 01: noise, 1x: triangle. Bits 8-11 are amplitude: where the
@@ -89,6 +102,9 @@ uint32_t optionFlags = 0;
  *
  * I'd say the noise has an RMS in the region of 10 counts. The mask doesn't
  * change the RMS that much.
+ *
+ * **It may be necessary to reset the DAC (see option flags) to change the
+ * amplitude and/or disable waveform generation**
  *
  * Register 9 examples:
  *
@@ -276,6 +292,17 @@ int main(void) {
 
       // parse and handle received messages
       ascii_serial_com_device_receive(&ascd);
+
+      if ((optionFlags >> 1) &
+          1) { // reset DAC, needed b/c it's hard to disable noise generation
+        dac_disable(DAC1, DAC_CHANNEL1);
+        optionFlags &= ~(1 << 1);
+        millisec_timer_set_rel(&dac_reset_timer, MILLISEC_TIMER_NOW,
+                               DAC_RESET_TIME_MS);
+      }
+      if (millisec_timer_is_expired(&dac_reset_timer, MILLISEC_TIMER_NOW)) {
+        dac_enable(DAC1, DAC_CHANNEL1);
+      }
 
       if (stream_state.on && !(optionFlags & 1) &&
           millisec_timer_is_expired_repeat(&adc_timer, MILLISEC_TIMER_NOW)) {
