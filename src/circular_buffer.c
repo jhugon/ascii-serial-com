@@ -16,20 +16,21 @@ inline void inc_iStart_uint8(circular_buffer_uint8 *buf);
 inline void inc_iStop_uint8(circular_buffer_uint8 *buf);
 inline void dec_iStart_uint8(circular_buffer_uint8 *buf);
 inline void dec_iStop_uint8(circular_buffer_uint8 *buf);
+#define isPowerOfTwo(x) ((x != 0) && ((x & (~x + 1)) == x))
 
 void inc_iStart_uint8(circular_buffer_uint8 *buf) {
-  buf->iStart = (buf->iStart + 1) % buf->capacity;
+  buf->iStart = (buf->iStart + 1) & (buf->capacity - 1);
 }
 
 void inc_iStop_uint8(circular_buffer_uint8 *buf) {
-  buf->iStop = (buf->iStop + 1) % buf->capacity;
+  buf->iStop = (buf->iStop + 1) & (buf->capacity - 1);
 }
 
 void dec_iStart_uint8(circular_buffer_uint8 *buf) {
   if (buf->iStart == 0) {
     buf->iStart = buf->capacity - 1;
   } else {
-    buf->iStart = (buf->iStart - 1) % buf->capacity;
+    buf->iStart = (buf->iStart - 1) & (buf->capacity - 1);
   }
 }
 
@@ -37,12 +38,15 @@ void dec_iStop_uint8(circular_buffer_uint8 *buf) {
   if (buf->iStop == 0) {
     buf->iStop = buf->capacity - 1;
   } else {
-    buf->iStop = (buf->iStop - 1) % buf->capacity;
+    buf->iStop = (buf->iStop - 1) & (buf->capacity - 1);
   }
 }
 
 void circular_buffer_init_uint8(circular_buffer_uint8 *circ_buf,
                                 const size_t capacity, uint8_t *buffer) {
+  if (!isPowerOfTwo(capacity)) {
+    Throw(ASC_ERROR_CB_BAD_CAPACITY);
+  }
   circ_buf->capacity = capacity;
   circ_buf->size = 0;
   circ_buf->iStart = 0;
@@ -125,7 +129,7 @@ uint8_t circular_buffer_get_element_uint8(const circular_buffer_uint8 *circ_buf,
   if (iElement >= circular_buffer_get_size_uint8(circ_buf)) {
     Throw(ASC_ERROR_CB_OOB);
   }
-  size_t iResult = (circ_buf->iStart + iElement) % circ_buf->capacity;
+  size_t iResult = (circ_buf->iStart + iElement) & (circ_buf->capacity - 1);
   uint8_t result = *(circ_buf->buffer + iResult);
   return result;
 }
@@ -297,7 +301,7 @@ size_t circular_buffer_pop_front_block_uint8(circular_buffer_uint8 *circ_buf,
     circ_buf->iStart = 0;
     circ_buf->iStop = 0;
   } else {
-    circ_buf->iStart = (circ_buf->iStart + nWritten) % circ_buf->capacity;
+    circ_buf->iStart = (circ_buf->iStart + nWritten) & (circ_buf->capacity - 1);
   }
   return nWritten;
 }
@@ -318,12 +322,12 @@ size_t circular_buffer_push_back_from_fd_uint8(circular_buffer_uint8 *circ_buf,
            "file");
     Throw(ASC_ERROR_FILE_READ);
   }
-  circ_buf->iStop = (circ_buf->iStop + nRead) % circ_buf->capacity;
+  circ_buf->iStop = (circ_buf->iStop + nRead) & (circ_buf->capacity - 1);
   circ_buf->size += nRead;
   if (circ_buf->size >= circ_buf->capacity) {
     circ_buf->iStart =
-        (circ_buf->iStart + circ_buf->size - circ_buf->capacity) %
-        circ_buf->capacity;
+        (circ_buf->iStart + circ_buf->size - circ_buf->capacity) &
+        (circ_buf->capacity - 1);
     circ_buf->size = circ_buf->capacity;
   }
   // fprintf(stderr,"circular_buffer_push_back_from_fd_uint8:
@@ -351,7 +355,7 @@ size_t circular_buffer_pop_front_to_fd_uint8(circular_buffer_uint8 *circ_buf,
     circ_buf->iStart = 0;
     circ_buf->iStop = 0;
   } else {
-    circ_buf->iStart = (circ_buf->iStart + nWritten) % circ_buf->capacity;
+    circ_buf->iStart = (circ_buf->iStart + nWritten) & (circ_buf->capacity - 1);
   }
   return nWritten;
 }

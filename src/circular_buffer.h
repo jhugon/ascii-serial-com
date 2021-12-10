@@ -31,8 +31,14 @@ typedef struct circular_buffer_uint8_struct {
  *  THE BUFFER MUST BE SMALLER THAN (< not <=) SIZE_T ON THE PLATFORM
  *  Use this for a buffer of unit8's.
  *
+ *  May throw an \ref asc_exception
+ *
  *  \param circ_buf is a pointer to an uninitialized circular buffer struct
- *  \param capacity is the length of buffer (uint8_t array)
+ *
+ *  \param capacity is the length of buffer (uint8_t array). **It must be a
+ *  power of 2!** If it's not, a \ref asc_exception ASC_ERROR_CB_BAD_CAPACITY
+ *  will be raised.
+ *
  *  \param buffer is a pointer to the buffer (uint8_t array), which must be
  * pre-allocated
  *
@@ -91,7 +97,9 @@ void circular_buffer_print_uint8(const circular_buffer_uint8 *circ_buf,
  *
  *  \param circ_buf is a pointer to an initialized circular buffer struct
  *  \param iElement indexes the circular buffer. The element will be iElements
- * back from the front of the circular buffer \return the entry at iElement
+ *     back from the front of the circular buffer \return the entry at iElement
+ *
+ *  May throw an \ref asc_exception
  *
  */
 uint8_t circular_buffer_get_element_uint8(const circular_buffer_uint8 *circ_buf,

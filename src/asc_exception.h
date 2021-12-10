@@ -18,6 +18,11 @@
 
 #include "externals/CException.h"
 
+/** \brief Exception type to be used with CException
+ *
+ * These exception types can be used with Throw() and Catch()
+ *
+ */
 enum asc_exception {
   ASC_ERROR_UNKOWN = 0,
   ASC_ERROR_NO_ERROR = 1,
@@ -37,6 +42,7 @@ enum asc_exception {
   // circular_buffer
   ASC_ERROR_CB_OOB = 0x30, // Circular buffer index >= size
   ASC_ERROR_CB_POP_EMPTY = 0x31,
+  ASC_ERROR_CB_BAD_CAPACITY = 0x32, // capacity not a power of 2
   // I/O
   ASC_ERROR_FILE_READ = 0x40,
   ASC_ERROR_FILE_WRITE = 0x41,
