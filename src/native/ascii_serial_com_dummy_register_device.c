@@ -20,8 +20,12 @@ ascii_serial_com_register_block reg_block;
 ascii_serial_com_device_config ascd_config = {
     .func_rw = ascii_serial_com_register_block_handle_message,
     .state_rw = &reg_block};
+circular_buffer_uint8 *asc_in_buf;
+circular_buffer_uint8 *asc_out_buf;
 
 CEXCEPTION_T e;
+
+int timeout = -1;
 
 int main(int argc, char *argv[]) {
 
@@ -90,17 +94,20 @@ int main(int argc, char *argv[]) {
     outfileno = STDOUT_FILENO;
   }
 
-  ascii_serial_com_register_block_init(&reg_block, regs, nRegs);
-  ascii_serial_com_device_init(&ascd, &ascd_config);
-  circular_buffer_uint8 *asc_in_buf =
-      ascii_serial_com_device_get_input_buffer(&ascd);
-  circular_buffer_uint8 *asc_out_buf =
-      ascii_serial_com_device_get_output_buffer(&ascd);
+  Try {
+    ascii_serial_com_register_block_init(&reg_block, regs, nRegs);
+    ascii_serial_com_device_init(&ascd, &ascd_config);
+    asc_in_buf = ascii_serial_com_device_get_input_buffer(&ascd);
+    asc_out_buf = ascii_serial_com_device_get_output_buffer(&ascd);
 
-  circular_buffer_io_fd_poll_init(&cb_io, asc_in_buf, asc_out_buf, infileno,
-                                  outfileno);
+    circular_buffer_io_fd_poll_init(&cb_io, asc_in_buf, asc_out_buf, infileno,
+                                    outfileno);
+  }
+  Catch(e) {
+    fprintf(stderr, "Uncaught exception: %u, during init, exiting.\n", e);
+    return 1;
+  }
 
-  int timeout = -1;
   while (true) {
     Try {
       int poll_ret_code = circular_buffer_io_fd_poll_do_poll(&cb_io, timeout);

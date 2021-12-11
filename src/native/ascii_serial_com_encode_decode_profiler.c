@@ -9,11 +9,14 @@
 #include "circular_buffer.h"
 
 ascii_serial_com asc;
+circular_buffer_uint8 *asc_in_buf;
+circular_buffer_uint8 *asc_out_buf;
 
 CEXCEPTION_T e;
 char ascVersion, appVersion, command;
 size_t dataLen;
 char dataBuffer[MAXDATALEN];
+unsigned long iIteration;
 
 char usage[] = "\n  ascii_serial_com_encode_decode_profiler [-h] <N>\n\n"
                "  where N is the number of iterations to run\n"
@@ -35,11 +38,17 @@ int main(int argc, char *argv[]) {
   const unsigned long nIterations = strtoul(argv[1], NULL, 10);
   fprintf(stdout, "Running with %lu iterations.\n", nIterations);
 
-  ascii_serial_com_init(&asc);
-  circular_buffer_uint8 *asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
-  circular_buffer_uint8 *asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
+  Try {
+    ascii_serial_com_init(&asc);
+    asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
+    asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
+  }
+  Catch(e) {
+    fprintf(stderr, "Uncaught exception: %u, during init, exiting.\n", e);
+    return 1;
+  }
 
-  for (unsigned long iIteration = 0; iIteration < nIterations; iIteration++) {
+  for (iIteration = 0; iIteration < nIterations; iIteration++) {
     Try {
       // fprintf(stdout,"Iteration %lu\n",iIteration);
       ascii_serial_com_put_message_in_output_buffer(&asc, '0', '0', 'z', NULL,

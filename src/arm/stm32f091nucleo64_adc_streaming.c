@@ -165,6 +165,8 @@ ascii_serial_com_device_config ascd_config = {
     .state_rw = &reg_pointers_state,
     .func_nf = handle_nf_messages,
     .state_nf = &stream_state};
+circular_buffer_uint8 *asc_in_buf;
+circular_buffer_uint8 *asc_out_buf;
 
 ///////////////////////////////////
 
@@ -261,24 +263,23 @@ static void dac_setup(void) {
 uint8_t tmp_byte = 0;
 int main(void) {
 
-  nExceptions = 0;
+  Try {
+    ascii_serial_com_register_pointers_init(&reg_pointers_state, register_map,
+                                            register_write_masks, nRegs);
+    ascii_serial_com_device_init(&ascd, &ascd_config);
+    asc_in_buf = ascii_serial_com_device_get_input_buffer(&ascd);
+    asc_out_buf = ascii_serial_com_device_get_output_buffer(&ascd);
 
-  ascii_serial_com_register_pointers_init(&reg_pointers_state, register_map,
-                                          register_write_masks, nRegs);
-  ascii_serial_com_device_init(&ascd, &ascd_config);
-  circular_buffer_uint8 *asc_in_buf =
-      ascii_serial_com_device_get_input_buffer(&ascd);
-  circular_buffer_uint8 *asc_out_buf =
-      ascii_serial_com_device_get_output_buffer(&ascd);
+    circular_buffer_init_uint8(&extraInputBuffer, extraInputBuffer_size,
+                               extraInputBuffer_raw);
 
-  circular_buffer_init_uint8(&extraInputBuffer, extraInputBuffer_size,
-                             extraInputBuffer_raw);
-
-  millisec_timer_systick_setup(rcc_ahb_frequency);
-  gpio_setup();
-  adc_setup();
-  dac_setup();
-  usart_setup();
+    millisec_timer_systick_setup(rcc_ahb_frequency);
+    gpio_setup();
+    adc_setup();
+    dac_setup();
+    usart_setup();
+  }
+  Catch(e) { return e; }
 
   while (1) {
     Try {

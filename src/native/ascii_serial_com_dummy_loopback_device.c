@@ -18,6 +18,8 @@ uint8_t little_buffer[littleBufCap];
 char dataBuffer[MAXDATALEN];
 
 ascii_serial_com asc;
+circular_buffer_uint8 *asc_in_buf;
+circular_buffer_uint8 *asc_out_buf;
 
 circular_buffer_io_fd_poll cb_io;
 
@@ -25,6 +27,8 @@ CEXCEPTION_T e;
 bool rawLoopback;
 char ascVersion, appVersion, command;
 size_t dataLen;
+
+int timeout = -1;
 
 int main(int argc, char *argv[]) {
 
@@ -103,21 +107,26 @@ int main(int argc, char *argv[]) {
     outfileno = STDOUT_FILENO;
   }
 
-  circular_buffer_init_uint8(&buffer, bufCap, buffer_raw);
+  Try {
+    circular_buffer_init_uint8(&buffer, bufCap, buffer_raw);
 
-  ascii_serial_com_init(&asc);
-  circular_buffer_uint8 *asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
-  circular_buffer_uint8 *asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
+    ascii_serial_com_init(&asc);
+    asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
+    asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
 
-  if (rawLoopback) {
-    circular_buffer_io_fd_poll_init(&cb_io, &buffer, &buffer, infileno,
-                                    outfileno);
-  } else {
-    circular_buffer_io_fd_poll_init(&cb_io, asc_in_buf, asc_out_buf, infileno,
-                                    outfileno);
+    if (rawLoopback) {
+      circular_buffer_io_fd_poll_init(&cb_io, &buffer, &buffer, infileno,
+                                      outfileno);
+    } else {
+      circular_buffer_io_fd_poll_init(&cb_io, asc_in_buf, asc_out_buf, infileno,
+                                      outfileno);
+    }
+  }
+  Catch(e) {
+    fprintf(stderr, "Uncaught exception: %u, during init, exiting.\n", e);
+    return 1;
   }
 
-  int timeout = -1;
   while (true) {
     Try {
       int poll_ret_code = circular_buffer_io_fd_poll_do_poll(&cb_io, timeout);

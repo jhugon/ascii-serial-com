@@ -28,6 +28,8 @@ ascii_serial_com_register_pointers reg_pointers_state;
 ascii_serial_com_device_config ascd_config = {
     .func_rw = ascii_serial_com_register_pointers_handle_message,
     .state_rw = &reg_pointers_state};
+circular_buffer_uint8 *asc_in_buf;
+circular_buffer_uint8 *asc_out_buf;
 
 #define extraInputBuffer_size 64
 uint8_t extraInputBuffer_raw[extraInputBuffer_size];
@@ -43,16 +45,17 @@ int main(void) {
 
   nExceptions = 0;
 
-  ascii_serial_com_register_pointers_init(&reg_pointers_state, regPtrs, masks,
-                                          nRegs);
-  ascii_serial_com_device_init(&ascd, &ascd_config);
-  circular_buffer_uint8 *asc_in_buf =
-      ascii_serial_com_device_get_input_buffer(&ascd);
-  circular_buffer_uint8 *asc_out_buf =
-      ascii_serial_com_device_get_output_buffer(&ascd);
+  Try {
+    ascii_serial_com_register_pointers_init(&reg_pointers_state, regPtrs, masks,
+                                            nRegs);
+    ascii_serial_com_device_init(&ascd, &ascd_config);
+    asc_in_buf = ascii_serial_com_device_get_input_buffer(&ascd);
+    asc_out_buf = ascii_serial_com_device_get_output_buffer(&ascd);
 
-  circular_buffer_init_uint8(&extraInputBuffer, extraInputBuffer_size,
-                             extraInputBuffer_raw);
+    circular_buffer_init_uint8(&extraInputBuffer, extraInputBuffer_size,
+                               extraInputBuffer_raw);
+  }
+  Catch(e) { return e; }
 
   USART0_Init(MYUBRR, 1);
 

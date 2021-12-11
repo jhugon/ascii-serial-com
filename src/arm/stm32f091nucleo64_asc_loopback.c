@@ -10,6 +10,8 @@
 
 char dataBuffer[MAXDATALEN];
 ascii_serial_com asc;
+circular_buffer_uint8 *asc_in_buf;
+circular_buffer_uint8 *asc_out_buf;
 
 #define extraInputBuffer_size 64
 uint8_t extraInputBuffer_raw[extraInputBuffer_size];
@@ -52,17 +54,18 @@ uint8_t tmp_byte = 0;
 
 int main(void) {
 
-  nExceptions = 0;
+  Try {
+    ascii_serial_com_init(&asc);
+    ascii_serial_com_set_ignore_CRC_mismatch(&asc);
+    asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
+    asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
 
-  ascii_serial_com_init(&asc);
-  ascii_serial_com_set_ignore_CRC_mismatch(&asc);
-  circular_buffer_uint8 *asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
-  circular_buffer_uint8 *asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
+    circular_buffer_init_uint8(&extraInputBuffer, extraInputBuffer_size,
+                               extraInputBuffer_raw);
 
-  circular_buffer_init_uint8(&extraInputBuffer, extraInputBuffer_size,
-                             extraInputBuffer_raw);
-
-  usart_setup();
+    usart_setup();
+  }
+  Catch(e) { return e; }
 
   while (1) {
     Try {

@@ -23,6 +23,8 @@ ascii_serial_com asc;
 #define extraInputBuffer_size 64
 uint8_t extraInputBuffer_raw[extraInputBuffer_size];
 circular_buffer_uint8 extraInputBuffer;
+circular_buffer_uint8 *asc_in_buf;
+circular_buffer_uint8 *asc_out_buf;
 
 CEXCEPTION_T e;
 char ascVersion, appVersion, command;
@@ -112,13 +114,16 @@ int main(void) {
   nExceptions = 0;
   stdout = &mystdout;
 
-  ascii_serial_com_init(&asc);
-  ascii_serial_com_set_ignore_CRC_mismatch(&asc);
-  circular_buffer_uint8 *asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
-  circular_buffer_uint8 *asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
+  Try {
+    ascii_serial_com_init(&asc);
+    ascii_serial_com_set_ignore_CRC_mismatch(&asc);
+    asc_in_buf = ascii_serial_com_get_input_buffer(&asc);
+    asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
 
-  circular_buffer_init_uint8(&extraInputBuffer, extraInputBuffer_size,
-                             extraInputBuffer_raw);
+    circular_buffer_init_uint8(&extraInputBuffer, extraInputBuffer_size,
+                               extraInputBuffer_raw);
+  }
+  Catch(e) { return e; }
 
   USART0_Init(MYUBRR, 1);
 

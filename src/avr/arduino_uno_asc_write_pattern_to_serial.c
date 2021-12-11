@@ -13,6 +13,7 @@ CEXCEPTION_T e;
 uint16_t nExceptions;
 
 ascii_serial_com asc;
+circular_buffer_uint8 *asc_out_buf;
 const char ascVersion = '0';
 const char appVersion = '0';
 char dataBuffer[2];
@@ -20,13 +21,14 @@ const size_t dataLen = 2;
 
 int main(void) {
 
-  ascii_serial_com_init(&asc);
-  ascii_serial_com_set_ignore_CRC_mismatch(&asc);
-  // circular_buffer_uint8 *asc_in_buf =
-  // ascii_serial_com_get_input_buffer(&asc);
-  circular_buffer_uint8 *asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
-  dataBuffer[0] = '0';
-  dataBuffer[1] = '0';
+  Try {
+    ascii_serial_com_init(&asc);
+    ascii_serial_com_set_ignore_CRC_mismatch(&asc);
+    asc_out_buf = ascii_serial_com_get_output_buffer(&asc);
+    dataBuffer[0] = '0';
+    dataBuffer[1] = '0';
+  }
+  Catch(e) { return e; }
 
   USART0_Init(MYUBRR, 0);
 

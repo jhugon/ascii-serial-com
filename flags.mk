@@ -24,6 +24,10 @@ ifeq ($(platform),native)
     else
       CFLAGS+=-O2 -flto -Wstrict-aliasing -fstrict-aliasing
     endif
+
+    ifeq ($(build_type),profile)
+      CFLAGS+=-g
+    endif
   endif
   ifneq (,$(findstring clang,$(CC)))
     CFLAGS=$(CLANGFLAGS) -std=gnu18
@@ -36,6 +40,10 @@ ifeq ($(platform),native)
   	  endif
     else
       CFLAGS+=-O2
+    endif
+
+    ifeq ($(build_type),profile)
+      CFLAGS+=-g
     endif
   endif
 endif
