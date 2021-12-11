@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define bufsize 10
+#define bufsize 8
 uint8_t in_raw_buf[bufsize];
 uint8_t out_raw_buf[bufsize];
 
@@ -153,14 +153,14 @@ void test_circular_buffer_io_fd_poll_do_output(void) {
   size_t nWritten = circular_buffer_io_fd_poll_do_output(&cb_io);
   TEST_ASSERT_EQUAL_size_t(0, nWritten);
 
-  for (size_t i = 0; i < 10; i++) {
+  for (size_t i = 0; i < bufsize; i++) {
     circular_buffer_push_back_uint8(&out_buf, i);
   }
   if (circular_buffer_io_fd_poll_do_poll(&cb_io, 20) != 0) {
     TEST_FAIL_MESSAGE("Error while polling");
   }
   nWritten = circular_buffer_io_fd_poll_do_output(&cb_io);
-  TEST_ASSERT_EQUAL_size_t(10, nWritten);
+  TEST_ASSERT_EQUAL_size_t(bufsize, nWritten);
   TEST_ASSERT_EQUAL_size_t(0, circular_buffer_get_size_uint8(&out_buf));
 
   if (circular_buffer_io_fd_poll_do_poll(&cb_io, 20) != 0) {
@@ -169,30 +169,31 @@ void test_circular_buffer_io_fd_poll_do_output(void) {
   nWritten = circular_buffer_io_fd_poll_do_output(&cb_io);
   TEST_ASSERT_EQUAL_size_t(0, nWritten);
 
-  for (size_t i = 0; i < 5; i++) {
+  for (size_t i = 0; i < bufsize / 2; i++) {
     circular_buffer_push_back_uint8(&out_buf, i);
   }
   if (circular_buffer_io_fd_poll_do_poll(&cb_io, 20) != 0) {
     TEST_FAIL_MESSAGE("Error while polling");
   }
   nWritten = circular_buffer_io_fd_poll_do_output(&cb_io);
-  TEST_ASSERT_EQUAL_size_t(5, nWritten);
+  TEST_ASSERT_EQUAL_size_t(bufsize / 2, nWritten);
   TEST_ASSERT_EQUAL_size_t(0, circular_buffer_get_size_uint8(&out_buf));
 
-  for (size_t i = 0; i < 35; i++) {
+  for (size_t i = 0; i < 4 * bufsize + bufsize / 2; i++) {
     circular_buffer_push_back_uint8(&out_buf, i);
   }
   if (circular_buffer_io_fd_poll_do_poll(&cb_io, 20) != 0) {
     TEST_FAIL_MESSAGE("Error while polling");
   }
   nWritten = circular_buffer_io_fd_poll_do_output(&cb_io);
-  TEST_ASSERT_EQUAL_size_t(5, nWritten);
-  TEST_ASSERT_EQUAL_size_t(5, circular_buffer_get_size_uint8(&out_buf));
+  TEST_ASSERT_EQUAL_size_t(bufsize / 2, nWritten);
+  TEST_ASSERT_EQUAL_size_t(bufsize / 2,
+                           circular_buffer_get_size_uint8(&out_buf));
   if (circular_buffer_io_fd_poll_do_poll(&cb_io, 20) != 0) {
     TEST_FAIL_MESSAGE("Error while polling");
   }
   nWritten = circular_buffer_io_fd_poll_do_output(&cb_io);
-  TEST_ASSERT_EQUAL_size_t(5, nWritten);
+  TEST_ASSERT_EQUAL_size_t(bufsize / 2, nWritten);
   TEST_ASSERT_EQUAL_size_t(0, circular_buffer_get_size_uint8(&out_buf));
 }
 
