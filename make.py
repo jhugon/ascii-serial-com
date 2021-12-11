@@ -285,7 +285,10 @@ def main():
         assert len(target_list) == 2
         platform = target_list[0]
         CC = target_list[1]
-        for build_type in ["debug", "opt"]:
+        build_types = ["debug", "opt"]
+        if "native" in target:
+            build_types.append("profile")
+        for build_type in build_types:
             testPass, testOutput = run_make(platform, CC, build_type, args)
             if args.unittest:
                 testOutBuffer += testOutput
