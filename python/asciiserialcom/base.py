@@ -338,9 +338,9 @@ class Base:
         except IOError:
             raise FileReadError
         else:
-            # logging.debug(f"got {len(b)} bytes from fin: {b.decode('ascii','replace')}")
+            # logging.debug(f"got {len(b)} bytes from fin")
             # if len(b) > 0:
-            #     logging.debug(f"got {len(b)} bytes from fin")
+            #     logging.debug(f"got {len(b)} bytes from fin: {b.decode('ascii','replace')}")
             self.buf.push_back(b)
             self.buf.removeFrontTo(b">", inclusive=False)
             if len(self.buf) == 0:

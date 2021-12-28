@@ -6,7 +6,10 @@
 #define F_CPU 16000000L
 #include <util/delay.h>
 #define FOSC 16000000L
-#define BAUD 9600
+//#define BAUD 9600
+//#define BAUD 19200
+//#define BAUD 2400
+#define BAUD 300
 #define MYUBRR (FOSC / 16 / BAUD - 1)
 
 CEXCEPTION_T e;

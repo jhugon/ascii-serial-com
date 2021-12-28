@@ -37,6 +37,15 @@
 #define PIN_LED GPIO5
 #define RCC_GPIO_LED RCC_GPIOA
 
+/** \brief Baud rate for ASCII-Serial-Com
+ *
+ *  This is the baud rate used for the ASCII-Serial-Com UART.
+ *
+ */
+//#define BAUD 9600
+//#define BAUD 115200
+#define BAUD 460800
+
 /////////////////////////////////
 
 #define extraInputBuffer_size 64
@@ -191,7 +200,7 @@ static void usart_setup(void) {
 
   nvic_enable_irq(NVIC_USART2_IRQ);
 
-  usart_set_baudrate(USART2, 9600);
+  usart_set_baudrate(USART2, BAUD);
   usart_set_databits(USART2, 8);
   usart_set_parity(USART2, USART_PARITY_NONE);
   usart_set_stopbits(USART2, USART_CR2_STOPBITS_1);

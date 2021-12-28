@@ -210,16 +210,18 @@ class TestRxASCCounterFromDevice(unittest.TestCase):
     """
 
     def setUp(self):
-        self.baud = 9600
-        # self.baud = 19200
+        # self.baud = 9600
+        self.baud = 19200
+        self.baud = 2400
+        self.baud = 300
         self.dev_path = "/dev/ttyACM0"
-        # self.dev_path = "/dev/ttyACM1"
+        self.dev_path = "/dev/ttyACM1"
 
         logging.basicConfig(
             # filename="test_asciiSerialCom.log",
             # level=logging.INFO,
-            # level=logging.DEBUG,
-            level=logging.WARNING,
+            level=logging.DEBUG,
+            # level=logging.WARNING,
             format="%(levelname)s L%(lineno)d %(funcName)s: %(message)s",
         )
 
@@ -242,6 +244,8 @@ class TestRxASCCounterFromDevice(unittest.TestCase):
                 messageStarted = False
                 while True:
                     data = await chan.receive()
+                    if len(data) != 0:
+                        logging.debug(f"data: {data}")
                     if data == b">":
                         messageStarted = True
                     if messageStarted:
@@ -264,11 +268,11 @@ class TestRxASCCounterFromDevice(unittest.TestCase):
             data_checker_finished.set()
 
         async def run_test(self):
-            logging.info("Starting run_test")
+            logging.debug("Starting run_test")
             send_chan, recv_chan = trio.open_memory_channel(100)
             data_checker_finished = trio.Event()
             with trio.move_on_after(10) as cancel_scope:
-                logging.info("About to open file...")
+                logging.debug("About to open file...")
                 async with await trio.open_file(self.dev_path, "br") as portr:
                     setup_tty(portr.wrapped, self.baud)
                     termios.tcflush(portr.wrapped, termios.TCIFLUSH)
@@ -297,6 +301,7 @@ class TestRxASCCounterFromDevice(unittest.TestCase):
                 messageStarted = False
                 nMissed, data = await chan.receive()
                 logging.info(f"message received: {nMissed} {data}")
+                self.assertEqual(nMissed, 0)
                 num = int(data.decode()[0])
                 if last == 9:
                     self.assertEqual(num, 0)
@@ -310,20 +315,22 @@ class TestRxASCCounterFromDevice(unittest.TestCase):
             tpermessage = deltat / nMessages
             tperbyte = tpermessage / messageLen
             bitpers = 1 / tperbyte * 8
-            logging.warning(
-                f"Time spent per message: {tpermessage} s, per byte: {tperbyte}, per bit: {1./bitpers}"
+            print(
+                f"Time spent per message: {tpermessage:.3g} s, per byte: {tperbyte:.3g} s, per bit: {1./bitpers:.3g} s",
+                flush=True,
             )
-            logging.warning(
-                f"Message per second {1./tpermessage}, byte per second: {1./tperbyte}, bit per second: {bitpers}"
+            print(
+                f"Message per second {1./tpermessage:.1f}, byte per second: {1./tperbyte:.0f}, bit per second: {bitpers:.0f}",
+                flush=True,
             )
             data_checker_finished.set()
 
         async def run_test(self):
-            logging.info("Starting run_test")
+            logging.debug("Starting run_test")
             send_chan, recv_chan = trio.open_memory_channel(100)
             data_checker_finished = trio.Event()
             with trio.move_on_after(10) as cancel_scope:
-                logging.info("About to open file...")
+                logging.debug("About to open file...")
                 async with await trio.open_file(self.dev_path, "br") as portr:
                     setup_tty(portr.wrapped, self.baud)
                     termios.tcflush(portr.wrapped, termios.TCIFLUSH)

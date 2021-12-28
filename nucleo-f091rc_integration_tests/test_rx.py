@@ -90,8 +90,10 @@ class TestRxASCCounterFromDevice(unittest.TestCase):
     """
 
     def setUp(self):
-        self.baud = 9600
+        # self.baud = 9600
         # self.baud = 19200
+        # self.baud = 115200
+        self.baud = 460800
         self.dev_path = "/dev/ttyACM0"
         # self.dev_path = "/dev/ttyACM1"
 
@@ -130,11 +132,13 @@ class TestRxASCCounterFromDevice(unittest.TestCase):
             tpermessage = deltat / nMessages
             tperbyte = tpermessage / messageLen
             bitpers = 1 / tperbyte * 8
-            logging.warning(
-                f"Time spent per message: {tpermessage} s, per byte: {tperbyte}, per bit: {1./bitpers}"
+            print(
+                f"Time spent per message: {tpermessage:.3g} s, per byte: {tperbyte:.3g} s, per bit: {1./bitpers:.3g} s",
+                flush=True,
             )
-            logging.warning(
-                f"Message per second {1./tpermessage}, byte per second: {1./tperbyte}, bit per second: {bitpers}"
+            print(
+                f"Message per second {1./tpermessage:.1f}, byte per second: {1./tperbyte:.0f}, bit per second: {bitpers:.0f}",
+                flush=True,
             )
             data_checker_finished.set()
 
