@@ -1,7 +1,11 @@
 #ifndef stm_TIMERS_H
 #define stm_TIMERS_H
 
-/** \file */
+/** \file
+ *
+ * \brief To be used with the timer peripherals on STM32 microcontrollers
+ *
+ * */
 
 #include <libopencm3/stm32/timer.h>
 #include <stdint.h>
@@ -14,13 +18,19 @@
  * output port.**
  *
  * **The user must enable the counter when ready with:**
- * `timer_enable_counter(<TIMER>);`
+ * `timer_enable_counter(<timer>);`
  *
  * **This macro takes care of setting up the pin mode.**
  *
  * Uses output compare unit 1 on the timer.
  *
- * Parameters:
+ * ## Registers Relevant to  Ascii-Serial-Com
+ *
+ * `TIM_ARR(<timer>)`: which should be set to period
+ *
+ * `TIM_CCR1(<timer>)`: which should be set to period-pulse_length
+ *
+ * ## Parameters
  *
  * timer: the timer you want to use like TIM2
  *
