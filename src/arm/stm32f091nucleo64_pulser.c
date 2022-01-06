@@ -34,8 +34,8 @@
 #define AF_TIM_LED GPIO_AF2
 
 // pulser stuff
-#define pulser_prescale 16000
-#define pulser_period 4000
+#define pulser_prescale rcc_ahb_frequency / 1000 // should do 1 tick per ms
+#define pulser_period 1000
 #define pulser_width 500
 
 /////////////////////////////////
@@ -69,11 +69,6 @@ uint32_t optionFlags = 0;
  * | 5 | LED pulser period | r/w 16 bits |
  * | 6 | LED pulser pulse length | r/w 16 bits |
  *
- * ### Option flags
- *
- * |Big Number | Description |
- * | -------------- |------------ |
- *
  * @see register_write_masks
  *
  */
@@ -83,8 +78,8 @@ volatile REGTYPE *register_map[nRegs] = {
     &optionFlags,
     &MILLISEC_TIMER_NOW, // millisec timer value
     &TIM_PSC(TIM_LED),   // LED pulser prescaler
-    &TIM_CCR1(TIM_LED),  // LED pulser period
-    &TIM_CCR2(TIM_LED),  // LEd pulser pulse length
+    &TIM_ARR(TIM_LED),   // LED pulser period
+    &TIM_CCR1(TIM_LED),  // LED pulser pulse length
 };
 
 /** \brief Write masks for \ref register_map

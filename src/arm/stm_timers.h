@@ -66,6 +66,7 @@
 #define setup_timer_periodic_output_pulse(timer, prescale, period,             \
                                           pulse_length, output, gpio_port,     \
                                           gpio_pin, gpio_af)                   \
+  gpio_mode_setup(gpio_port, GPIO_MODE_AF, GPIO_PUPD_NONE, gpio_pin);          \
   gpio_set_output_options(gpio_port, GPIO_OTYPE_PP, GPIO_OSPEED_HIGH,          \
                           gpio_pin);                                           \
   gpio_set_af(gpio_port, gpio_af, gpio_pin);                                   \
@@ -154,6 +155,7 @@
  */
 #define setup_timer_capture_pwm_input(timer, prescale, max_timer_counts,       \
                                       input, gpio_port, gpio_pin, gpio_af)     \
+  gpio_mode_setup(gpio_port, GPIO_MODE_AF, GPIO_PUPD_NONE, gpio_pin);          \
   gpio_set_af(gpio_port, gpio_af, gpio_pin);                                   \
   timer_set_mode(timer, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP); \
   timer_ic_set_input(timer, TIM_IC1, input);                                   \
