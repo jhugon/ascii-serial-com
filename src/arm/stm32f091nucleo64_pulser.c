@@ -49,6 +49,9 @@
 #define IC_RCC_TIM RCC_TIM15
 #define IC_TI TIM_IC_IN_TI1
 #define IC_AF GPIO_AF0
+uint32_t ic_pulse_length;
+uint32_t ic_period;
+uint32_t ic_overrun;
 
 /////////////////////////////////
 
@@ -65,7 +68,7 @@ MILLISEC_TIMER_SYSTICK_IT;
 
 uint32_t optionFlags = 0;
 
-#define nRegs 7
+#define nRegs 10
 
 /** \brief Register Map
  *
@@ -80,18 +83,24 @@ uint32_t optionFlags = 0;
  * | 4 | LED pulser prescaler | r/w 16 bits |
  * | 5 | LED pulser period | r/w 16 bits |
  * | 6 | LED pulser pulse length | r/w 16 bits |
+ * | 7 | Input capture pulse period | r |
+ * | 8 | Input capture pulse width | r |
+ * | 9 | Input capture overrun flags (bit 0 for period and 4 for width) | r |
  *
  * @see register_write_masks
  *
  */
 volatile REGTYPE *register_map[nRegs] = {
-    &GPIOA_IDR, // input data reg
-    &GPIOA_ODR, // output data reg
-    &optionFlags,
+    &GPIOA_IDR,          // input data reg
+    &GPIOA_ODR,          // output data reg
+    &optionFlags,        // option flags
     &MILLISEC_TIMER_NOW, // millisec timer value
     &TIM_PSC(TIM_LED),   // LED pulser prescaler
     &TIM_ARR(TIM_LED),   // LED pulser period
     &TIM_CCR1(TIM_LED),  // LED pulser pulse length
+    &ic_period,          // Input capture pulse period
+    &ic_pulse_length,    // Input capture pulse length
+    &ic_overrun,         // Input capture overrun flags
 };
 
 /** \brief Write masks for \ref register_map
@@ -107,6 +116,9 @@ REGTYPE register_write_masks[nRegs] = {
     0xFFFF,     // LED pulser prescaler
     0xFFFF,     // LED pulser period
     0xFFFF,     // LEd pulser pulse length
+    0,          // Input capture pulse period
+    0,          // Input capture pulse length
+    0,          // Input capture overrun flags
 };
 
 typedef struct stream_state_struct {
@@ -201,6 +213,20 @@ int main(void) {
 
       // parse and handle received messages
       ascii_serial_com_device_receive(&ascd);
+
+      if (timer_get_flag(IC_TIM, TIM_SR_CC1IF)) {
+        ic_pulse_length = TIM_CCR2(IC_TIM);
+        ic_period = TIM_CCR1(IC_TIM);
+        ic_overrun = 0;
+        if (timer_get_flag(IC_TIM, TIM_SR_CC1OF)) {
+          ic_overrun |= 1;
+          timer_clear_flag(IC_TIM, TIM_SR_CC1OF);
+        }
+        if (timer_get_flag(IC_TIM, TIM_SR_CC2OF)) {
+          ic_overrun |= 1 << 4;
+          timer_clear_flag(IC_TIM, TIM_SR_CC2OF);
+        }
+      }
 
       // Write data from asc_out_buf to serial
       if (!circular_buffer_is_empty_uint8(asc_out_buf) &&

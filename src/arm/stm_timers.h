@@ -103,8 +103,8 @@
  * DMA: ?
  *
  * If overcapture happens, you have to clear the flag with
- * `timer_get_flag(<timer>,TIM_SR_CC1OF)` or
- * `timer_get_flag(<timer>,TIM_SR_CC2OF)`.
+ * `timer_clear_flag(<timer>,TIM_SR_CC1OF)` or
+ * `timer_clear_flag(<timer>,TIM_SR_CC2OF)`.
  *
  * ## Notes
  *
