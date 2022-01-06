@@ -51,18 +51,21 @@
  *
  * pulse_length: length of pulse in timer ticks, uint32_t
  *
- * gpio_port: GPIOA, GPIOB, ...
+ * output: the output compare output to use: TIM_OC1, TIM_OC2, TIM_OC3, TIM_OC4
+ * (availability depends on timer)
  *
- * gpio_pin: GPIO0, GPIO1, ...
+ * gpio_port: GPIOA, GPIOB, ... (must match output)
+ *
+ * gpio_pin: GPIO0, GPIO1, ... (must match output)
  *
  */
-#define setup_timer_periodic_output_pulse(timer, prescale, period,             \
-                                          pulse_length, gpio_port, gpio_pin)   \
+#define setup_timer_periodic_output_pulse(                                     \
+    timer, prescale, period, pulse_length, output, gpio_port, gpio_pin)        \
   gpio_set_output_options(gpio_port, GPIO_OTYPE_PP, GPIO_OSPEED_HIGH,          \
                           gpio_pin);                                           \
   timer_set_mode(timer, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP); \
   timer_set_oc_mode(timer, TIM_OC1, TIM_OCM_PWM1);                             \
-  timer_enable_oc_output(timer, TIM_OC1);                                      \
+  timer_enable_oc_output(timer, output);                                       \
   TIM_PSC(timer) = prescale;                                                   \
   TIM_ARR(timer) = period;                                                     \
   TIM_CCR1(timer) = pulse_length;
@@ -129,16 +132,17 @@
  * max_timer_counts: you probably want 0xFFFF for 16 bit counters and
  * 0xFFFFFFFF for 32 bit ones.
  *
- * input: which input compare input: TI1,TI2,TI3 or TI4 (don't quote; some not
- * avaiable on all timers)
+ * input: which input compare input: TIM_IC_IN_TI1, TIM_IC_IN_TI2,
+ * TIM_IC_IN_TI3 or TIM_IC_IN_TI4 (don't quote; some not avaiable on all
+ * timers)
  *
  */
 #define setup_timer_capture_pwm_input(timer, prescale, max_timer_counts,       \
                                       input)                                   \
   timer_set_mode(timer, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP); \
-  timer_ic_set_input(timer, TIM_IC1, TIM_IC_IN_##input);                       \
+  timer_ic_set_input(timer, TIM_IC1, input);                                   \
   timer_ic_set_polarity(timer, TIM_IC1, TIM_IC_RISING);                        \
-  timer_ic_set_input(timer, TIM_IC2, TIM_IC_IN_##input);                       \
+  timer_ic_set_input(timer, TIM_IC2, input);                                   \
   timer_ic_set_polarity(timer, TIM_IC2, TIM_IC_FALLING);                       \
   timer_slave_set_trigger(timer, TIM_SMCR_TS_TI1FP1);                          \
   timer_slave_set_mode(timer, TIM_SMCR_SMS_RM);                                \
