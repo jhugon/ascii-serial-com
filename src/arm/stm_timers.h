@@ -7,6 +7,7 @@
  *
  * */
 
+#include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/timer.h>
 #include <stdint.h>
 
@@ -22,7 +23,7 @@
  * **The user must enable the counter when ready with:**
  * `timer_enable_counter(<timer>);`
  *
- * **This macro takes care of setting up the GPIO pin mode.**
+ * **This macro takes care of setting up the GPIO pin.**
  *
  * Uses output compare unit 1 on the timer. Make sure this is available on the
  * timer.
@@ -58,17 +59,22 @@
  *
  * gpio_pin: GPIO0, GPIO1, ... (must match output)
  *
+ * gpio_af: alternate function for the given pin/port and output, e.g.
+ * GPIO_AF0, GPIO_AF1, ...
+ *
  */
-#define setup_timer_periodic_output_pulse(                                     \
-    timer, prescale, period, pulse_length, output, gpio_port, gpio_pin)        \
+#define setup_timer_periodic_output_pulse(timer, prescale, period,             \
+                                          pulse_length, output, gpio_port,     \
+                                          gpio_pin, gpio_af)                   \
   gpio_set_output_options(gpio_port, GPIO_OTYPE_PP, GPIO_OSPEED_HIGH,          \
                           gpio_pin);                                           \
+  gpio_set_af(gpio_port, gpio_af, gpio_pin);                                   \
   timer_set_mode(timer, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP); \
-  timer_set_oc_mode(timer, TIM_OC1, TIM_OCM_PWM1);                             \
+  timer_set_oc_mode(timer, output, TIM_OCM_PWM1);                              \
   timer_enable_oc_output(timer, output);                                       \
   TIM_PSC(timer) = prescale;                                                   \
   TIM_ARR(timer) = period;                                                     \
-  TIM_CCR1(timer) = pulse_length;
+  TIM_CCR1(timer) = pulse_length
 
 /** \brief Initialize a timer to capture periodic pulses on an input pin
  *
@@ -109,6 +115,8 @@
  *
  * **Uses input compare channels 1 and 2, so timer must have 2 IC units!**
  *
+ * **This macro takes care of setting up the GPIO pin.**
+ *
  * Sets timer in: upcount, edge-aligned, not one-pulse mode, using the
  * un-divided peripheral clock as input to the prescaler. This should be
  * available on all general-purpose timers.
@@ -136,9 +144,17 @@
  * TIM_IC_IN_TI3 or TIM_IC_IN_TI4 (don't quote; some not avaiable on all
  * timers)
  *
+ * gpio_port: GPIOA, GPIOB, ... (must match input)
+ *
+ * gpio_pin: GPIO0, GPIO1, ... (must match input)
+ *
+ * gpio_af: alternate function for the given pin/port and input, e.g.
+ * GPIO_AF0, GPIO_AF1, ...
+ *
  */
 #define setup_timer_capture_pwm_input(timer, prescale, max_timer_counts,       \
-                                      input)                                   \
+                                      input, gpio_port, gpio_pin, gpio_af)     \
+  gpio_set_af(gpio_port, gpio_af, gpio_pin);                                   \
   timer_set_mode(timer, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP); \
   timer_ic_set_input(timer, TIM_IC1, input);                                   \
   timer_ic_set_polarity(timer, TIM_IC1, TIM_IC_RISING);                        \
@@ -149,6 +165,6 @@
   timer_ic_enable(timer, TIM_IC1);                                             \
   timer_ic_enable(timer, TIM_IC2);                                             \
   TIM_PSC(timer) = prescale;                                                   \
-  TIM_ARR(timer) = max_timer_counts;
+  TIM_ARR(timer) = max_timer_counts
 
 #endif

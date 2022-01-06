@@ -29,8 +29,9 @@
 #define PIN_LED GPIO5
 #define RCC_GPIO_LED RCC_GPIOA
 #define TIM_LED TIM2
-#define TIM_OC_LED TIM_OC1 // also AF2
+#define TIM_OC_LED TIM_OC1
 #define RCC_TIM_LED RCC_TIM2
+#define AF_TIM_LED GPIO_AF2
 
 // pulser stuff
 #define pulser_prescale 16000
@@ -170,7 +171,7 @@ int main(void) {
     rcc_periph_clock_enable(RCC_TIM_LED);
     setup_timer_periodic_output_pulse(TIM_LED, pulser_prescale, pulser_period,
                                       pulser_width, TIM_OC_LED, PORT_LED,
-                                      PIN_LED);
+                                      PIN_LED, AF_TIM_LED);
     timer_enable_counter(TIM_LED);
   }
   Catch(e) { return e; }
