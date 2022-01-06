@@ -2,7 +2,10 @@
  *
  * \brief Outputs a pulser and (one day will) measures pulses
  *
- * Outputs configurable pulses on the LED pin
+ * Outputs configurable pulses on the LED pin, PA5, which is "D13" on the
+ * Arduino connector
+ *
+ * Reads input pulses on PA2, which is "D1" on the Arduino connector
  *
  * Register map is documented at \ref register_map
  *
@@ -37,6 +40,15 @@
 #define pulser_prescale rcc_ahb_frequency / 1000 // should do 1 tick per ms
 #define pulser_period 1000
 #define pulser_width 500
+
+// Input compare stuff on PA2, TIM15 input 1 (which is AF0)
+#define IC_PORT GPIOA
+#define IC_PIN GPIO2
+#define IC_RCC_GPIO RCC_GPIOA
+#define IC_TIM TIM15
+#define IC_RCC_TIM RCC_TIM15
+#define IC_TI TIM_IC_IN_TI1
+#define IC_AF GPIO_AF0
 
 /////////////////////////////////
 
@@ -168,6 +180,12 @@ int main(void) {
                                       pulser_width, TIM_OC_LED, PORT_LED,
                                       PIN_LED, AF_TIM_LED);
     timer_enable_counter(TIM_LED);
+
+    rcc_periph_clock_enable(IC_RCC_GPIO);
+    rcc_periph_clock_enable(IC_RCC_TIM);
+    setup_timer_capture_pwm_input(IC_TIM, pulser_prescale, 0xFFFF, IC_TI,
+                                  IC_PORT, IC_PIN, IC_AF);
+    timer_enable_counter(IC_TIM);
   }
   Catch(e) { return e; }
 
