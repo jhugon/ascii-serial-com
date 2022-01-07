@@ -5,7 +5,7 @@
  * Outputs configurable pulses on the LED pin, PA5, which is "D13" on the
  * Arduino connector
  *
- * Reads input pulses on PA2, which is "D1" on the Arduino connector
+ * Reads input pulses on PA8, which is "D7" on the Arduino connector
  *
  * Register map is documented at \ref register_map
  *
@@ -41,14 +41,14 @@
 #define pulser_period 1000
 #define pulser_width 500
 
-// Input compare stuff on PA2, TIM15 input 1 (which is AF0)
+// Input compare stuff on PA8 AF2, TIM1 input 1 (Arduino connector pin D7)
 #define IC_PORT GPIOA
-#define IC_PIN GPIO2
+#define IC_PIN GPIO8
 #define IC_RCC_GPIO RCC_GPIOA
-#define IC_TIM TIM15
-#define IC_RCC_TIM RCC_TIM15
+#define IC_TIM TIM1
+#define IC_RCC_TIM RCC_TIM1
 #define IC_TI TIM_IC_IN_TI1
-#define IC_AF GPIO_AF0
+#define IC_AF GPIO_AF2
 uint32_t ic_pulse_length;
 uint32_t ic_period;
 uint32_t ic_overrun;
