@@ -37,7 +37,7 @@
 #define AF_TIM_LED GPIO_AF2
 
 // pulser stuff
-#define pulser_prescale rcc_ahb_frequency / 1000 // should do 1 tick per ms
+#define pulser_tick_freq 1000 // should do 1 tick per ms
 #define pulser_period 1000
 #define pulser_width 500
 
@@ -188,15 +188,16 @@ int main(void) {
 
     rcc_periph_clock_enable(RCC_GPIO_LED);
     rcc_periph_clock_enable(RCC_TIM_LED);
-    setup_timer_periodic_output_pulse(TIM_LED, pulser_prescale, pulser_period,
-                                      pulser_width, TIM_OC_LED, PORT_LED,
-                                      PIN_LED, AF_TIM_LED);
+    setup_timer_periodic_output_pulse(
+        TIM_LED, rcc_get_timer_clk_freq(TIM_LED) / pulser_tick_freq,
+        pulser_period, pulser_width, TIM_OC_LED, PORT_LED, PIN_LED, AF_TIM_LED);
     timer_enable_counter(TIM_LED);
 
     rcc_periph_clock_enable(IC_RCC_GPIO);
     rcc_periph_clock_enable(IC_RCC_TIM);
-    setup_timer_capture_pwm_input(IC_TIM, pulser_prescale, 0xFFFF, IC_TI,
-                                  IC_PORT, IC_PIN, IC_AF);
+    setup_timer_capture_pwm_input(
+        IC_TIM, rcc_get_timer_clk_freq(IC_TIM) / pulser_tick_freq, 0xFFFF,
+        IC_TI, IC_PORT, IC_PIN, IC_AF);
     timer_enable_counter(IC_TIM);
   }
   Catch(e) { return e; }
