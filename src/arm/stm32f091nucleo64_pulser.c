@@ -228,27 +228,14 @@ int main(void) {
   return 0;
 }
 
-#pragma GCC diagnostic ignored "-Wshadow"
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-#pragma GCC diagnostic push
-void usart2_isr(void) {
-#pragma GCC diagnostic pop
-#pragma GCC diagnostic pop
-  static uint16_t isr_tmp_byte;
-  if (((USART_CR1(ASC_USART) & USART_CR1_RXNEIE) != 0) &&
-      ((USART_ISR(ASC_USART) & USART_ISR_RXNE) != 0)) {
-    isr_tmp_byte = usart_recv(ASC_USART) & 0xFF;
-    circular_buffer_push_back_uint8(&extraInputBuffer, isr_tmp_byte);
-  }
-}
+def_usart_isr_push_rx_to_circ_buf(usart2_isr, ASC_USART, &extraInputBuffer)
 
-void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
-                        __attribute__((unused)) char ascVersion,
-                        __attribute__((unused)) char appVersion, char command,
-                        __attribute__((unused)) char *data,
-                        __attribute__((unused)) size_t dataLen,
-                        void *state_vp) {
+    void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
+                            __attribute__((unused)) char ascVersion,
+                            __attribute__((unused)) char appVersion,
+                            char command, __attribute__((unused)) char *data,
+                            __attribute__((unused)) size_t dataLen,
+                            void *state_vp) {
   on_off_stream_state *state = (on_off_stream_state *)state_vp;
   if (command == 'n') {
     state->on = 1;

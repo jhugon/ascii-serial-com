@@ -64,4 +64,48 @@
   usart_set_mode(usart, USART_MODE_TX_RX);                                     \
   usart_set_flow_control(usart, USART_FLOWCONTROL_NONE)
 
+/** \brief Define the ISR for a USART to push rx bytes to a circular buffer
+ *
+ * Defines the interrupt handler for the given USART. The interrupt handler
+ * will push all rx bytes to the back of the circular buffer the user provides.
+ *
+ * ## Notes
+ *
+ * **DON'T USE A SEMICOLON AFTER THIS MACRO.**
+ *
+ * **Use atomic operations to remove data from the front of the circular
+ * buffer** like `CM_ATOMIC_BLOCK() {}`
+ *
+ * **Make sure to setup the USART and run both**
+ * `nvic_enable_irq(NVIC_<usart>_IRQ);` and
+ * `usart_enable_rx_interrupt(<usart>);`
+ *
+ * **Not sure if this works with UARTs or LPUARTs**
+ *
+ * ## Parameters
+ *
+ * isr_name: usart1_isr, usart2_isr, ...
+ *
+ * usart: the USART you want to use like USART1, USART2, ...
+ *
+ * circular_buffer: a pointer to a circular_buffer_uint8 that you want received
+ * bytes pushed_back on.
+ *
+ */
+#define def_usart_isr_push_rx_to_circ_buf(isr_name, usart, circular_buffer)    \
+  _Pragma("GCC diagnostic ignored \"-Wshadow\"")                               \
+      _Pragma("GCC diagnostic push")                                           \
+          _Pragma("GCC diagnostic ignored \"-Wunused-function\"")              \
+              _Pragma("GCC diagnostic push") void                              \
+              isr_name(void) {                                                 \
+    _Pragma("GCC diagnostic pop") _Pragma(                                     \
+        "GCC diagnostic pop") if (((USART_CR1(usart) & USART_CR1_RXNEIE) !=    \
+                                   0) &&                                       \
+                                  ((USART_ISR(usart) & USART_ISR_RXNE) !=      \
+                                   0)) {                                       \
+      circular_buffer_push_back_uint8(circular_buffer,                         \
+                                      usart_recv(usart) & 0xFF);               \
+    }                                                                          \
+  }
+
 #endif
