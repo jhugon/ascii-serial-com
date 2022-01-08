@@ -1,5 +1,5 @@
-#ifndef stm_TIMERS_H
-#define stm_TIMERS_H
+#ifndef STM_TIMERS_H
+#define STM_TIMERS_H
 
 /** \file
  *
