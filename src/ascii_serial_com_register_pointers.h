@@ -154,6 +154,11 @@ void ascii_serial_com_register_pointers_handle_message(
  * Declarations that should be outside of (and before) main() to ease use of
  * ascii_serial_com_register_pointers with ascii_serial_com_device.
  *
+ * The only "public" variables are:
+ *
+ *      bool streaming_is_on;
+ *      circular_buffer_uint8 extraInputBuffer;
+ *
  * ## Notes
  *
  * **Don't follow this with a semicolon**
@@ -164,28 +169,27 @@ void ascii_serial_com_register_pointers_handle_message(
  *
  */
 #define DECLARE_ASC_DEVICE_W_REGISTER_POINTERS()                               \
-  void handle_nf_messages(ascii_serial_com *asc, char ascVersion,              \
-                          char appVersion, char command, char *data,           \
-                          size_t dataLen, void *state_vp);                     \
+  void _handle_nf_messages(ascii_serial_com *asc, char ascVersion,             \
+                           char appVersion, char command, char *data,          \
+                           size_t dataLen, void *state_vp);                    \
   bool streaming_is_on = false;                                                \
-  uint8_t tmp_byte;                                                            \
-  uint8_t extraInputBuffer_raw[_extraInputBuffer_size_];                       \
   circular_buffer_uint8 extraInputBuffer;                                      \
-  ascii_serial_com_device ascd;                                                \
-  ascii_serial_com_register_pointers reg_pointers_state;                       \
-  ascii_serial_com_device_config ascd_config = {                               \
+                                                                               \
+  uint8_t _tmp_byte;                                                           \
+  uint8_t _extraInputBuffer_raw[_extraInputBuffer_size_];                      \
+  ascii_serial_com_device _ascd;                                               \
+  ascii_serial_com_register_pointers _reg_pointers_state;                      \
+  ascii_serial_com_device_config _ascd_config = {                              \
       .func_rw = ascii_serial_com_register_pointers_handle_message,            \
-      .state_rw = &reg_pointers_state,                                         \
-      .func_nf = handle_nf_messages,                                           \
+      .state_rw = &_reg_pointers_state,                                        \
+      .func_nf = _handle_nf_messages,                                          \
       .state_nf = &streaming_is_on};                                           \
-  circular_buffer_uint8 *asc_in_buf;                                           \
-  circular_buffer_uint8 *asc_out_buf;                                          \
-  void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,       \
-                          __attribute__((unused)) char ascVersion,             \
-                          __attribute__((unused)) char appVersion,             \
-                          char command, __attribute__((unused)) char *data,    \
-                          __attribute__((unused)) size_t dataLen,              \
-                          void *state_vp) {                                    \
+  void _handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,      \
+                           __attribute__((unused)) char ascVersion,            \
+                           __attribute__((unused)) char appVersion,            \
+                           char command, __attribute__((unused)) char *data,   \
+                           __attribute__((unused)) size_t dataLen,             \
+                           void *state_vp) {                                   \
     bool *state = (bool *)state_vp;                                            \
     if (command == 'n') {                                                      \
       *state = true;                                                           \
@@ -218,14 +222,12 @@ void ascii_serial_com_register_pointers_handle_message(
  */
 #define SETUP_ASC_DEVICE_W_REGISTER_POINTERS(register_map,                     \
                                              register_write_masks, nRegs)      \
-  ascii_serial_com_register_pointers_init(&reg_pointers_state, register_map,   \
+  ascii_serial_com_register_pointers_init(&_reg_pointers_state, register_map,  \
                                           register_write_masks, nRegs);        \
-  ascii_serial_com_device_init(&ascd, &ascd_config);                           \
-  asc_in_buf = ascii_serial_com_device_get_input_buffer(&ascd);                \
-  asc_out_buf = ascii_serial_com_device_get_output_buffer(&ascd);              \
+  ascii_serial_com_device_init(&_ascd, &_ascd_config);                         \
                                                                                \
   circular_buffer_init_uint8(&extraInputBuffer, _extraInputBuffer_size_,       \
-                             extraInputBuffer_raw)
+                             _extraInputBuffer_raw)
 
 #if defined(__ARM_ARCH)
 #define _serial_tx_buf_is_empty(usart) ((USART_ISR(usart) & USART_ISR_TXE))
@@ -238,9 +240,9 @@ void ascii_serial_com_register_pointers_handle_message(
 #if defined(__ARM_ARCH)
 // Already defined by libopencm3
 #elif defined(__AVR)
-#define usart_send(reg, tmp_byte) reg = tmp_byte
+#define usart_send(reg, _tmp_byte) reg = _tmp_byte
 #else
-#define usart_send(usart, tmp_byte) __builtin_unreachable()
+#define usart_send(usart, _tmp_byte) __builtin_unreachable()
 #endif
 
 #if defined(__ARM_ARCH)
@@ -274,16 +276,21 @@ void ascii_serial_com_register_pointers_handle_message(
  *
  */
 #define HANDLE_ASC_COMM_IN_POLLING_LOOP(usart)                                 \
-  if (!circular_buffer_is_empty_uint8(asc_out_buf) &&                          \
+  if (!circular_buffer_is_empty_uint8(                                         \
+          ascii_serial_com_device_get_output_buffer(&_ascd)) &&                \
       _serial_tx_buf_is_empty(usart)) {                                        \
-    tmp_byte = circular_buffer_pop_front_uint8(asc_out_buf);                   \
-    usart_send(usart, tmp_byte);                                               \
+    _tmp_byte = circular_buffer_pop_front_uint8(                               \
+        ascii_serial_com_device_get_output_buffer(&_ascd));                    \
+    usart_send(usart, _tmp_byte);                                              \
   }                                                                            \
   if (!circular_buffer_is_empty_uint8(&extraInputBuffer)) {                    \
-    _ATOMIC { tmp_byte = circular_buffer_pop_front_uint8(&extraInputBuffer); } \
-    circular_buffer_push_back_uint8(asc_in_buf, tmp_byte);                     \
+    _ATOMIC {                                                                  \
+      _tmp_byte = circular_buffer_pop_front_uint8(&extraInputBuffer);          \
+    }                                                                          \
+    circular_buffer_push_back_uint8(                                           \
+        ascii_serial_com_device_get_input_buffer(&_ascd), _tmp_byte);          \
   }                                                                            \
-  ascii_serial_com_device_receive(&ascd)
+  ascii_serial_com_device_receive(&_ascd)
 
 /** \brief Check if you should stream a message to the host
  *
@@ -300,7 +307,9 @@ void ascii_serial_com_register_pointers_handle_message(
  *
  */
 #define READY_TO_STREAM_ASC_DEVICE_W_REGISTER_POINTERS                         \
-  (streaming_is_on && circular_buffer_get_size_uint8(asc_out_buf) == 0)
+  (streaming_is_on &&                                                          \
+   circular_buffer_get_size_uint8(                                             \
+       ascii_serial_com_device_get_output_buffer(&_ascd)) == 0)
 
 /** \brief Stream data to the host
  *
@@ -321,7 +330,7 @@ void ascii_serial_com_register_pointers_handle_message(
  *
  */
 #define STREAM_TO_HOST_ASC_DEVICE_W_REGISTER_POINTERS(data, data_size)         \
-  ascii_serial_com_device_put_s_message_in_output_buffer(&ascd, '0', '0',      \
+  ascii_serial_com_device_put_s_message_in_output_buffer(&_ascd, '0', '0',     \
                                                          data, data_size)
 
 #endif
