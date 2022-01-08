@@ -104,4 +104,76 @@ void ascii_serial_com_register_pointers_handle_message(
     ascii_serial_com *asc, char ascVersion, char appVersion, char command,
     char *data, size_t dataLen, void *register_pointers_state);
 
+///////////////////
+// Helper macros //
+///////////////////
+
+#define _extraInputBuffer_size_ 64
+
+// Don't use a semicolon after this?
+#define DECLARE_ASC_DEVICE_W_REGISTER_POINTERS()                               \
+  void handle_nf_messages(ascii_serial_com *asc, char ascVersion,              \
+                          char appVersion, char command, char *data,           \
+                          size_t dataLen, void *state_vp);                     \
+  bool streaming_is_on = false;                                                \
+  uint8_t tmp_byte;                                                            \
+  uint8_t extraInputBuffer_raw[_extraInputBuffer_size_];                       \
+  circular_buffer_uint8 extraInputBuffer;                                      \
+  ascii_serial_com_device ascd;                                                \
+  ascii_serial_com_register_pointers reg_pointers_state;                       \
+  ascii_serial_com_device_config ascd_config = {                               \
+      .func_rw = ascii_serial_com_register_pointers_handle_message,            \
+      .state_rw = &reg_pointers_state,                                         \
+      .func_nf = handle_nf_messages,                                           \
+      .state_nf = &streaming_is_on};                                           \
+  circular_buffer_uint8 *asc_in_buf;                                           \
+  circular_buffer_uint8 *asc_out_buf;                                          \
+  void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,       \
+                          __attribute__((unused)) char ascVersion,             \
+                          __attribute__((unused)) char appVersion,             \
+                          char command, __attribute__((unused)) char *data,    \
+                          __attribute__((unused)) size_t dataLen,              \
+                          void *state_vp) {                                    \
+    bool *state = (bool *)state_vp;                                            \
+    if (command == 'n') {                                                      \
+      *state = true;                                                           \
+    } else if (command == 'f') {                                               \
+      *state = false;                                                          \
+    }                                                                          \
+  }
+
+// Make sure to put inside Try block
+// Use a semicolon on this one
+#define SETUP_ASC_DEVICE_W_REGISTER_POINTERS(register_map,                     \
+                                             register_write_masks, nRegs)      \
+  ascii_serial_com_register_pointers_init(&reg_pointers_state, register_map,   \
+                                          register_write_masks, nRegs);        \
+  ascii_serial_com_device_init(&ascd, &ascd_config);                           \
+  asc_in_buf = ascii_serial_com_device_get_input_buffer(&ascd);                \
+  asc_out_buf = ascii_serial_com_device_get_output_buffer(&ascd);              \
+                                                                               \
+  circular_buffer_init_uint8(&extraInputBuffer, _extraInputBuffer_size_,       \
+                             extraInputBuffer_raw)
+
+// Make sure is in a Try block and put a semicolon after this one
+// Write data to usart from output buffer
+// Read data from extra input buffer into input buffer
+// Parse and handle received messages
+//
+// Assumes this is STM32 and that something else rx bytes and puts them in
+// extraInputBuffer
+#define HANDLE_ASC_COMM_IN_POLLING_LOOP(usart)                                 \
+  if (!circular_buffer_is_empty_uint8(asc_out_buf) &&                          \
+      (USART_ISR(usart) & USART_ISR_TXE)) {                                    \
+    tmp_byte = circular_buffer_pop_front_uint8(asc_out_buf);                   \
+    usart_send(usart, tmp_byte);                                               \
+  }                                                                            \
+  if (!circular_buffer_is_empty_uint8(&extraInputBuffer)) {                    \
+    CM_ATOMIC_BLOCK() {                                                        \
+      tmp_byte = circular_buffer_pop_front_uint8(&extraInputBuffer);           \
+    }                                                                          \
+    circular_buffer_push_back_uint8(asc_in_buf, tmp_byte);                     \
+  }                                                                            \
+  ascii_serial_com_device_receive(&ascd)
+
 #endif
