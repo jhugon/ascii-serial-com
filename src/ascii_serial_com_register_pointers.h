@@ -13,26 +13,52 @@
  *
  * You probably want to create the array of pointers like:
  *
- * #define NREGS 6
- * REGTYPE * reg_pointers[NREGS] = {
- *  &x,
- *  &y,
- *  &z,
- *  NULL,
- *  NULL,
- *  NULL
- * };
+ *      #define NREGS 6
+ *      REGTYPE * reg_pointers[NREGS] = {
+ *       &x,
+ *       &y,
+ *       &z,
+ *       NULL,
+ *       NULL,
+ *       NULL
+ *      };
  *
- * REGTYPE reg_write_masks[NREGS] = {
- *  0,
- *  0x3,
- *  0xFF,
- *  0,
- *  0,
- *  0
- * }
+ *      REGTYPE reg_write_masks[NREGS] = {
+ *       0,
+ *       0x3,
+ *       0xFF,
+ *       0,
+ *       0,
+ *       0
+ *      }
  *
- * ascii_serial_com_register_pointers_init(&rps,reg_pointers,reg_write_masks,NREGS);
+ *      ascii_serial_com_register_pointers_init(&rps,reg_pointers,reg_write_masks,NREGS);
+ *
+ * ## Convenience Macros
+ *
+ * A set of convenience macros are provided to ease the common use of
+ * ascii_serial_com_register_pointers with ascii_serial_com_device.
+ *
+ * ### Required Macros
+ *
+ * To use the macros:
+ *
+ * 1. Declare the register pointer and register write mask array as above
+ * 2. Before the main() function, put `DECLARE_ASC_DEVICE_W_REGISTER_POINTERS()`
+ * on a line **with no semicolon**
+ * 3. In the setup portion of main(), before the polling loop, inside a
+ * Try/Catch block, put:
+ * `SETUP_ASC_DEVICE_W_REGISTER_POINTERS(reg_map,reg_write_masks, NREGS);`,
+ * where the variables are declared as in the previous section.
+ * 4. Inside the polling loop and a Try/Catch block, put:
+ * `HANDLE_ASC_COMM_IN_POLLING_LOOP(USART1);`, replacing USART1 with the
+ * appropriate USART.
+ *
+ * Number 4 assumes something is putting received bytes into a
+ * circular_buffer_uint8 called `extraInputBuffer` (declared and setup by the
+ * macros). This can be accomplished using, for STM32,
+ * `def_usart_isr_push_rx_to_circ_buf(<usart_isr>,<usart>,&extraInputBuffer)`
+ * (no semicolon)
  *
  */
 
@@ -110,7 +136,21 @@ void ascii_serial_com_register_pointers_handle_message(
 
 #define _extraInputBuffer_size_ 64
 
-// Don't use a semicolon after this?
+/** \brief Declarations for ascii_serial_com_device and
+ * ascii_serial_com_register_pointers
+ *
+ * Declarations that should be outside of (and before) main() to ease use of
+ * ascii_serial_com_register_pointers with ascii_serial_com_device.
+ *
+ * ## Notes
+ *
+ * **Don't follow this with a semicolon**
+ *
+ * ## Parameters
+ *
+ * None
+ *
+ */
 #define DECLARE_ASC_DEVICE_W_REGISTER_POINTERS()                               \
   void handle_nf_messages(ascii_serial_com *asc, char ascVersion,              \
                           char appVersion, char command, char *data,           \
@@ -142,8 +182,28 @@ void ascii_serial_com_register_pointers_handle_message(
     }                                                                          \
   }
 
-// Make sure to put inside Try block
-// Use a semicolon on this one
+/** \brief Setup for ascii_serial_com_device and
+ * ascii_serial_com_register_pointers
+ *
+ * Setup that should be inside main() before the polling loop. This is part of
+ * a group of macros to ease use of ascii_serial_com_register_pointers with
+ * ascii_serial_com_device.
+ *
+ * ## Notes
+ *
+ * **Make sure this is inside a Try/Catch block**
+ *
+ * **Follow this with a semicolon**
+ *
+ * ## Parameters
+ *
+ * register_map: the register map, type: REGTYPE * array
+ *
+ * register_write_masks: the register write masks, type: REGTYPE array
+ *
+ * nRegs: the length of the two arrays above
+ *
+ */
 #define SETUP_ASC_DEVICE_W_REGISTER_POINTERS(register_map,                     \
                                              register_write_masks, nRegs)      \
   ascii_serial_com_register_pointers_init(&reg_pointers_state, register_map,   \
@@ -155,13 +215,28 @@ void ascii_serial_com_register_pointers_handle_message(
   circular_buffer_init_uint8(&extraInputBuffer, _extraInputBuffer_size_,       \
                              extraInputBuffer_raw)
 
-// Make sure is in a Try block and put a semicolon after this one
-// Write data to usart from output buffer
-// Read data from extra input buffer into input buffer
-// Parse and handle received messages
-//
-// Assumes this is STM32 and that something else rx bytes and puts them in
-// extraInputBuffer
+/** \brief Polling for ascii_serial_com_device and
+ * ascii_serial_com_register_pointers
+ *
+ * Within the polling loop, handles transmitting bytes, processing received
+ * bytes, and handling received messages. This is part of a group of macros to
+ * ease use of ascii_serial_com_register_pointers with ascii_serial_com_device.
+ *
+ * ## Notes
+ *
+ * **Currently assumes this is an STM32 and that something else receives bytes
+ * and puts them in** `extraInputBuffer`
+ *
+ * **Make sure this is inside a Try/Catch block**
+ *
+ * **Follow this with a semicolon**
+ *
+ * ## Parameters
+ *
+ * usart: the address of the USART used for transmitting bytes. Usually
+ * accessible through a definition like USART1, USART2, ...
+ *
+ */
 #define HANDLE_ASC_COMM_IN_POLLING_LOOP(usart)                                 \
   if (!circular_buffer_is_empty_uint8(asc_out_buf) &&                          \
       (USART_ISR(usart) & USART_ISR_TXE)) {                                    \
