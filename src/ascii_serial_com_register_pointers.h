@@ -60,6 +60,18 @@
  * `def_usart_isr_push_rx_to_circ_buf(<usart_isr>,<usart>,&extraInputBuffer)`
  * (no semicolon)
  *
+ * ## Streaming
+ *
+ * The boolean valued macro `READY_TO_STREAM_ASC_DEVICE_W_REGISTER_POINTERS`
+ * should be checked before actually streaming a message. and
+ * `STREAM_TO_HOST_ASC_DEVICE_W_REGISTER_POINTERS(data,data_len);` should be
+ * run to send the message.
+ *
+ * The macros define a `bool streaming_is_on` that is initialized to false, set
+ * to true when a "n" message is received, and set to false when a "f" message
+ * is received. It should be used to decide when to start auxiliary routines
+ * that prepare to stream messages.
+ *
  */
 
 #include "ascii_serial_com.h"
@@ -250,5 +262,44 @@ void ascii_serial_com_register_pointers_handle_message(
     circular_buffer_push_back_uint8(asc_in_buf, tmp_byte);                     \
   }                                                                            \
   ascii_serial_com_device_receive(&ascd)
+
+/** \brief Check if you should stream a message to the host
+ *
+ * This is a boolean value macro that checks if streaming is enabled and the
+ * transmit buffer is empty. If true, the user may stream a message to the host
+ * now with STREAM_TO_HOST_ASC_DEVICE_W_REGISTER_POINTERS
+ *
+ * This is part of a group of macros to ease use of
+ * ascii_serial_com_register_pointers with ascii_serial_com_device.
+ *
+ * ## Notes
+ *
+ * **Make sure this is inside a Try/Catch block**
+ *
+ */
+#define READY_TO_STREAM_ASC_DEVICE_W_REGISTER_POINTERS                         \
+  (streaming_is_on && circular_buffer_get_size_uint8(asc_out_buf) == 0)
+
+/** \brief Stream data to the host
+ *
+ * This macro puts a message in the output buffer
+ *
+ * This is part of a group of macros to ease use of
+ * ascii_serial_com_register_pointers with ascii_serial_com_device.
+ *
+ * ## Notes
+ *
+ * **Make sure this is inside a Try/Catch block**
+ *
+ * ## Parameters
+ *
+ * data: a pointer to data or array of data to be sent
+ *
+ * data_size: a uint describing the data size in bytes
+ *
+ */
+#define STREAM_TO_HOST_ASC_DEVICE_W_REGISTER_POINTERS(data, data_size)         \
+  ascii_serial_com_device_put_s_message_in_output_buffer(&ascd, '0', '0',      \
+                                                         data, data_size)
 
 #endif
