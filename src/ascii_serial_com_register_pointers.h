@@ -227,6 +227,30 @@ void ascii_serial_com_register_pointers_handle_message(
   circular_buffer_init_uint8(&extraInputBuffer, _extraInputBuffer_size_,       \
                              extraInputBuffer_raw)
 
+#if defined(__ARM_ARCH)
+#define _serial_tx_buf_is_empty(usart) ((USART_ISR(usart) & USART_ISR_TXE))
+#elif defined(__AVR)
+#define _serial_tx_buf_is_empty(usart) (UCSR0A & (1 << UDRE0))
+#else
+#define _serial_tx_buf_is_empty(usart) __builtin_unreachable()
+#endif
+
+#if defined(__ARM_ARCH)
+// Already defined by libopencm3
+#elif defined(__AVR)
+#define usart_send(reg, tmp_byte) reg = tmp_byte
+#else
+#define usart_send(usart, tmp_byte) __builtin_unreachable()
+#endif
+
+#if defined(__ARM_ARCH)
+#define _ATOMIC CM_ATOMIC_BLOCK()
+#elif defined(__AVR)
+#define _ATOMIC ATOMIC_BLOCK(ATOMIC_FORCEON)
+#else
+#define _ATOMIC __builtin_unreachable()
+#endif
+
 /** \brief Polling for ascii_serial_com_device and
  * ascii_serial_com_register_pointers
  *
@@ -236,8 +260,8 @@ void ascii_serial_com_register_pointers_handle_message(
  *
  * ## Notes
  *
- * **Currently assumes this is an STM32 and that something else receives bytes
- * and puts them in** `extraInputBuffer`
+ * **Assumes that something else receives bytes and puts them in**
+ * `extraInputBuffer`
  *
  * **Make sure this is inside a Try/Catch block**
  *
@@ -245,20 +269,18 @@ void ascii_serial_com_register_pointers_handle_message(
  *
  * ## Parameters
  *
- * usart: the address of the USART used for transmitting bytes. Usually
- * accessible through a definition like USART1, USART2, ...
+ * usart: the address of the USART used for transmitting bytes. For STM32:
+ * USART1, USART2, .... For AVR: UDR0, ....
  *
  */
 #define HANDLE_ASC_COMM_IN_POLLING_LOOP(usart)                                 \
   if (!circular_buffer_is_empty_uint8(asc_out_buf) &&                          \
-      (USART_ISR(usart) & USART_ISR_TXE)) {                                    \
+      _serial_tx_buf_is_empty(usart)) {                                        \
     tmp_byte = circular_buffer_pop_front_uint8(asc_out_buf);                   \
     usart_send(usart, tmp_byte);                                               \
   }                                                                            \
   if (!circular_buffer_is_empty_uint8(&extraInputBuffer)) {                    \
-    CM_ATOMIC_BLOCK() {                                                        \
-      tmp_byte = circular_buffer_pop_front_uint8(&extraInputBuffer);           \
-    }                                                                          \
+    _ATOMIC { tmp_byte = circular_buffer_pop_front_uint8(&extraInputBuffer); } \
     circular_buffer_push_back_uint8(asc_in_buf, tmp_byte);                     \
   }                                                                            \
   ascii_serial_com_device_receive(&ascd)
