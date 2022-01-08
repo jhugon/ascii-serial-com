@@ -26,12 +26,16 @@
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/usart.h>
 
+#include "arm/stm_usart.h"
 #include "asc_exception.h"
 #include "ascii_serial_com.h"
 #include "ascii_serial_com_device.h"
 #include "ascii_serial_com_register_pointers.h"
 #include "circular_buffer.h"
 #include "millisec_timer.h"
+
+// ASC_USART should be connected through USB
+#define ASC_USART USART2
 
 #define PORT_LED GPIOA
 #define PIN_LED GPIO5
@@ -176,33 +180,6 @@ static void gpio_setup(void) {
   gpio_mode_setup(PORT_LED, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, PIN_LED);
 }
 
-// USART2 should be connected through USB
-// USART2 TX: PA2 AF1
-// USART2 RX: PA3 AF1
-static void usart_setup(void) {
-  rcc_periph_clock_enable(RCC_USART2);
-  rcc_periph_clock_enable(RCC_GPIOA);
-
-  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO2);
-  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO3);
-
-  gpio_set_af(GPIOA, GPIO_AF1, GPIO2);
-  gpio_set_af(GPIOA, GPIO_AF1, GPIO3);
-
-  nvic_enable_irq(NVIC_USART2_IRQ);
-
-  usart_set_baudrate(USART2, 9600);
-  usart_set_databits(USART2, 8);
-  usart_set_parity(USART2, USART_PARITY_NONE);
-  usart_set_stopbits(USART2, USART_CR2_STOPBITS_1);
-  usart_set_mode(USART2, USART_MODE_TX_RX);
-  usart_set_flow_control(USART2, USART_FLOWCONTROL_NONE);
-
-  usart_enable_rx_interrupt(USART2);
-
-  usart_enable(USART2);
-}
-
 static void adc_setup(void) {
   // With nChans == 1 and ADC_MODE_SCAN, there is only one conversion per
   // "trigger" You can manually trigger by setting ADSTART in ADC_CR
@@ -277,7 +254,16 @@ int main(void) {
     gpio_setup();
     adc_setup();
     dac_setup();
-    usart_setup();
+
+    // USART2 TX: PA2 AF1
+    // USART2 RX: PA3 AF1
+    rcc_periph_clock_enable(RCC_GPIOA);
+    rcc_periph_clock_enable(RCC_USART2);
+    setup_usart(ASC_USART, 9600, GPIOA, GPIO2, GPIO_AF1, GPIOA, GPIO3,
+                GPIO_AF1);
+    nvic_enable_irq(NVIC_USART2_IRQ);
+    usart_enable_rx_interrupt(ASC_USART);
+    usart_enable(ASC_USART);
   }
   Catch(e) { return e; }
 
@@ -336,30 +322,15 @@ int main(void) {
 
       // Write data from asc_out_buf to serial
       if (!circular_buffer_is_empty_uint8(asc_out_buf) &&
-          (USART_ISR(USART2) & USART_ISR_TXE)) {
+          (USART_ISR(ASC_USART) & USART_ISR_TXE)) {
         tmp_byte = circular_buffer_pop_front_uint8(asc_out_buf);
-        usart_send(USART2, tmp_byte);
+        usart_send(ASC_USART, tmp_byte);
       }
     }
     Catch(e) { nExceptions++; }
   }
 
   return 0;
-}
-
-#pragma GCC diagnostic ignored "-Wshadow"
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-#pragma GCC diagnostic push
-void usart2_isr(void) {
-#pragma GCC diagnostic pop
-#pragma GCC diagnostic pop
-  static uint16_t isr_tmp_byte;
-  if (((USART_CR1(USART2) & USART_CR1_RXNEIE) != 0) &&
-      ((USART_ISR(USART2) & USART_ISR_RXNE) != 0)) {
-    isr_tmp_byte = usart_recv(USART2) & 0xFF;
-    circular_buffer_push_back_uint8(&extraInputBuffer, isr_tmp_byte);
-  }
 }
 
 void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
@@ -377,3 +348,5 @@ void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
     state->on = 0;
   }
 }
+
+def_usart_isr_push_rx_to_circ_buf(usart2_isr, ASC_USART, &extraInputBuffer)
