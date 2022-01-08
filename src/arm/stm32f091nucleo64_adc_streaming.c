@@ -43,10 +43,6 @@
 
 /////////////////////////////////
 
-#define extraInputBuffer_size 64
-uint8_t extraInputBuffer_raw[extraInputBuffer_size];
-circular_buffer_uint8 extraInputBuffer;
-
 CEXCEPTION_T e;
 uint16_t nExceptions;
 
