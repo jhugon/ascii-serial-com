@@ -59,10 +59,6 @@ uint32_t ic_overrun;
 
 /////////////////////////////////
 
-#define extraInputBuffer_size 64
-uint8_t extraInputBuffer_raw[extraInputBuffer_size];
-circular_buffer_uint8 extraInputBuffer;
-
 CEXCEPTION_T e;
 uint16_t nExceptions;
 
@@ -125,25 +121,7 @@ REGTYPE register_write_masks[nRegs] = {
     0,          // Input capture overrun flags
 };
 
-typedef struct stream_state_struct {
-  uint8_t on;
-} on_off_stream_state;
-void handle_nf_messages(ascii_serial_com *asc, char ascVersion, char appVersion,
-                        char command, char *data, size_t dataLen,
-                        void *state_vp);
-
-uint32_t counter = 0;
-on_off_stream_state stream_state;
-
-ascii_serial_com_device ascd;
-ascii_serial_com_register_pointers reg_pointers_state;
-ascii_serial_com_device_config ascd_config = {
-    .func_rw = ascii_serial_com_register_pointers_handle_message,
-    .state_rw = &reg_pointers_state,
-    .func_nf = handle_nf_messages,
-    .state_nf = &stream_state};
-circular_buffer_uint8 *asc_in_buf;
-circular_buffer_uint8 *asc_out_buf;
+DECLARE_ASC_DEVICE_W_REGISTER_POINTERS()
 
 ///////////////////////////////////
 
@@ -151,14 +129,8 @@ uint8_t tmp_byte = 0;
 int main(void) {
 
   Try {
-    ascii_serial_com_register_pointers_init(&reg_pointers_state, register_map,
-                                            register_write_masks, nRegs);
-    ascii_serial_com_device_init(&ascd, &ascd_config);
-    asc_in_buf = ascii_serial_com_device_get_input_buffer(&ascd);
-    asc_out_buf = ascii_serial_com_device_get_output_buffer(&ascd);
-
-    circular_buffer_init_uint8(&extraInputBuffer, extraInputBuffer_size,
-                               extraInputBuffer_raw);
+    SETUP_ASC_DEVICE_W_REGISTER_POINTERS(register_map, register_write_masks,
+                                         nRegs);
 
     millisec_timer_systick_setup(rcc_ahb_frequency);
 
@@ -190,16 +162,7 @@ int main(void) {
 
   while (1) {
     Try {
-      // Move data from extraInputBuffer to asc_in_buf
-      if (!circular_buffer_is_empty_uint8(&extraInputBuffer)) {
-        CM_ATOMIC_BLOCK() {
-          tmp_byte = circular_buffer_pop_front_uint8(&extraInputBuffer);
-        }
-        circular_buffer_push_back_uint8(asc_in_buf, tmp_byte);
-      }
-
-      // parse and handle received messages
-      ascii_serial_com_device_receive(&ascd);
+      HANDLE_ASC_COMM_IN_POLLING_LOOP(ASC_USART);
 
       if (timer_get_flag(IC_TIM, TIM_SR_CC1IF)) {
         ic_pulse_length = TIM_CCR2(IC_TIM);
@@ -214,32 +177,11 @@ int main(void) {
           timer_clear_flag(IC_TIM, TIM_SR_CC2OF);
         }
       }
-
-      // Write data from asc_out_buf to serial
-      if (!circular_buffer_is_empty_uint8(asc_out_buf) &&
-          (USART_ISR(ASC_USART) & USART_ISR_TXE)) {
-        tmp_byte = circular_buffer_pop_front_uint8(asc_out_buf);
-        usart_send(ASC_USART, tmp_byte);
-      }
     }
     Catch(e) { nExceptions++; }
   }
 
   return 0;
-}
-
-void handle_nf_messages(__attribute__((unused)) ascii_serial_com *asc,
-                        __attribute__((unused)) char ascVersion,
-                        __attribute__((unused)) char appVersion, char command,
-                        __attribute__((unused)) char *data,
-                        __attribute__((unused)) size_t dataLen,
-                        void *state_vp) {
-  on_off_stream_state *state = (on_off_stream_state *)state_vp;
-  if (command == 'n') {
-    state->on = 1;
-  } else if (command == 'f') {
-    state->on = 0;
-  }
 }
 
 def_usart_isr_push_rx_to_circ_buf(usart2_isr, ASC_USART, &extraInputBuffer)

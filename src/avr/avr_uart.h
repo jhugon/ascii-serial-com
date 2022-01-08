@@ -51,4 +51,35 @@
   }                                                                            \
   destVar = UDR0;
 
+/** \brief Define the ISR for a USART to push rx bytes to a circular buffer
+ *
+ * Defines the interrupt handler for the given USART. The interrupt handler
+ * will push all rx bytes to the back of the circular buffer the user provides.
+ *
+ * ## Notes
+ *
+ * **DON'T USE A SEMICOLON AFTER THIS MACRO.**
+ *
+ * **Use atomic operations to remove data from the front of the circular
+ * buffer** like `CM_ATOMIC_BLOCK() {}`
+ *
+ * **Make sure to setup the USART with rx interrupt enabled:**
+ * `USART0_Init(<ubrr>,1)`
+ *
+ * **Make sure to turn enable the global interrupt flag:** `sei();`
+ *
+ * ## Parameters
+ *
+ * isr_name: USART_RX_vect for 328
+ *
+ * data_register: UDR0 for 328
+ *
+ * circular_buffer: a pointer to a circular_buffer_uint8 that you want received
+ * bytes pushed_back on.
+ *
+ */
+#define def_usart_isr_push_rx_to_circ_buf(isr_name, data_register,             \
+                                          circular_buffer)                     \
+  ISR(USART_RX_vect) { circular_buffer_push_back_uint8(circular_buffer, UDR0); }
+
 #endif
