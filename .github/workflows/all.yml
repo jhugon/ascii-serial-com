@@ -1,4 +1,4 @@
-name: C and Python Workflow
+name: Integration Tests Workflow
 
 defaults:
   run:
@@ -6,137 +6,11 @@ defaults:
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
-
-  c-build-unit-test-gcc:
-    strategy:
-      matrix:
-        compiler-version: [9,10,11]
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up GCC
-      uses: egor-tensin/setup-gcc@v1
-      with:
-        version: ${{ matrix.compiler-version }}
-        platform: x64
-    - name: build
-      run: |
-        make install
-      env:
-        CC: gcc-${{ matrix.compiler-version }}
-    - name: unit-test
-      run: |
-        testexes=$(ls build/*/test*)
-        echo $testexes
-        for i in $testexes; do echo $i; ./$i; done
-      shell: bash
-
-  c-build-unit-test-clang:
-    strategy:
-      matrix:
-        compiler-version: [10,11,12,13]
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Clang
-      uses: egor-tensin/setup-clang@v1
-      with:
-        version: ${{ matrix.compiler-version }}
-        platform: x64
-    - name: build
-      run: |
-        make install
-      env:
-        CC: clang-${{ matrix.compiler-version }}
-    - name: unit-test
-      run: |
-        testexes=$(ls build/*/test*)
-        echo $testexes
-        for i in $testexes; do echo $i; ./$i; done
-      shell: bash
-
-  c-clang-format:
-    runs-on: ubuntu-latest
-    needs: c-build-unit-test-clang
-    steps:
-    - uses: actions/checkout@v2
-    - name: clang-format
-      run: |
-        clang-format -n -Werror src/*.c src/*.h src/native/*.c src/unit_test/*.c src/native/*.c src/avr/*.c src/avr/*.h
-      shell: bash
-
-  ## Annoyingly doesn't pass even when run with same versions on local machine
-  #python-black:
-  #  runs-on: ubuntu-latest
-  #  defaults:
-  #    run:
-  #      working-directory: python
-  #  steps:
-  #  - uses: actions/checkout@v2
-  #  - name: Set up Python 3.9
-  #    uses: actions/setup-python@v2
-  #    with:
-  #      python-version: 3.9
-  #  - name: Install dependencies
-  #    run: |
-  #      python -m pip install --upgrade pip
-  #      pip install black
-  #      pip install .
-  #  - name: Syntax Check with Black
-  #    run: |
-  #      black --check asciiserialcom tests
-
-  python-mypy:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: python
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install mypy
-        pip install .
-    - name: Static Analysis with mypy
-      run: |
-        mypy asciiserialcom tests
-
-  python-unittest:
-    strategy:
-      matrix:
-        pythonversion: ["3.7","3.8","3.9","3.10"]
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: python
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.pythonversion }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.pythonversion }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install coverage
-        pip install .
-    - name: Python unittest
-      run: |
-        coverage run --source=asciiserialcom -m unittest tests
-    - name: Python coverage report
-      run: |
-        coverage report
-
   integration-tests:
     strategy:
       matrix:
@@ -152,12 +26,12 @@ jobs:
     - name: Install python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install coverage
-        pip install .
-      working-directory: python
+        pip install pipenv
+        pipenv install
     - name: Build C code
       run: |
         make install
+      working-directory: c-source
     - name: Integration tests
       run: |
-        python -m unittest integration_tests
+        pipenv run python -m unittest integration_tests.native

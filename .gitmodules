@@ -1,3 +1,6 @@
-[submodule "tools/libopencm3"]
-	path = tools/libopencm3
-	url = https://github.com/libopencm3/libopencm3
+[submodule "ascii-serial-com-c"]
+	path = c-source
+	url = git@github.com:jhugon/ascii-serial-com-c.git
+[submodule "python"]
+	path = python
+	url = git@github.com:jhugon/ascii-serial-com-python.git
