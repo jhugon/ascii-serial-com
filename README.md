@@ -10,6 +10,15 @@ See sub-repositories:
 - [ascii-serial-com-python](https://github.com/jhugon/ascii-serial-com-python)
 - [ascii-serial-com-web-gui](https://github.com/jhugon/ascii-serial-com-web-gui)
 
+You can use pipenv (install with `pip install --user pipenv`) to install python
+dependencies and setup your shell. The first time you try to use them, run:
+
+    pipenv install
+
+then, to setup your env before running anything:
+
+    pipenv shell
+
 ## How to flash:
 
 ```
