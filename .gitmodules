@@ -4,3 +4,6 @@
 [submodule "ascii-serial-com-c"]
 	path = ascii-serial-com-c
 	url = git@github.com:jhugon/ascii-serial-com-c.git
+[submodule "python"]
+	path = python
+	url = git@github.com:jhugon/ascii-serial-com-python.git
