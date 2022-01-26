@@ -26,12 +26,12 @@ jobs:
     - name: Install python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install coverage
-        pip install .
-      working-directory: python
+        pip install pipenv
+        pipenv install
     - name: Build C code
       run: |
         make install
+      working-directory: c-source
     - name: Integration tests
       run: |
-        python -m unittest integration_tests
+        pipenv run python -m unittest integration_tests.native

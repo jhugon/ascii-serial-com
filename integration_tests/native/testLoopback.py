@@ -26,7 +26,7 @@ class TestTrivialLoopback(unittest.TestCase):
         CC = "gcc"
         build_type = "debug"
         self.env.update({"platform": platform, "CC": CC, "build_type": build_type})
-        self.exedir = "build/{}_{}_{}".format(platform, CC, build_type)
+        self.exedir = "c-source/build/{}_{}_{}".format(platform, CC, build_type)
         self.exe = os.path.join(self.exedir, "ascii_serial_com_dummy_loopback_device")
         random.seed(123456789)
 
@@ -154,7 +154,7 @@ class TestASCLoopback(unittest.TestCase):
         CC = "gcc"
         build_type = "debug"
         self.env.update({"platform": platform, "CC": CC, "build_type": build_type})
-        self.exedir = "build/{}_{}_{}".format(platform, CC, build_type)
+        self.exedir = "c-source/build/{}_{}_{}".format(platform, CC, build_type)
         self.exe = os.path.join(self.exedir, "ascii_serial_com_dummy_loopback_device")
         random.seed(123456789)
 
